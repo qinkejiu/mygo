@@ -12,6 +12,7 @@ func main() {
 	i = 1
 	j = 2
 	k = int64(i) + int64(j)
+	_ = l
 
 	fmt.Printf("The result is small: %d\n", k)
 }
