@@ -61,7 +61,7 @@ Weeks **8-10** lift the prototype into a control-flow-aware compiler that can sc
    - `internal/mlir`: printer tests for new handshake ops or stage annotations.
 2. **End-to-end tests**
    - Import Argo pipelines (`third_party/argo2verilog/test/pipeline1.go`, etc.) into `test/e2e/<case>`.
-   - Capture MLIR goldens plus textual schedule summaries.
+   - Capture MLIR goldens plus textual schedule summaries. The e2e harness now looks for `expected.mlir` files in each case directory so regressions in control-flow or scheduler metadata (`pipeline1`, `pipeline2`, `router_csp`) are caught automatically.
 3. **Optional simulation hooks**
    - For each pipeline test, dump stage-by-stage token flow (even if just textual) to match Argo reference behavior.
 
