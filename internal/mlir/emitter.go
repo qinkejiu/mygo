@@ -25,20 +25,25 @@ func Emit(design *ir.Design, outputPath string) error {
 		w = f
 	}
 
-	em := &emitter{w: w}
+	em := &emitter{
+		w:        w,
+		fifoDefs: make(map[string]*fifoInfo),
+	}
 	fmt.Fprintln(w, "module {")
 	em.indent++
 	for _, module := range design.Modules {
 		em.emitModule(module)
 	}
+	em.emitFifoDefinitions()
 	em.indent--
 	fmt.Fprintln(w, "}")
 	return nil
 }
 
 type emitter struct {
-	w      io.Writer
-	indent int
+	w        io.Writer
+	indent   int
+	fifoDefs map[string]*fifoInfo
 }
 
 func (e *emitter) emitModule(module *ir.Module) {
@@ -46,13 +51,13 @@ func (e *emitter) emitModule(module *ir.Module) {
 		return
 	}
 	processInfos := buildProcessInfos(module)
-	channelWires := e.emitTopLevelModule(module, processInfos)
+	e.emitTopLevelModule(module, processInfos)
 	for _, info := range processInfos {
-		e.emitProcessModule(module, info, channelWires)
+		e.emitProcessModule(module, info)
 	}
 }
 
-func (e *emitter) emitTopLevelModule(module *ir.Module, processes []*processInfo) map[*ir.Channel]string {
+func (e *emitter) emitTopLevelModule(module *ir.Module, processes []*processInfo) map[*ir.Channel]*channelWireSet {
 	e.printIndent()
 	fmt.Fprintf(e.w, "hw.module @%s(", module.Name)
 	inputs, outputs := portLists(module.Ports)
@@ -77,6 +82,7 @@ func (e *emitter) emitTopLevelModule(module *ir.Module, processes []*processInfo
 	e.indent++
 
 	channelWires := e.emitChannelWires(module)
+	e.emitChannelFifos(module, channelWires)
 	for idx, info := range processes {
 		e.emitProcessInstance(idx, info, channelWires)
 	}
@@ -89,8 +95,8 @@ func (e *emitter) emitTopLevelModule(module *ir.Module, processes []*processInfo
 	return channelWires
 }
 
-func (e *emitter) emitChannelWires(module *ir.Module) map[*ir.Channel]string {
-	wires := make(map[*ir.Channel]string)
+func (e *emitter) emitChannelWires(module *ir.Module) map[*ir.Channel]*channelWireSet {
+	wires := make(map[*ir.Channel]*channelWireSet)
 	if module == nil {
 		return wires
 	}
@@ -101,30 +107,92 @@ func (e *emitter) emitChannelWires(module *ir.Module) map[*ir.Channel]string {
 	sort.Strings(names)
 	for _, name := range names {
 		ch := module.Channels[name]
-		wire := fmt.Sprintf("%%chan_%s", sanitize(ch.Name))
-		wires[ch] = wire
+		s := sanitize(ch.Name)
+		wireSet := &channelWireSet{
+			writeData:  fmt.Sprintf("%%chan_%s_wdata", s),
+			writeValid: fmt.Sprintf("%%chan_%s_wvalid", s),
+			writeReady: fmt.Sprintf("%%chan_%s_wready", s),
+			readData:   fmt.Sprintf("%%chan_%s_rdata", s),
+			readValid:  fmt.Sprintf("%%chan_%s_rvalid", s),
+			readReady:  fmt.Sprintf("%%chan_%s_rready", s),
+		}
+		wires[ch] = wireSet
 		e.printIndent()
 		fmt.Fprintf(e.w, "// channel %s depth=%d type=%s\n", ch.Name, ch.Depth, typeString(ch.Type))
 		e.printIndent()
-		fmt.Fprintf(e.w, "%s = sv.wire : %s\n", wire, inoutTypeString(ch.Type))
+		fmt.Fprintf(e.w, "%s = sv.wire : %s\n", wireSet.writeData, inoutTypeString(ch.Type))
+		e.printIndent()
+		fmt.Fprintf(e.w, "%s = sv.wire : !hw.inout<i1>\n", wireSet.writeValid)
+		e.printIndent()
+		fmt.Fprintf(e.w, "%s = sv.wire : !hw.inout<i1>\n", wireSet.writeReady)
+		e.printIndent()
+		fmt.Fprintf(e.w, "%s = sv.wire : %s\n", wireSet.readData, inoutTypeString(ch.Type))
+		e.printIndent()
+		fmt.Fprintf(e.w, "%s = sv.wire : !hw.inout<i1>\n", wireSet.readValid)
+		e.printIndent()
+		fmt.Fprintf(e.w, "%s = sv.wire : !hw.inout<i1>\n", wireSet.readReady)
 		e.emitChannelMetadata(ch)
+		e.ensureFifoModule(ch)
 	}
 	return wires
 }
 
-func (e *emitter) emitProcessInstance(idx int, info *processInfo, wires map[*ir.Channel]string) {
+func (e *emitter) emitChannelFifos(module *ir.Module, wires map[*ir.Channel]*channelWireSet) {
+	if module == nil || len(module.Channels) == 0 {
+		return
+	}
+	names := make([]string, 0, len(module.Channels))
+	for name := range module.Channels {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		ch := module.Channels[name]
+		wireSet := wires[ch]
+		fifo := e.ensureFifoModule(ch)
+		elemInout := inoutTypeString(ch.Type)
+		e.printIndent()
+		fmt.Fprintf(e.w, "hw.instance \"%s_fifo\" @%s(", sanitize(ch.Name), fifo.moduleName)
+		args := []string{
+			"%clk",
+			"%rst",
+			wireSet.writeData,
+			wireSet.writeValid,
+			wireSet.writeReady,
+			wireSet.readData,
+			wireSet.readValid,
+			wireSet.readReady,
+		}
+		for i, arg := range args {
+			if i > 0 {
+				fmt.Fprint(e.w, ", ")
+			}
+			fmt.Fprint(e.w, arg)
+		}
+		fmt.Fprintf(e.w, ") : (i1, i1, %s, !hw.inout<i1>, !hw.inout<i1>, %s, !hw.inout<i1>, !hw.inout<i1>) -> ()\n", elemInout, elemInout)
+	}
+}
+
+func (e *emitter) emitProcessInstance(idx int, info *processInfo, wires map[*ir.Channel]*channelWireSet) {
 	if info == nil {
 		return
 	}
 	args := []string{"%clk", "%rst"}
 	types := []string{"i1", "i1"}
-	for _, ch := range info.channels {
-		if wire, ok := wires[ch]; ok {
-			args = append(args, wire)
-		} else {
-			args = append(args, "%invalid_channel")
+	for _, ch := range info.channelOrder {
+		role := info.channelRoles[ch]
+		wire := wires[ch]
+		if role == nil || wire == nil {
+			continue
 		}
-		types = append(types, inoutTypeString(ch.Type))
+		if role.send {
+			args = append(args, wire.writeData, wire.writeValid, wire.writeReady)
+			types = append(types, inoutTypeString(ch.Type), "!hw.inout<i1>", "!hw.inout<i1>")
+		}
+		if role.recv {
+			args = append(args, wire.readData, wire.readValid, wire.readReady)
+			types = append(types, inoutTypeString(ch.Type), "!hw.inout<i1>", "!hw.inout<i1>")
+		}
 	}
 	instName := fmt.Sprintf("%s_inst%d", sanitize(info.proc.Name), idx)
 	e.printIndent()
@@ -145,7 +213,7 @@ func (e *emitter) emitProcessInstance(idx int, info *processInfo, wires map[*ir.
 	fmt.Fprintln(e.w, ") -> ()")
 }
 
-func (e *emitter) emitProcessModule(module *ir.Module, info *processInfo, wires map[*ir.Channel]string) {
+func (e *emitter) emitProcessModule(module *ir.Module, info *processInfo) {
 	if info == nil || info.proc == nil {
 		return
 	}
@@ -181,13 +249,36 @@ func (e *emitter) processPorts(info *processInfo) []portDesc {
 		{name: "%clk", typ: "i1"},
 		{name: "%rst", typ: "i1"},
 	}
-	for _, ch := range info.channels {
-		portName := fmt.Sprintf("%%chan_%s", sanitize(ch.Name))
-		info.channelPorts[ch] = portName
-		ports = append(ports, portDesc{
-			name: portName,
-			typ:  inoutTypeString(ch.Type),
-		})
+	for _, ch := range info.channelOrder {
+		role := info.channelRoles[ch]
+		if role == nil {
+			continue
+		}
+		portSet := info.channelPorts[ch]
+		if portSet == nil {
+			portSet = &channelPortSet{}
+			info.channelPorts[ch] = portSet
+		}
+		if role.send {
+			portSet.sendData = fmt.Sprintf("%%chan_%s_wdata", sanitize(ch.Name))
+			portSet.sendValid = fmt.Sprintf("%%chan_%s_wvalid", sanitize(ch.Name))
+			portSet.sendReady = fmt.Sprintf("%%chan_%s_wready", sanitize(ch.Name))
+			ports = append(ports,
+				portDesc{name: portSet.sendData, typ: inoutTypeString(ch.Type)},
+				portDesc{name: portSet.sendValid, typ: "!hw.inout<i1>"},
+				portDesc{name: portSet.sendReady, typ: "!hw.inout<i1>"},
+			)
+		}
+		if role.recv {
+			portSet.recvData = fmt.Sprintf("%%chan_%s_rdata", sanitize(ch.Name))
+			portSet.recvValid = fmt.Sprintf("%%chan_%s_rvalid", sanitize(ch.Name))
+			portSet.recvReady = fmt.Sprintf("%%chan_%s_rready", sanitize(ch.Name))
+			ports = append(ports,
+				portDesc{name: portSet.recvData, typ: inoutTypeString(ch.Type)},
+				portDesc{name: portSet.recvValid, typ: "!hw.inout<i1>"},
+				portDesc{name: portSet.recvReady, typ: "!hw.inout<i1>"},
+			)
+		}
 	}
 	return ports
 }
@@ -223,11 +314,42 @@ type portDesc struct {
 	typ  string
 }
 
+type channelRole struct {
+	send bool
+	recv bool
+}
+
+type channelPortSet struct {
+	sendData  string
+	sendValid string
+	sendReady string
+	recvData  string
+	recvValid string
+	recvReady string
+}
+
+type channelWireSet struct {
+	writeData  string
+	writeValid string
+	writeReady string
+	readData   string
+	readValid  string
+	readReady  string
+}
+
+type fifoInfo struct {
+	key        string
+	moduleName string
+	elemType   string
+	depth      int
+}
+
 type processInfo struct {
 	proc         *ir.Process
 	moduleName   string
-	channels     []*ir.Channel
-	channelPorts map[*ir.Channel]string
+	channelOrder []*ir.Channel
+	channelRoles map[*ir.Channel]*channelRole
+	channelPorts map[*ir.Channel]*channelPortSet
 	usedSignals  map[*ir.Signal]struct{}
 }
 
@@ -240,11 +362,13 @@ func buildProcessInfos(module *ir.Module) []*processInfo {
 		if proc == nil {
 			continue
 		}
+		roles, order := collectProcessChannelRoles(proc)
 		info := &processInfo{
 			proc:         proc,
 			moduleName:   processModuleName(module, proc),
-			channels:     collectProcessChannels(proc),
-			channelPorts: make(map[*ir.Channel]string),
+			channelOrder: order,
+			channelRoles: roles,
+			channelPorts: make(map[*ir.Channel]*channelPortSet),
 			usedSignals:  collectProcessSignals(proc),
 		}
 		infos = append(infos, info)
@@ -264,40 +388,45 @@ func processModuleName(module *ir.Module, proc *ir.Process) string {
 	return fmt.Sprintf("%s__proc_%s", modName, procName)
 }
 
-func collectProcessChannels(proc *ir.Process) []*ir.Channel {
+func collectProcessChannelRoles(proc *ir.Process) (map[*ir.Channel]*channelRole, []*ir.Channel) {
+	roles := make(map[*ir.Channel]*channelRole)
 	if proc == nil {
-		return nil
-	}
-	chSet := make(map[string]*ir.Channel)
-	add := func(ch *ir.Channel) {
-		if ch == nil {
-			return
-		}
-		chSet[ch.Name] = ch
+		return roles, nil
 	}
 	for _, block := range proc.Blocks {
 		for _, op := range block.Ops {
 			switch o := op.(type) {
 			case *ir.SendOperation:
-				add(o.Channel)
+				if o.Channel == nil {
+					continue
+				}
+				role := roles[o.Channel]
+				if role == nil {
+					role = &channelRole{}
+					roles[o.Channel] = role
+				}
+				role.send = true
 			case *ir.RecvOperation:
-				add(o.Channel)
+				if o.Channel == nil {
+					continue
+				}
+				role := roles[o.Channel]
+				if role == nil {
+					role = &channelRole{}
+					roles[o.Channel] = role
+				}
+				role.recv = true
 			}
 		}
 	}
-	if len(chSet) == 0 {
-		return nil
+	order := make([]*ir.Channel, 0, len(roles))
+	for ch := range roles {
+		order = append(order, ch)
 	}
-	names := make([]string, 0, len(chSet))
-	for name := range chSet {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	result := make([]*ir.Channel, 0, len(names))
-	for _, name := range names {
-		result = append(result, chSet[name])
-	}
-	return result
+	sort.Slice(order, func(i, j int) bool {
+		return sanitize(order[i].Name) < sanitize(order[j].Name)
+	})
+	return roles, order
 }
 
 func collectProcessSignals(proc *ir.Process) map[*ir.Signal]struct{} {
@@ -367,9 +496,10 @@ type processPrinter struct {
 	constNames    map[*ir.Signal]string
 	valueNames    map[*ir.Signal]string
 	portNames     map[string]string
-	channelPorts  map[*ir.Channel]string
+	channelPorts  map[*ir.Channel]*channelPortSet
 	moduleSignals map[string]*ir.Signal
 	usedSignals   map[*ir.Signal]struct{}
+	boolConsts    map[bool]string
 }
 
 func (p *processPrinter) resetState() {
@@ -381,10 +511,13 @@ func (p *processPrinter) resetState() {
 		"rst": "%rst",
 	}
 	if p.channelPorts == nil {
-		p.channelPorts = make(map[*ir.Channel]string)
+		p.channelPorts = make(map[*ir.Channel]*channelPortSet)
 	}
 	if p.usedSignals == nil {
 		p.usedSignals = make(map[*ir.Signal]struct{})
+	}
+	if p.boolConsts == nil {
+		p.boolConsts = make(map[bool]string)
 	}
 }
 
@@ -458,22 +591,44 @@ func (p *processPrinter) emitOperation(op ir.Operation, proc *ir.Process) {
 		fmt.Fprintf(p.w, "%s = seq.compreg %s, %s : %s\n", dest, src, clk, typeString(o.Dest.Type))
 	case *ir.SendOperation:
 		value := p.valueRef(o.Value)
-		wire := p.channelInout(o.Channel)
+		ports := p.channelPorts[o.Channel]
+		if ports == nil || ports.sendData == "" {
+			p.printIndent()
+			fmt.Fprintf(p.w, "// missing channel send ports for %s\n", sanitize(o.Channel.Name))
+			return
+		}
 		p.printIndent()
 		fmt.Fprintf(p.w, "sv.assign %s, %s : %s, %s\n",
-			wire,
+			ports.sendData,
 			value,
 			inoutTypeString(o.Channel.Type),
 			typeString(o.Value.Type),
 		)
+		validConst := p.boolConst(true)
+		p.printIndent()
+		fmt.Fprintf(p.w, "sv.assign %s, %s : !hw.inout<i1>, i1\n",
+			ports.sendValid,
+			validConst,
+		)
 	case *ir.RecvOperation:
 		dest := p.bindSSA(o.Dest)
-		wire := p.channelInout(o.Channel)
+		ports := p.channelPorts[o.Channel]
+		if ports == nil || ports.recvData == "" {
+			p.printIndent()
+			fmt.Fprintf(p.w, "// missing channel recv ports for %s\n", sanitize(o.Channel.Name))
+			return
+		}
 		p.printIndent()
 		fmt.Fprintf(p.w, "%s = sv.read_inout %s : %s\n",
 			dest,
-			wire,
+			ports.recvData,
 			inoutTypeString(o.Channel.Type),
+		)
+		readyConst := p.boolConst(true)
+		p.printIndent()
+		fmt.Fprintf(p.w, "sv.assign %s, %s : !hw.inout<i1>, i1\n",
+			ports.recvReady,
+			readyConst,
 		)
 	case *ir.SpawnOperation:
 		childStage := processStage(o.Callee)
@@ -569,22 +724,21 @@ func (p *processPrinter) portRef(name string) string {
 	return fmt.Sprintf("%%%s", sanitize(name))
 }
 
-func (p *processPrinter) channelInout(ch *ir.Channel) string {
-	if ch == nil {
-		return "%invalid_channel"
-	}
-	if port, ok := p.channelPorts[ch]; ok {
-		return port
-	}
-	name := fmt.Sprintf("%%chan_%s", sanitize(ch.Name))
-	p.channelPorts[ch] = name
-	return name
-}
-
 func (p *processPrinter) printIndent() {
 	for i := 0; i < p.indent; i++ {
 		fmt.Fprint(p.w, "  ")
 	}
+}
+
+func (p *processPrinter) boolConst(val bool) string {
+	if name, ok := p.boolConsts[val]; ok {
+		return name
+	}
+	name := fmt.Sprintf("%%c_bool_%d", len(p.boolConsts))
+	p.boolConsts[val] = name
+	p.printIndent()
+	fmt.Fprintf(p.w, "%s = hw.constant %t : i1\n", name, val)
+	return name
 }
 
 func portLists(ports []ir.Port) (inputs []string, outputs []string) {
@@ -688,4 +842,66 @@ func sanitize(name string) string {
 		}
 	}
 	return b.String()
+}
+
+func (e *emitter) ensureFifoModule(ch *ir.Channel) *fifoInfo {
+	if ch == nil {
+		return nil
+	}
+	if ch.Depth <= 0 {
+		ch.Depth = 1
+	}
+	elemType := typeString(ch.Type)
+	key := fmt.Sprintf("%s_d%d", elemType, ch.Depth)
+	if info, ok := e.fifoDefs[key]; ok {
+		return info
+	}
+	name := fmt.Sprintf("mygo.fifo_%s_d%d", sanitize(elemType), ch.Depth)
+	info := &fifoInfo{
+		key:        key,
+		moduleName: name,
+		elemType:   elemType,
+		depth:      ch.Depth,
+	}
+	e.fifoDefs[key] = info
+	return info
+}
+
+func (e *emitter) emitFifoDefinitions() {
+	if len(e.fifoDefs) == 0 {
+		return
+	}
+	keys := make([]string, 0, len(e.fifoDefs))
+	for key := range e.fifoDefs {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		info := e.fifoDefs[key]
+		elemInout := fmt.Sprintf("!hw.inout<%s>", info.elemType)
+		e.printIndent()
+		fmt.Fprintf(e.w, "hw.module @%s(%%clk: i1, %%rst: i1, %%in_data: %s, %%in_valid: !hw.inout<i1>, %%in_ready: !hw.inout<i1>, %%out_data: %s, %%out_valid: !hw.inout<i1>, %%out_ready: !hw.inout<i1>) {\n",
+			info.moduleName,
+			elemInout,
+			elemInout,
+		)
+		e.indent++
+		e.printIndent()
+		fmt.Fprintf(e.w, "// simple passthrough FIFO depth=%d\n", info.depth)
+		e.printIndent()
+		fmt.Fprintf(e.w, "%%write_data = sv.read_inout %%in_data : %s\n", elemInout)
+		e.printIndent()
+		fmt.Fprintf(e.w, "%%write_valid = sv.read_inout %%in_valid : !hw.inout<i1>\n")
+		e.printIndent()
+		fmt.Fprintf(e.w, "sv.assign %%out_data, %%write_data : %s, %s\n", elemInout, info.elemType)
+		e.printIndent()
+		fmt.Fprintf(e.w, "sv.assign %%out_valid, %%write_valid : !hw.inout<i1>, i1\n")
+		e.printIndent()
+		fmt.Fprintf(e.w, "%%const_ready = hw.constant true : i1\n")
+		e.printIndent()
+		fmt.Fprintf(e.w, "sv.assign %%in_ready, %%const_ready : !hw.inout<i1>, i1\n")
+		e.indent--
+		e.printIndent()
+		fmt.Fprintln(e.w, "}")
+	}
 }
