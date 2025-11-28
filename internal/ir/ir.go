@@ -51,6 +51,7 @@ type Channel struct {
 	Name      string
 	Type      *SignalType
 	Depth     int
+	Occupancy int
 	Source    token.Pos
 	Producers []*ChannelEndpoint
 	Consumers []*ChannelEndpoint
@@ -206,6 +207,7 @@ type Process struct {
 	Name        string
 	Sensitivity Sensitivity
 	Blocks      []*BasicBlock
+	Stage       int
 }
 
 // Sensitivity indicates whether process is combinational or sequential.

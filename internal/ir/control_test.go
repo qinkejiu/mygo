@@ -28,6 +28,51 @@ func main() {
 }
 `
 
+const pipelineProgram = `
+package main
+
+func source(out chan<- int32) {
+    var v int32
+    v = 1
+    out <- v
+}
+
+func middle(in <-chan int32, out chan<- int32) {
+    var v int32
+    v = <-in
+    out <- v + 1
+}
+
+func drain(in <-chan int32) {
+    var v int32
+    v = <-in
+    _ = v
+}
+
+func main() {
+    ch0 := make(chan int32, 2)
+    ch1 := make(chan int32, 2)
+    go source(ch0)
+    go middle(ch0, ch1)
+    go drain(ch1)
+}
+`
+
+const occupancyProgram = `
+package main
+
+func writer(out chan<- int32) {
+    var v int32
+    v = 5
+    out <- v
+}
+
+func main() {
+    ch0 := make(chan int32, 4)
+    go writer(ch0)
+}
+`
+
 func TestControlFlowMuxLowering(t *testing.T) {
 	design := buildDesignFromSource(t, branchProgram)
 	if design == nil || design.TopLevel == nil {
@@ -77,6 +122,43 @@ func TestControlFlowBranchMetadata(t *testing.T) {
 	}
 	if branch.True == nil || branch.False == nil {
 		t.Fatalf("branch terminator missing successors")
+	}
+}
+
+func TestSchedulerAssignsStages(t *testing.T) {
+	design := buildDesignFromSource(t, pipelineProgram)
+	if design == nil || design.TopLevel == nil {
+		t.Fatalf("expected design")
+	}
+	stageMap := make(map[string]int)
+	for _, proc := range design.TopLevel.Processes {
+		stageMap[proc.Name] = proc.Stage
+	}
+	if stageMap["main"] != 0 {
+		t.Fatalf("expected main process stage 0, got %d", stageMap["main"])
+	}
+	sourceStage := stageMap["source"]
+	middleStage := stageMap["middle"]
+	drainStage := stageMap["drain"]
+	if !(sourceStage < middleStage && middleStage < drainStage) {
+		t.Fatalf("expected strictly increasing stages, got source=%d middle=%d drain=%d", sourceStage, middleStage, drainStage)
+	}
+}
+
+func TestChannelOccupancyTracking(t *testing.T) {
+	design := buildDesignFromSource(t, occupancyProgram)
+	if design == nil || design.TopLevel == nil {
+		t.Fatalf("expected design")
+	}
+	foundNonZero := false
+	for _, ch := range design.TopLevel.Channels {
+		if ch.Occupancy > 0 {
+			foundNonZero = true
+			break
+		}
+	}
+	if !foundNonZero {
+		t.Fatalf("expected at least one channel to record non-zero occupancy")
 	}
 }
 

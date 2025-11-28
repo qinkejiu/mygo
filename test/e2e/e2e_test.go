@@ -14,6 +14,7 @@ func TestProgramsCompileToMLIR(t *testing.T) {
 		"type_mismatch",
 		"channel_basic",
 		"simple_branch",
+		"pipeline1",
 	}
 	for _, name := range testcases {
 		name := name

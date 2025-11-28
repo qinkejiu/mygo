@@ -31,6 +31,8 @@ func BuildDesign(prog *ssa.Program, reporter *diag.Reporter) (*Design, error) {
 		channels:      make(map[ssa.Value]*Channel),
 		paramSignals:  make(map[*ssa.Parameter]*Signal),
 		paramChannels: make(map[*ssa.Parameter]*Channel),
+		channelUsage:  make(map[*Channel]int),
+		nextStage:     1,
 	}
 
 	module := builder.buildModule(mainFn)
@@ -54,6 +56,8 @@ type builder struct {
 	channels      map[ssa.Value]*Channel
 	paramSignals  map[*ssa.Parameter]*Signal
 	paramChannels map[*ssa.Parameter]*Channel
+	channelUsage  map[*Channel]int
+	nextStage     int
 	blocks        map[*ssa.BasicBlock]*BasicBlock
 	tempID        int
 }
@@ -67,7 +71,12 @@ func (b *builder) buildModule(fn *ssa.Function) *Module {
 		Source:   fn.Pos(),
 	}
 	b.module = mod
-	b.buildProcess(fn)
+	entry := b.buildProcess(fn)
+	if entry != nil && entry.Stage < 0 {
+		entry.Stage = 0
+	}
+	b.finalizeProcessStages()
+	b.finalizeChannelOccupancy()
 
 	return mod
 }
@@ -79,6 +88,7 @@ func (b *builder) buildProcess(fn *ssa.Function) *Process {
 	proc := &Process{
 		Name:        fn.Name(),
 		Sensitivity: Sequential,
+		Stage:       -1,
 	}
 	b.processes[fn] = proc
 	b.module.Processes = append(b.module.Processes, proc)
@@ -152,6 +162,81 @@ func (b *builder) connectBlocks(blocks []*ssa.BasicBlock) {
 			dst.Predecessors = append(dst.Predecessors, src)
 		}
 	}
+}
+
+func (b *builder) finalizeProcessStages() {
+	if b.module == nil {
+		return
+	}
+	for _, proc := range b.module.Processes {
+		if proc == nil {
+			continue
+		}
+		if proc.Stage < 0 {
+			proc.Stage = 0
+		}
+		if proc.Stage >= b.nextStage {
+			b.nextStage = proc.Stage + 1
+		}
+	}
+}
+
+func (b *builder) finalizeChannelOccupancy() {
+	if b.module == nil {
+		return
+	}
+	for _, ch := range b.module.Channels {
+		if ch == nil {
+			continue
+		}
+		occ := b.channelUsage[ch]
+		if occ < 0 {
+			occ = 0
+		}
+		if ch.Depth > 0 && occ > ch.Depth {
+			occ = ch.Depth
+		}
+		ch.Occupancy = occ
+	}
+}
+
+func (b *builder) ensureProcessStage(proc *Process) int {
+	if proc == nil {
+		return 0
+	}
+	if proc.Stage < 0 {
+		proc.Stage = 0
+	}
+	return proc.Stage
+}
+
+func (b *builder) assignChildStage(parent, child *Process) {
+	if child == nil {
+		return
+	}
+	parentStage := b.ensureProcessStage(parent)
+	desired := parentStage + 1
+	if desired < b.nextStage {
+		desired = b.nextStage
+	}
+	if child.Stage < desired {
+		child.Stage = desired
+	}
+	if desired >= b.nextStage {
+		b.nextStage = desired + 1
+	}
+}
+
+func (b *builder) recordChannelDelta(ch *Channel, delta int) {
+	if ch == nil {
+		return
+	}
+	value := b.channelUsage[ch]
+	value += delta
+	if value < 0 {
+		value = 0
+	}
+	b.channelUsage[ch] = value
 }
 
 func (b *builder) orderBlocks(proc *Process) {
@@ -464,6 +549,7 @@ func (b *builder) bindFunctionParams(fn *ssa.Function) {
 			}
 			b.module.Channels[ch.Name] = ch
 			b.channels[param] = ch
+			b.channelUsage[ch] = 0
 			continue
 		}
 		sig := &Signal{
@@ -501,6 +587,7 @@ func (b *builder) handleMakeChan(mc *ssa.MakeChan) {
 	}
 	b.module.Channels[channel.Name] = channel
 	b.channels[mc] = channel
+	b.channelUsage[channel] = 0
 }
 
 func (b *builder) handleSend(proc *Process, bb *BasicBlock, send *ssa.Send) {
@@ -514,6 +601,7 @@ func (b *builder) handleSend(proc *Process, bb *BasicBlock, send *ssa.Send) {
 		Value:   value,
 	})
 	channel.AddEndpoint(proc, ChannelSend)
+	b.recordChannelDelta(channel, 1)
 }
 
 func (b *builder) handleRecv(proc *Process, bb *BasicBlock, recv *ssa.UnOp) {
@@ -528,6 +616,7 @@ func (b *builder) handleRecv(proc *Process, bb *BasicBlock, recv *ssa.UnOp) {
 		Dest:    dest,
 	})
 	channel.AddEndpoint(proc, ChannelReceive)
+	b.recordChannelDelta(channel, -1)
 }
 
 func (b *builder) handleGo(proc *Process, bb *BasicBlock, stmt *ssa.Go) {
@@ -542,6 +631,7 @@ func (b *builder) handleGo(proc *Process, bb *BasicBlock, stmt *ssa.Go) {
 	}
 	b.bindCallArguments(callee, stmt.Call.Args)
 	target := b.buildProcess(callee)
+	b.assignChildStage(proc, target)
 	var args []*Signal
 	var chanArgs []*Channel
 	var params *types.Tuple

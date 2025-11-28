@@ -117,6 +117,7 @@ func (p *printer) emitChannels(module *ir.Module) {
 		ch := module.Channels[name]
 		p.printIndent()
 		fmt.Fprintf(p.w, "// channel %s depth=%d type=%s\n", ch.Name, ch.Depth, typeString(ch.Type))
+		p.emitChannelMetadata(ch)
 	}
 }
 
@@ -185,11 +186,14 @@ func (p *printer) emitOperation(op ir.Operation, proc *ir.Process) {
 		}
 		argList := strings.Join(args, ", ")
 		chanList := strings.Join(chanNames, ", ")
+		childStage := processStage(o.Callee)
+		parentStage := processStage(proc)
+		attr := fmt.Sprintf("{stage = %d, parent_stage = %d}", childStage, parentStage)
 		p.printIndent()
 		if len(chanNames) > 0 {
-			fmt.Fprintf(p.w, "mygo.process.spawn \"%s\"(%s) channels [%s]\n", sanitize(o.Callee.Name), argList, chanList)
+			fmt.Fprintf(p.w, "mygo.process.spawn \"%s\"(%s) channels [%s] %s\n", sanitize(o.Callee.Name), argList, chanList, attr)
 		} else {
-			fmt.Fprintf(p.w, "mygo.process.spawn \"%s\"(%s)\n", sanitize(o.Callee.Name), argList)
+			fmt.Fprintf(p.w, "mygo.process.spawn \"%s\"(%s) %s\n", sanitize(o.Callee.Name), argList, attr)
 		}
 	case *ir.CompareOperation:
 		left := p.valueRef(o.Left)
@@ -354,6 +358,51 @@ func comparePredicateName(pred ir.ComparePredicate) string {
 	default:
 		return "eq"
 	}
+}
+
+func (p *printer) emitChannelMetadata(ch *ir.Channel) {
+	if ch == nil {
+		return
+	}
+	p.printIndent()
+	fmt.Fprintf(p.w, "mygo.channel.full \"%s\"(%d/%d)\n", sanitize(ch.Name), ch.Occupancy, ch.Depth)
+	for _, prod := range ch.Producers {
+		stage := processStage(prod.Process)
+		name := processName(prod.Process)
+		p.printIndent()
+		fmt.Fprintf(p.w, "mygo.channel.valid \"%s\"(%d) {process = \"%s\"}\n",
+			sanitize(ch.Name),
+			stage,
+			name,
+		)
+	}
+	for _, cons := range ch.Consumers {
+		stage := processStage(cons.Process)
+		name := processName(cons.Process)
+		p.printIndent()
+		fmt.Fprintf(p.w, "mygo.channel.ready \"%s\"(%d) {process = \"%s\"}\n",
+			sanitize(ch.Name),
+			stage,
+			name,
+		)
+	}
+}
+
+func processStage(proc *ir.Process) int {
+	if proc == nil {
+		return 0
+	}
+	if proc.Stage < 0 {
+		return 0
+	}
+	return proc.Stage
+}
+
+func processName(proc *ir.Process) string {
+	if proc == nil || proc.Name == "" {
+		return "unnamed_process"
+	}
+	return sanitize(proc.Name)
 }
 
 func sanitize(name string) string {

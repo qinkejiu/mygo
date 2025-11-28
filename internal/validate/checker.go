@@ -66,6 +66,7 @@ func (c *checker) run(prog *ssa.Program) {
 
 func (c *checker) checkFunction(fn *ssa.Function) {
 	loopBlocks := findLoopBlocks(fn)
+	c.enforceLoopBounds(fn, loopBlocks)
 	for _, block := range fn.Blocks {
 		if block == nil {
 			continue
@@ -89,6 +90,16 @@ func (c *checker) inspectInstruction(fn *ssa.Function, block *ssa.BasicBlock, in
 		c.error(inst.Pos(), "select statements are not supported; rewrite using deterministic channel handshakes")
 	case *ssa.MakeMap, *ssa.MapUpdate, *ssa.Lookup:
 		c.error(inst.Pos(), "maps are not supported in hardware pipelines")
+	}
+}
+
+func (c *checker) enforceLoopBounds(fn *ssa.Function, loopBlocks map[*ssa.BasicBlock]bool) {
+	if len(loopBlocks) == 0 {
+		return
+	}
+	for block := range loopBlocks {
+		c.error(blockPosition(block), "loop in %s must have a compile-time static bound; restructure this loop into an unrolled or state-machine form", fn.Name())
+		break
 	}
 }
 
@@ -259,4 +270,19 @@ func hasSelfLoop(block *ssa.BasicBlock) bool {
 		}
 	}
 	return false
+}
+
+func blockPosition(block *ssa.BasicBlock) token.Pos {
+	if block == nil {
+		return token.NoPos
+	}
+	for _, instr := range block.Instrs {
+		if instr == nil {
+			continue
+		}
+		if pos := instr.Pos(); pos != token.NoPos {
+			return pos
+		}
+	}
+	return token.NoPos
 }

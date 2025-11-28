@@ -86,7 +86,7 @@ func dumpChannels(module *Module, w io.Writer) {
 
 func dumpProcesses(module *Module, w io.Writer) {
 	for idx, proc := range module.Processes {
-		fmt.Fprintf(w, "  process %d %s (%s)\n", idx, proc.Name, sensitivity(proc.Sensitivity))
+		fmt.Fprintf(w, "  process %d %s (stage=%d, %s)\n", idx, proc.Name, proc.Stage, sensitivity(proc.Sensitivity))
 		for _, block := range proc.Blocks {
 			fmt.Fprintf(w, "    block %s\n", block.Label)
 			for _, op := range block.Ops {
@@ -139,7 +139,13 @@ func renderOp(op Operation) string {
 		if len(chanNames) > 0 {
 			segments = append(segments, "ch:"+strings.Join(chanNames, ", "))
 		}
-		return fmt.Sprintf("go %s(%s)", o.Callee.Name, strings.Join(segments, "; "))
+		targetName := "<nil>"
+		stage := -1
+		if o.Callee != nil {
+			targetName = o.Callee.Name
+			stage = o.Callee.Stage
+		}
+		return fmt.Sprintf("go %s(stage=%d)(%s)", targetName, stage, strings.Join(segments, "; "))
 	default:
 		return fmt.Sprintf("<unknown op %T>", op)
 	}
