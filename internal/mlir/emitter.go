@@ -25,88 +25,74 @@ func Emit(design *ir.Design, outputPath string) error {
 		w = f
 	}
 
-	pr := &printer{
-		w:          w,
-		constNames: make(map[*ir.Signal]string),
-		valueNames: make(map[*ir.Signal]string),
-		portNames:  make(map[string]string),
-	}
-
+	em := &emitter{w: w}
 	fmt.Fprintln(w, "module {")
-	pr.indent++
+	em.indent++
 	for _, module := range design.Modules {
-		pr.emitModule(module)
+		em.emitModule(module)
 	}
-	pr.indent--
+	em.indent--
 	fmt.Fprintln(w, "}")
 	return nil
 }
 
-type printer struct {
-	w          io.Writer
-	indent     int
-	nextTemp   int
-	constNames map[*ir.Signal]string
-	valueNames map[*ir.Signal]string
-	portNames  map[string]string
+type emitter struct {
+	w      io.Writer
+	indent int
 }
 
-func (p *printer) emitModule(module *ir.Module) {
-	p.printIndent()
-	fmt.Fprintf(p.w, "hw.module @%s(", module.Name)
+func (e *emitter) emitModule(module *ir.Module) {
+	if module == nil {
+		return
+	}
+	processInfos := buildProcessInfos(module)
+	channelWires := e.emitTopLevelModule(module, processInfos)
+	for _, info := range processInfos {
+		e.emitProcessModule(module, info, channelWires)
+	}
+}
+
+func (e *emitter) emitTopLevelModule(module *ir.Module, processes []*processInfo) map[*ir.Channel]string {
+	e.printIndent()
+	fmt.Fprintf(e.w, "hw.module @%s(", module.Name)
 	inputs, outputs := portLists(module.Ports)
 	for i, in := range inputs {
 		if i > 0 {
-			fmt.Fprint(p.w, ", ")
+			fmt.Fprint(e.w, ", ")
 		}
-		fmt.Fprint(p.w, in)
+		fmt.Fprint(e.w, in)
 	}
-	fmt.Fprint(p.w, ")")
+	fmt.Fprint(e.w, ")")
 	if len(outputs) > 0 {
-		fmt.Fprint(p.w, " -> (")
+		fmt.Fprint(e.w, " -> (")
 		for i, out := range outputs {
 			if i > 0 {
-				fmt.Fprint(p.w, ", ")
+				fmt.Fprint(e.w, ", ")
 			}
-			fmt.Fprint(p.w, out)
+			fmt.Fprint(e.w, out)
 		}
-		fmt.Fprint(p.w, ")")
+		fmt.Fprint(e.w, ")")
 	}
-	fmt.Fprintln(p.w, " {")
-	p.indent++
+	fmt.Fprintln(e.w, " {")
+	e.indent++
 
-	p.resetModuleState(module.Ports)
-	p.emitConstants(module)
-	p.emitChannels(module)
-	p.emitProcesses(module)
+	channelWires := e.emitChannelWires(module)
+	for idx, info := range processes {
+		e.emitProcessInstance(idx, info, channelWires)
+	}
 
-	p.printIndent()
-	fmt.Fprintln(p.w, "hw.output")
-
-	p.indent--
-	p.printIndent()
-	fmt.Fprintln(p.w, "}")
+	e.printIndent()
+	fmt.Fprintln(e.w, "hw.output")
+	e.indent--
+	e.printIndent()
+	fmt.Fprintln(e.w, "}")
+	return channelWires
 }
 
-func (p *printer) emitConstants(module *ir.Module) {
-	names := make([]string, 0, len(module.Signals))
-	for name, sig := range module.Signals {
-		if sig.Kind == ir.Const {
-			names = append(names, name)
-		}
-	}
-	sort.Strings(names)
-	for _, name := range names {
-		sig := module.Signals[name]
-		ssaName := p.assignConst(sig)
-		p.printIndent()
-		fmt.Fprintf(p.w, "%s = hw.constant %v : %s\n", ssaName, sig.Value, typeString(sig.Type))
-	}
-}
-
-func (p *printer) emitChannels(module *ir.Module) {
-	if len(module.Channels) == 0 {
-		return
+func (e *emitter) emitChannelWires(module *ir.Module) map[*ir.Channel]string {
+	wires := make(map[*ir.Channel]string)
+	if module == nil {
+		return wires
 	}
 	names := make([]string, 0, len(module.Channels))
 	for name := range module.Channels {
@@ -115,23 +101,329 @@ func (p *printer) emitChannels(module *ir.Module) {
 	sort.Strings(names)
 	for _, name := range names {
 		ch := module.Channels[name]
-		p.printIndent()
-		fmt.Fprintf(p.w, "// channel %s depth=%d type=%s\n", ch.Name, ch.Depth, typeString(ch.Type))
-		p.emitChannelMetadata(ch)
+		wire := fmt.Sprintf("%%chan_%s", sanitize(ch.Name))
+		wires[ch] = wire
+		e.printIndent()
+		fmt.Fprintf(e.w, "// channel %s depth=%d type=%s\n", ch.Name, ch.Depth, typeString(ch.Type))
+		e.printIndent()
+		fmt.Fprintf(e.w, "%s = sv.wire : %s\n", wire, inoutTypeString(ch.Type))
+		e.emitChannelMetadata(ch)
+	}
+	return wires
+}
+
+func (e *emitter) emitProcessInstance(idx int, info *processInfo, wires map[*ir.Channel]string) {
+	if info == nil {
+		return
+	}
+	args := []string{"%clk", "%rst"}
+	types := []string{"i1", "i1"}
+	for _, ch := range info.channels {
+		if wire, ok := wires[ch]; ok {
+			args = append(args, wire)
+		} else {
+			args = append(args, "%invalid_channel")
+		}
+		types = append(types, inoutTypeString(ch.Type))
+	}
+	instName := fmt.Sprintf("%s_inst%d", sanitize(info.proc.Name), idx)
+	e.printIndent()
+	fmt.Fprintf(e.w, "hw.instance \"%s\" @%s(", instName, info.moduleName)
+	for i, arg := range args {
+		if i > 0 {
+			fmt.Fprint(e.w, ", ")
+		}
+		fmt.Fprint(e.w, arg)
+	}
+	fmt.Fprintf(e.w, ") : (")
+	for i, typ := range types {
+		if i > 0 {
+			fmt.Fprint(e.w, ", ")
+		}
+		fmt.Fprint(e.w, typ)
+	}
+	fmt.Fprintln(e.w, ") -> ()")
+}
+
+func (e *emitter) emitProcessModule(module *ir.Module, info *processInfo, wires map[*ir.Channel]string) {
+	if info == nil || info.proc == nil {
+		return
+	}
+	ports := e.processPorts(info)
+	e.printIndent()
+	fmt.Fprintf(e.w, "hw.module @%s(", info.moduleName)
+	for i, port := range ports {
+		if i > 0 {
+			fmt.Fprint(e.w, ", ")
+		}
+		fmt.Fprintf(e.w, "%s: %s", port.name, port.typ)
+	}
+	fmt.Fprintln(e.w, ") {")
+	e.indent++
+
+	pp := &processPrinter{
+		w:             e.w,
+		indent:        e.indent,
+		moduleSignals: module.Signals,
+		usedSignals:   info.usedSignals,
+		channelPorts:  info.channelPorts,
+	}
+	pp.resetState()
+	pp.emitProcess(info.proc)
+
+	e.indent--
+	e.printIndent()
+	fmt.Fprintln(e.w, "}")
+}
+
+func (e *emitter) processPorts(info *processInfo) []portDesc {
+	ports := []portDesc{
+		{name: "%clk", typ: "i1"},
+		{name: "%rst", typ: "i1"},
+	}
+	for _, ch := range info.channels {
+		portName := fmt.Sprintf("%%chan_%s", sanitize(ch.Name))
+		info.channelPorts[ch] = portName
+		ports = append(ports, portDesc{
+			name: portName,
+			typ:  inoutTypeString(ch.Type),
+		})
+	}
+	return ports
+}
+
+func (e *emitter) emitChannelMetadata(ch *ir.Channel) {
+	if ch == nil {
+		return
+	}
+	e.printIndent()
+	fmt.Fprintf(e.w, "// channel %s occupancy %d/%d\n", sanitize(ch.Name), ch.Occupancy, ch.Depth)
+	for _, prod := range ch.Producers {
+		stage := processStage(prod.Process)
+		name := processName(prod.Process)
+		e.printIndent()
+		fmt.Fprintf(e.w, "//   producer %s stage %d\n", name, stage)
+	}
+	for _, cons := range ch.Consumers {
+		stage := processStage(cons.Process)
+		name := processName(cons.Process)
+		e.printIndent()
+		fmt.Fprintf(e.w, "//   consumer %s stage %d\n", name, stage)
 	}
 }
 
-func (p *printer) emitProcesses(module *ir.Module) {
+func (e *emitter) printIndent() {
+	for i := 0; i < e.indent; i++ {
+		fmt.Fprint(e.w, "  ")
+	}
+}
+
+type portDesc struct {
+	name string
+	typ  string
+}
+
+type processInfo struct {
+	proc         *ir.Process
+	moduleName   string
+	channels     []*ir.Channel
+	channelPorts map[*ir.Channel]string
+	usedSignals  map[*ir.Signal]struct{}
+}
+
+func buildProcessInfos(module *ir.Module) []*processInfo {
+	if module == nil {
+		return nil
+	}
+	infos := make([]*processInfo, 0, len(module.Processes))
 	for _, proc := range module.Processes {
-		for _, block := range proc.Blocks {
-			for _, op := range block.Ops {
-				p.emitOperation(op, proc)
+		if proc == nil {
+			continue
+		}
+		info := &processInfo{
+			proc:         proc,
+			moduleName:   processModuleName(module, proc),
+			channels:     collectProcessChannels(proc),
+			channelPorts: make(map[*ir.Channel]string),
+			usedSignals:  collectProcessSignals(proc),
+		}
+		infos = append(infos, info)
+	}
+	sort.SliceStable(infos, func(i, j int) bool {
+		return infos[i].moduleName < infos[j].moduleName
+	})
+	return infos
+}
+
+func processModuleName(module *ir.Module, proc *ir.Process) string {
+	modName := "module"
+	if module != nil && module.Name != "" {
+		modName = sanitize(module.Name)
+	}
+	procName := processName(proc)
+	return fmt.Sprintf("%s__proc_%s", modName, procName)
+}
+
+func collectProcessChannels(proc *ir.Process) []*ir.Channel {
+	if proc == nil {
+		return nil
+	}
+	chSet := make(map[string]*ir.Channel)
+	add := func(ch *ir.Channel) {
+		if ch == nil {
+			return
+		}
+		chSet[ch.Name] = ch
+	}
+	for _, block := range proc.Blocks {
+		for _, op := range block.Ops {
+			switch o := op.(type) {
+			case *ir.SendOperation:
+				add(o.Channel)
+			case *ir.RecvOperation:
+				add(o.Channel)
 			}
+		}
+	}
+	if len(chSet) == 0 {
+		return nil
+	}
+	names := make([]string, 0, len(chSet))
+	for name := range chSet {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	result := make([]*ir.Channel, 0, len(names))
+	for _, name := range names {
+		result = append(result, chSet[name])
+	}
+	return result
+}
+
+func collectProcessSignals(proc *ir.Process) map[*ir.Signal]struct{} {
+	used := make(map[*ir.Signal]struct{})
+	if proc == nil {
+		return used
+	}
+	add := func(sig *ir.Signal) {
+		if sig != nil {
+			used[sig] = struct{}{}
+		}
+	}
+	for _, block := range proc.Blocks {
+		for _, op := range block.Ops {
+			switch o := op.(type) {
+			case *ir.BinOperation:
+				add(o.Left)
+				add(o.Right)
+				add(o.Dest)
+			case *ir.ConvertOperation:
+				add(o.Value)
+				add(o.Dest)
+			case *ir.AssignOperation:
+				add(o.Value)
+				add(o.Dest)
+			case *ir.SendOperation:
+				add(o.Value)
+			case *ir.RecvOperation:
+				add(o.Dest)
+			case *ir.CompareOperation:
+				add(o.Left)
+				add(o.Right)
+				add(o.Dest)
+			case *ir.NotOperation:
+				add(o.Value)
+				add(o.Dest)
+			case *ir.MuxOperation:
+				add(o.Cond)
+				add(o.TrueValue)
+				add(o.FalseValue)
+				add(o.Dest)
+			case *ir.PhiOperation:
+				add(o.Dest)
+				for _, in := range o.Incomings {
+					add(in.Value)
+				}
+			case *ir.SpawnOperation:
+				for _, arg := range o.Args {
+					add(arg)
+				}
+			}
+		}
+		if block.Terminator != nil {
+			switch term := block.Terminator.(type) {
+			case *ir.BranchTerminator:
+				add(term.Cond)
+			}
+		}
+	}
+	return used
+}
+
+type processPrinter struct {
+	w             io.Writer
+	indent        int
+	nextTemp      int
+	constNames    map[*ir.Signal]string
+	valueNames    map[*ir.Signal]string
+	portNames     map[string]string
+	channelPorts  map[*ir.Channel]string
+	moduleSignals map[string]*ir.Signal
+	usedSignals   map[*ir.Signal]struct{}
+}
+
+func (p *processPrinter) resetState() {
+	p.nextTemp = 0
+	p.constNames = make(map[*ir.Signal]string)
+	p.valueNames = make(map[*ir.Signal]string)
+	p.portNames = map[string]string{
+		"clk": "%clk",
+		"rst": "%rst",
+	}
+	if p.channelPorts == nil {
+		p.channelPorts = make(map[*ir.Channel]string)
+	}
+	if p.usedSignals == nil {
+		p.usedSignals = make(map[*ir.Signal]struct{})
+	}
+}
+
+func (p *processPrinter) emitProcess(proc *ir.Process) {
+	if proc == nil {
+		return
+	}
+	p.emitConstants()
+	for _, block := range proc.Blocks {
+		for _, op := range block.Ops {
+			p.emitOperation(op, proc)
 		}
 	}
 }
 
-func (p *printer) emitOperation(op ir.Operation, proc *ir.Process) {
+func (p *processPrinter) emitConstants() {
+	if len(p.moduleSignals) == 0 {
+		return
+	}
+	names := make([]string, 0, len(p.moduleSignals))
+	for name := range p.moduleSignals {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		sig := p.moduleSignals[name]
+		if sig.Kind != ir.Const {
+			continue
+		}
+		if _, ok := p.usedSignals[sig]; !ok {
+			continue
+		}
+		ssaName := p.assignConst(sig)
+		p.printIndent()
+		fmt.Fprintf(p.w, "%s = hw.constant %v : %s\n", ssaName, sig.Value, typeString(sig.Type))
+	}
+}
+
+func (p *processPrinter) emitOperation(op ir.Operation, proc *ir.Process) {
 	switch o := op.(type) {
 	case *ir.BinOperation:
 		left := p.valueRef(o.Left)
@@ -162,39 +454,36 @@ func (p *printer) emitOperation(op ir.Operation, proc *ir.Process) {
 		clk := p.portRef("clk")
 		src := p.valueRef(o.Value)
 		dest := p.bindSSA(o.Dest)
-		if clk == "" {
-			clk = "%clk"
-		}
 		p.printIndent()
 		fmt.Fprintf(p.w, "%s = seq.compreg %s, %s : %s\n", dest, src, clk, typeString(o.Dest.Type))
 	case *ir.SendOperation:
 		value := p.valueRef(o.Value)
+		wire := p.channelInout(o.Channel)
 		p.printIndent()
-		fmt.Fprintf(p.w, "mygo.channel.send \"%s\"(%s) : %s\n", sanitize(o.Channel.Name), value, typeString(o.Value.Type))
+		fmt.Fprintf(p.w, "sv.assign %s, %s : %s, %s\n",
+			wire,
+			value,
+			inoutTypeString(o.Channel.Type),
+			typeString(o.Value.Type),
+		)
 	case *ir.RecvOperation:
 		dest := p.bindSSA(o.Dest)
+		wire := p.channelInout(o.Channel)
 		p.printIndent()
-		fmt.Fprintf(p.w, "%s = mygo.channel.recv \"%s\" : %s\n", dest, sanitize(o.Channel.Name), typeString(o.Dest.Type))
+		fmt.Fprintf(p.w, "%s = sv.read_inout %s : %s\n",
+			dest,
+			wire,
+			inoutTypeString(o.Channel.Type),
+		)
 	case *ir.SpawnOperation:
-		args := make([]string, 0, len(o.Args))
-		for _, arg := range o.Args {
-			args = append(args, p.valueRef(arg))
-		}
-		chanNames := make([]string, 0, len(o.ChanArgs))
-		for _, ch := range o.ChanArgs {
-			chanNames = append(chanNames, fmt.Sprintf("\"%s\"", sanitize(ch.Name)))
-		}
-		argList := strings.Join(args, ", ")
-		chanList := strings.Join(chanNames, ", ")
 		childStage := processStage(o.Callee)
 		parentStage := processStage(proc)
-		attr := fmt.Sprintf("{stage = %d, parent_stage = %d}", childStage, parentStage)
 		p.printIndent()
-		if len(chanNames) > 0 {
-			fmt.Fprintf(p.w, "mygo.process.spawn \"%s\"(%s) channels [%s] %s\n", sanitize(o.Callee.Name), argList, chanList, attr)
-		} else {
-			fmt.Fprintf(p.w, "mygo.process.spawn \"%s\"(%s) %s\n", sanitize(o.Callee.Name), argList, attr)
-		}
+		fmt.Fprintf(p.w, "// spawn %s stage=%d parent_stage=%d\n",
+			sanitize(o.Callee.Name),
+			childStage,
+			parentStage,
+		)
 	case *ir.CompareOperation:
 		left := p.valueRef(o.Left)
 		right := p.valueRef(o.Right)
@@ -231,21 +520,11 @@ func (p *printer) emitOperation(op ir.Operation, proc *ir.Process) {
 		p.printIndent()
 		fmt.Fprintf(p.w, "// phi %s has %d incoming values\n", sanitize(o.Dest.Name), len(o.Incomings))
 	default:
-		// skip unknown operations for now
+		// skip unknown operations
 	}
 }
 
-func (p *printer) resetModuleState(ports []ir.Port) {
-	p.constNames = make(map[*ir.Signal]string)
-	p.valueNames = make(map[*ir.Signal]string)
-	p.portNames = make(map[string]string)
-	for _, port := range ports {
-		name := "%" + sanitize(port.Name)
-		p.portNames[port.Name] = name
-	}
-}
-
-func (p *printer) assignConst(sig *ir.Signal) string {
+func (p *processPrinter) assignConst(sig *ir.Signal) string {
 	if name, ok := p.constNames[sig]; ok {
 		return name
 	}
@@ -255,7 +534,7 @@ func (p *printer) assignConst(sig *ir.Signal) string {
 	return name
 }
 
-func (p *printer) bindSSA(sig *ir.Signal) string {
+func (p *processPrinter) bindSSA(sig *ir.Signal) string {
 	if sig == nil {
 		return "%unknown"
 	}
@@ -268,7 +547,7 @@ func (p *printer) bindSSA(sig *ir.Signal) string {
 	return name
 }
 
-func (p *printer) valueRef(sig *ir.Signal) string {
+func (p *processPrinter) valueRef(sig *ir.Signal) string {
 	if sig == nil {
 		return "%unknown"
 	}
@@ -283,11 +562,26 @@ func (p *printer) valueRef(sig *ir.Signal) string {
 	return name
 }
 
-func (p *printer) portRef(name string) string {
-	return p.portNames[name]
+func (p *processPrinter) portRef(name string) string {
+	if val, ok := p.portNames[name]; ok {
+		return val
+	}
+	return fmt.Sprintf("%%%s", sanitize(name))
 }
 
-func (p *printer) printIndent() {
+func (p *processPrinter) channelInout(ch *ir.Channel) string {
+	if ch == nil {
+		return "%invalid_channel"
+	}
+	if port, ok := p.channelPorts[ch]; ok {
+		return port
+	}
+	name := fmt.Sprintf("%%chan_%s", sanitize(ch.Name))
+	p.channelPorts[ch] = name
+	return name
+}
+
+func (p *processPrinter) printIndent() {
 	for i := 0; i < p.indent; i++ {
 		fmt.Fprint(p.w, "  ")
 	}
@@ -312,6 +606,10 @@ func typeString(t *ir.SignalType) string {
 		width = t.Width
 	}
 	return fmt.Sprintf("i%d", width)
+}
+
+func inoutTypeString(t *ir.SignalType) string {
+	return fmt.Sprintf("!hw.inout<%s>", typeString(t))
 }
 
 func binOpName(op ir.BinOp) string {
@@ -357,34 +655,6 @@ func comparePredicateName(pred ir.ComparePredicate) string {
 		return "uge"
 	default:
 		return "eq"
-	}
-}
-
-func (p *printer) emitChannelMetadata(ch *ir.Channel) {
-	if ch == nil {
-		return
-	}
-	p.printIndent()
-	fmt.Fprintf(p.w, "mygo.channel.full \"%s\"(%d/%d)\n", sanitize(ch.Name), ch.Occupancy, ch.Depth)
-	for _, prod := range ch.Producers {
-		stage := processStage(prod.Process)
-		name := processName(prod.Process)
-		p.printIndent()
-		fmt.Fprintf(p.w, "mygo.channel.valid \"%s\"(%d) {process = \"%s\"}\n",
-			sanitize(ch.Name),
-			stage,
-			name,
-		)
-	}
-	for _, cons := range ch.Consumers {
-		stage := processStage(cons.Process)
-		name := processName(cons.Process)
-		p.printIndent()
-		fmt.Fprintf(p.w, "mygo.channel.ready \"%s\"(%d) {process = \"%s\"}\n",
-			sanitize(ch.Name),
-			stage,
-			name,
-		)
 	}
 }
 
