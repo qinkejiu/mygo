@@ -23,7 +23,7 @@ func TestProgramsCompileToMLIR(t *testing.T) {
 		name := name
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			source := filepath.Join("test", "e2e", name, "main.go")
+			source := filepath.Join("tests", "e2e", name, "main.go")
 			output := filepath.Join(t.TempDir(), name+".mlir")
 			cmd := exec.Command("go", "run", "./cmd/mygo", "compile", "-emit=mlir", "-o", output, source)
 			cmd.Dir = repoRoot
@@ -41,7 +41,7 @@ func TestProgramsCompileToMLIR(t *testing.T) {
 
 func verifyGolden(t *testing.T, name, actualPath string) {
 	t.Helper()
-	expectedPath := filepath.Join("test", "e2e", name, "expected.mlir")
+	expectedPath := filepath.Join("tests", "e2e", name, "expected.mlir")
 	expected, err := os.ReadFile(expectedPath)
 	if err != nil {
 		if os.IsNotExist(err) {

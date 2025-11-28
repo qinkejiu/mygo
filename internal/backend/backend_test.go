@@ -16,24 +16,7 @@ func TestEmitVerilogRunsTranslateOnly(t *testing.T) {
 	design := testDesign()
 	tmp := t.TempDir()
 
-	translate := writeScript(t, tmp, "translate.sh", `#!/bin/sh
-set -e
-INPUT=""
-for arg in "$@"; do
-  case "$arg" in
-    --export-verilog)
-      ;;
-    *)
-      INPUT="$arg"
-      ;;
-  esac
-done
-if [ -z "$INPUT" ]; then
-  INPUT="/dev/stdin"
-fi
-echo "// verilog translator"
-cat "$INPUT"
-`)
+	translate := filepath.Join("testdata", "fakecirct", "translate.sh")
 
 	out := filepath.Join(tmp, "out.sv")
 	opts := Options{CIRCTTranslatePath: translate}
@@ -63,36 +46,7 @@ func TestEmitVerilogRunsOptWhenPipelineProvided(t *testing.T) {
 	design := testDesign()
 	tmp := t.TempDir()
 
-	opt := writeScript(t, tmp, "opt.sh", `#!/bin/sh
-set -e
-PIPELINE=""
-OUT=""
-IN=""
-while [ "$#" -gt 0 ]; do
-  case "$1" in
-    --pass-pipeline=*)
-      PIPELINE="${1#*=}"
-      shift
-      ;;
-    -o)
-      OUT="$2"
-      shift 2
-      ;;
-    *)
-      IN="$1"
-      shift
-      ;;
-  esac
-done
-if [ -z "$OUT" ]; then
-  echo "missing -o" >&2
-  exit 1
-fi
-{
-  echo "// opt:${PIPELINE}"
-  cat "$IN"
-} > "$OUT"
-`)
+	opt := filepath.Join("testdata", "fakecirct", "opt.sh")
 
 	translate := writeScript(t, tmp, "translate.sh", `#!/bin/sh
 set -e

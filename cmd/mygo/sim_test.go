@@ -28,14 +28,14 @@ EOS
 `)
 	fifoSrc := writeFile(t, tmp, "fifos.sv", fifoLibrary())
 	simulator := filepath.Join(repo, "scripts", "mock-sim.sh")
-	trace := filepath.Join(repo, "test", "e2e", "pipeline1", "expected.sim")
+	trace := filepath.Join(repo, "tests", "e2e", "pipeline1", "expected.sim")
 	t.Setenv("MYGO_SIM_TRACE", trace)
 
 	args := []string{
 		"--circt-translate", translate,
 		"--fifo-src", fifoSrc,
 		"--simulator", simulator,
-		filepath.Join(repo, "test", "e2e", "pipeline1", "main.go"),
+		filepath.Join(repo, "tests", "e2e", "pipeline1", "main.go"),
 	}
 	if err := runSim(args); err != nil {
 		t.Fatalf("runSim failed: %v", err)
@@ -69,7 +69,7 @@ EOS
 		"--circt-translate", translate,
 		"--fifo-src", fifoSrc,
 		"--simulator", simulator,
-		filepath.Join(repo, "test", "e2e", "pipeline1", "main.go"),
+		filepath.Join(repo, "tests", "e2e", "pipeline1", "main.go"),
 	}
 	err := runSim(args)
 	if err == nil || !strings.Contains(err.Error(), "simulator output mismatch") {
