@@ -16,6 +16,7 @@ type Module struct {
 	Name      string
 	Ports     []Port
 	Signals   map[string]*Signal
+	Channels  map[string]*Channel
 	Processes []*Process
 	Source    token.Pos
 }
@@ -44,6 +45,30 @@ type Signal struct {
 	Value  interface{}
 	Source token.Pos
 }
+
+// Channel models a FIFO-style buffered channel between processes.
+type Channel struct {
+	Name      string
+	Type      *SignalType
+	Depth     int
+	Source    token.Pos
+	Producers []*ChannelEndpoint
+	Consumers []*ChannelEndpoint
+}
+
+// ChannelEndpoint records how a process interacts with a channel.
+type ChannelEndpoint struct {
+	Process   *Process
+	Direction ChannelDirection
+}
+
+// ChannelDirection distinguishes send vs. receive endpoints.
+type ChannelDirection int
+
+const (
+	ChannelSend ChannelDirection = iota
+	ChannelReceive
+)
 
 // SignalType records width/sign metadata for a signal.
 type SignalType struct {
@@ -150,6 +175,23 @@ func maxInt(a, b int) int {
 	return b
 }
 
+// AddEndpoint attaches metadata describing how the channel is used.
+func (c *Channel) AddEndpoint(proc *Process, dir ChannelDirection) {
+	if c == nil || proc == nil {
+		return
+	}
+	endpoint := &ChannelEndpoint{
+		Process:   proc,
+		Direction: dir,
+	}
+	switch dir {
+	case ChannelSend:
+		c.Producers = append(c.Producers, endpoint)
+	case ChannelReceive:
+		c.Consumers = append(c.Consumers, endpoint)
+	}
+}
+
 // SignalKind classifies how a signal is driven.
 type SignalKind int
 
@@ -161,6 +203,7 @@ const (
 
 // Process groups a sequence of operations under a specific clocking scheme.
 type Process struct {
+	Name        string
 	Sensitivity Sensitivity
 	Blocks      []*BasicBlock
 }
@@ -209,6 +252,30 @@ type ConvertOperation struct {
 }
 
 func (ConvertOperation) isOperation() {}
+
+// SendOperation emits a value onto a channel.
+type SendOperation struct {
+	Channel *Channel
+	Value   *Signal
+}
+
+func (SendOperation) isOperation() {}
+
+// RecvOperation reads from a channel into Dest.
+type RecvOperation struct {
+	Channel *Channel
+	Dest    *Signal
+}
+
+func (RecvOperation) isOperation() {}
+
+// SpawnOperation represents a goroutine launch.
+type SpawnOperation struct {
+	Callee *Process
+	Args   []*Signal
+}
+
+func (SpawnOperation) isOperation() {}
 
 // BinOp enumerates supported binary ops.
 type BinOp int

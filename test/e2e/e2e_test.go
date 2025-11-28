@@ -12,6 +12,7 @@ func TestProgramsCompileToMLIR(t *testing.T) {
 	testcases := []string{
 		"simple",
 		"type_mismatch",
+		"channel_basic",
 	}
 	for _, name := range testcases {
 		name := name

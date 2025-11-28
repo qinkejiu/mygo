@@ -43,23 +43,40 @@ func BuildDesign(prog *ssa.Program, reporter *diag.Reporter) (*Design, error) {
 }
 
 type builder struct {
-	reporter *diag.Reporter
-	module   *Module
-	process  *Process
-	signals  map[ssa.Value]*Signal
-	tempID   int
+	reporter  *diag.Reporter
+	module    *Module
+	signals   map[ssa.Value]*Signal
+	processes map[*ssa.Function]*Process
+	channels  map[ssa.Value]*Channel
+	tempID    int
 }
 
 func (b *builder) buildModule(fn *ssa.Function) *Module {
 	mod := &Module{
-		Name:    fn.Name(),
-		Ports:   defaultPorts(),
-		Signals: make(map[string]*Signal),
-		Source:  fn.Pos(),
+		Name:     fn.Name(),
+		Ports:    defaultPorts(),
+		Signals:  make(map[string]*Signal),
+		Channels: make(map[string]*Channel),
+		Source:   fn.Pos(),
 	}
 	b.module = mod
-	b.process = &Process{Sensitivity: Sequential}
-	mod.Processes = append(mod.Processes, b.process)
+	b.processes = make(map[*ssa.Function]*Process)
+	b.channels = make(map[ssa.Value]*Channel)
+	b.buildProcess(fn)
+
+	return mod
+}
+
+func (b *builder) buildProcess(fn *ssa.Function) *Process {
+	if proc, ok := b.processes[fn]; ok {
+		return proc
+	}
+	proc := &Process{
+		Name:        fn.Name(),
+		Sensitivity: Sequential,
+	}
+	b.processes[fn] = proc
+	b.module.Processes = append(b.module.Processes, proc)
 
 	for _, block := range fn.Blocks {
 		if block == nil {
@@ -67,15 +84,14 @@ func (b *builder) buildModule(fn *ssa.Function) *Module {
 		}
 		bb := &BasicBlock{Label: blockComment(block)}
 		for _, instr := range block.Instrs {
-			b.translateInstr(bb, instr)
+			b.translateInstr(proc, bb, instr)
 		}
-		b.process.Blocks = append(b.process.Blocks, bb)
+		proc.Blocks = append(proc.Blocks, bb)
 	}
-
-	return mod
+	return proc
 }
 
-func (b *builder) translateInstr(bb *BasicBlock, instr ssa.Instruction) {
+func (b *builder) translateInstr(proc *Process, bb *BasicBlock, instr ssa.Instruction) {
 	switch v := instr.(type) {
 	case *ssa.Alloc:
 		b.handleAlloc(v)
@@ -106,11 +122,14 @@ func (b *builder) translateInstr(bb *BasicBlock, instr ssa.Instruction) {
 		})
 		b.signals[v] = dest
 	case *ssa.UnOp:
-		if v.Op == token.MUL {
+		switch v.Op {
+		case token.MUL:
 			ptr := b.signalForValue(v.X)
 			if ptr != nil {
 				b.signals[v] = ptr
 			}
+		case token.ARROW:
+			b.handleRecv(proc, bb, v)
 		}
 	case *ssa.Convert:
 		source := b.signalForValue(v.X)
@@ -123,12 +142,18 @@ func (b *builder) translateInstr(bb *BasicBlock, instr ssa.Instruction) {
 			Dest:  dest,
 			Value: source,
 		})
+	case *ssa.MakeChan:
+		b.handleMakeChan(v)
+	case *ssa.Send:
+		b.handleSend(proc, bb, v)
 	case *ssa.Return:
 		// No hardware action needed for now.
 	case *ssa.DebugRef:
 		// Skip debug markers.
 	case *ssa.Call:
 		// Calls such as fmt.Printf are host-side only for Phase 1; ignore.
+	case *ssa.Go:
+		b.handleGo(proc, bb, v)
 	case *ssa.IndexAddr:
 		// Used for fmt.Printf variadic handling – ignore for now.
 	case *ssa.MakeInterface:
@@ -159,6 +184,81 @@ func (b *builder) handleAlloc(a *ssa.Alloc) {
 	b.signals[a] = sig
 }
 
+func (b *builder) handleMakeChan(mc *ssa.MakeChan) {
+	chType, ok := mc.Type().Underlying().(*types.Chan)
+	if !ok {
+		b.reporter.Warning(mc.Pos(), "makechan without channel type encountered")
+		return
+	}
+	name := mc.Name()
+	if name == "" {
+		name = b.uniqueName("chan")
+	}
+	depth := 1
+	if c, ok := mc.Size.(*ssa.Const); ok && c.Value != nil {
+		if v, ok := constant.Int64Val(c.Value); ok && v > 0 {
+			depth = int(v)
+		}
+	}
+	channel := &Channel{
+		Name:   name,
+		Type:   signalType(chType.Elem()),
+		Depth:  depth,
+		Source: mc.Pos(),
+	}
+	b.module.Channels[channel.Name] = channel
+	b.channels[mc] = channel
+}
+
+func (b *builder) handleSend(proc *Process, bb *BasicBlock, send *ssa.Send) {
+	channel := b.channelForValue(send.Chan)
+	value := b.signalForValue(send.X)
+	if channel == nil || value == nil {
+		return
+	}
+	bb.Ops = append(bb.Ops, &SendOperation{
+		Channel: channel,
+		Value:   value,
+	})
+	channel.AddEndpoint(proc, ChannelSend)
+}
+
+func (b *builder) handleRecv(proc *Process, bb *BasicBlock, recv *ssa.UnOp) {
+	channel := b.channelForValue(recv.X)
+	dest := b.newTempSignal(recv.Name(), recv.Type(), recv.Pos())
+	b.signals[recv] = dest
+	if channel == nil {
+		return
+	}
+	bb.Ops = append(bb.Ops, &RecvOperation{
+		Channel: channel,
+		Dest:    dest,
+	})
+	channel.AddEndpoint(proc, ChannelReceive)
+}
+
+func (b *builder) handleGo(proc *Process, bb *BasicBlock, stmt *ssa.Go) {
+	if stmt.Call.IsInvoke() {
+		b.reporter.Warning(stmt.Pos(), "interface go calls are not supported in IR builder")
+		return
+	}
+	callee := stmt.Call.StaticCallee()
+	if callee == nil {
+		b.reporter.Warning(stmt.Pos(), "goroutine target has no static callee")
+		return
+	}
+	target := b.buildProcess(callee)
+	var args []*Signal
+	for _, arg := range stmt.Call.Args {
+		if sig := b.signalForValue(arg); sig != nil {
+			args = append(args, sig)
+		}
+	}
+	bb.Ops = append(bb.Ops, &SpawnOperation{
+		Callee: target,
+		Args:   args,
+	})
+}
 func (b *builder) buildConstSignal(c *ssa.Const) *Signal {
 	sig := &Signal{
 		Name:   b.newConstName(),
@@ -180,10 +280,20 @@ func (b *builder) signalForValue(v ssa.Value) *Signal {
 		sig := b.buildConstSignal(val)
 		b.signals[v] = sig
 		return sig
-	case *ssa.IndexAddr, *ssa.MakeInterface, *ssa.Slice:
+	case *ssa.IndexAddr, *ssa.MakeInterface, *ssa.Slice, *ssa.MakeChan:
 		return nil
 	}
 	b.reporter.Warning(v.Pos(), fmt.Sprintf("no signal mapping for value %T", v))
+	return nil
+}
+
+func (b *builder) channelForValue(v ssa.Value) *Channel {
+	if ch, ok := b.channels[v]; ok {
+		return ch
+	}
+	if v != nil {
+		b.reporter.Warning(v.Pos(), fmt.Sprintf("no channel mapping for value %T", v))
+	}
 	return nil
 }
 

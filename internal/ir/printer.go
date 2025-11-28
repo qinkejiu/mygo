@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"sort"
+	"strings"
 )
 
 // Dump writes a simple human-readable representation of the design.
@@ -16,6 +17,7 @@ func Dump(design *Design, w io.Writer) {
 		fmt.Fprintf(w, "module %s\n", module.Name)
 		dumpPorts(module, w)
 		dumpSignals(module, w)
+		dumpChannels(module, w)
 		dumpProcesses(module, w)
 		fmt.Fprintln(w)
 	}
@@ -62,9 +64,29 @@ func dumpSignals(module *Module, w io.Writer) {
 	}
 }
 
+func dumpChannels(module *Module, w io.Writer) {
+	if len(module.Channels) == 0 {
+		return
+	}
+	fmt.Fprintln(w, "  channels:")
+	names := make([]string, 0, len(module.Channels))
+	for name := range module.Channels {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		ch := module.Channels[name]
+		fmt.Fprintf(w, "    %-8s depth=%d type=%s\n",
+			ch.Name,
+			ch.Depth,
+			ch.Type.Description(),
+		)
+	}
+}
+
 func dumpProcesses(module *Module, w io.Writer) {
 	for idx, proc := range module.Processes {
-		fmt.Fprintf(w, "  process %d (%s)\n", idx, sensitivity(proc.Sensitivity))
+		fmt.Fprintf(w, "  process %d %s (%s)\n", idx, proc.Name, sensitivity(proc.Sensitivity))
 		for _, block := range proc.Blocks {
 			fmt.Fprintf(w, "    block %s\n", block.Label)
 			for _, op := range block.Ops {
@@ -82,6 +104,16 @@ func renderOp(op Operation) string {
 		return fmt.Sprintf("%s := convert(%s)", o.Dest.Name, o.Value.Name)
 	case *BinOperation:
 		return fmt.Sprintf("%s := %s %s %s", o.Dest.Name, o.Left.Name, binOpSymbol(o.Op), o.Right.Name)
+	case *SendOperation:
+		return fmt.Sprintf("send %s <- %s", o.Channel.Name, o.Value.Name)
+	case *RecvOperation:
+		return fmt.Sprintf("%s <- %s", o.Dest.Name, o.Channel.Name)
+	case *SpawnOperation:
+		argNames := make([]string, 0, len(o.Args))
+		for _, arg := range o.Args {
+			argNames = append(argNames, arg.Name)
+		}
+		return fmt.Sprintf("go %s(%s)", o.Callee.Name, strings.Join(argNames, ", "))
 	default:
 		return fmt.Sprintf("<unknown op %T>", op)
 	}

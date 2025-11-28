@@ -77,6 +77,7 @@ func (p *printer) emitModule(module *ir.Module) {
 
 	p.resetModuleState(module.Ports)
 	p.emitConstants(module)
+	p.emitChannels(module)
 	p.emitProcesses(module)
 
 	p.printIndent()
@@ -100,6 +101,22 @@ func (p *printer) emitConstants(module *ir.Module) {
 		ssaName := p.assignConst(sig)
 		p.printIndent()
 		fmt.Fprintf(p.w, "%s = hw.constant %v : %s\n", ssaName, sig.Value, typeString(sig.Type))
+	}
+}
+
+func (p *printer) emitChannels(module *ir.Module) {
+	if len(module.Channels) == 0 {
+		return
+	}
+	names := make([]string, 0, len(module.Channels))
+	for name := range module.Channels {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		ch := module.Channels[name]
+		p.printIndent()
+		fmt.Fprintf(p.w, "// channel %s depth=%d type=%s\n", ch.Name, ch.Depth, typeString(ch.Type))
 	}
 }
 
@@ -149,6 +166,21 @@ func (p *printer) emitOperation(op ir.Operation, proc *ir.Process) {
 		}
 		p.printIndent()
 		fmt.Fprintf(p.w, "%s = seq.compreg %s, %s : %s\n", dest, src, clk, typeString(o.Dest.Type))
+	case *ir.SendOperation:
+		value := p.valueRef(o.Value)
+		p.printIndent()
+		fmt.Fprintf(p.w, "mygo.channel.send \"%s\"(%s) : %s\n", o.Channel.Name, value, typeString(o.Value.Type))
+	case *ir.RecvOperation:
+		dest := p.bindSSA(o.Dest)
+		p.printIndent()
+		fmt.Fprintf(p.w, "%s = mygo.channel.recv \"%s\" : %s\n", dest, o.Channel.Name, typeString(o.Dest.Type))
+	case *ir.SpawnOperation:
+		args := make([]string, 0, len(o.Args))
+		for _, arg := range o.Args {
+			args = append(args, p.valueRef(arg))
+		}
+		p.printIndent()
+		fmt.Fprintf(p.w, "mygo.process.spawn \"%s\"(%s)\n", o.Callee.Name, strings.Join(args, ", "))
 	default:
 		// skip unknown operations for now
 	}
