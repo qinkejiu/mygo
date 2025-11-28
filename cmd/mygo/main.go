@@ -11,6 +11,7 @@ import (
 	"mygo/internal/frontend"
 	"mygo/internal/ir"
 	"mygo/internal/mlir"
+	"mygo/internal/passes"
 )
 
 func main() {
@@ -66,6 +67,10 @@ func runCompile(args []string) error {
 
 	design, err := ir.BuildDesign(result.program, result.reporter)
 	if err != nil {
+		return err
+	}
+
+	if err := runDefaultPasses(design, result.reporter); err != nil {
 		return err
 	}
 
@@ -142,6 +147,10 @@ func runDumpIR(args []string) error {
 		return err
 	}
 
+	if err := runDefaultPasses(design, result.reporter); err != nil {
+		return err
+	}
+
 	ir.Dump(design, os.Stdout)
 	return nil
 }
@@ -174,4 +183,16 @@ func prepareProgram(sources []string, diagFormat string) (*frontendResult, error
 		program:  prog,
 		ssaPkgs:  ssaPkgs,
 	}, nil
+}
+
+func runDefaultPasses(design *ir.Design, reporter *diag.Reporter) error {
+	passMgr := passes.NewManager()
+	passMgr.Add(passes.NewWidthInference(reporter))
+	if err := passMgr.Run(design); err != nil {
+		return err
+	}
+	if reporter != nil && reporter.HasErrors() {
+		return fmt.Errorf("analysis passes reported errors")
+	}
+	return nil
 }

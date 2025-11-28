@@ -1,6 +1,9 @@
 package ir
 
-import "go/token"
+import (
+	"fmt"
+	"go/token"
+)
 
 // Design is the top-level hardware description consisting of one or more modules.
 type Design struct {
@@ -46,6 +49,105 @@ type Signal struct {
 type SignalType struct {
 	Width  int
 	Signed bool
+}
+
+// Clone returns a deep copy of the signal type.
+func (t *SignalType) Clone() *SignalType {
+	if t == nil {
+		return nil
+	}
+	clone := *t
+	return &clone
+}
+
+// IsUnknown reports whether the type lacks width information.
+func (t *SignalType) IsUnknown() bool {
+	return t == nil || t.Width == 0
+}
+
+// Equal reports whether width and signedness match.
+func (t *SignalType) Equal(other *SignalType) bool {
+	if t == nil && other == nil {
+		return true
+	}
+	if t == nil || other == nil {
+		return false
+	}
+	return t.Width == other.Width && t.Signed == other.Signed
+}
+
+// Promote returns a new SignalType that can represent values from both types.
+func (t *SignalType) Promote(other *SignalType) *SignalType {
+	if t == nil {
+		return other.Clone()
+	}
+	if other == nil {
+		return t.Clone()
+	}
+	result := &SignalType{
+		Width:  maxInt(t.Width, other.Width),
+		Signed: t.Signed || other.Signed,
+	}
+	return result
+}
+
+// ResultFor returns the output type for applying op to the receiver and other.
+func (t *SignalType) ResultFor(op BinOp, other *SignalType) *SignalType {
+	if t == nil {
+		return other.Clone()
+	}
+	result := t.Promote(other)
+	if result == nil {
+		return nil
+	}
+	switch op {
+	case Mul:
+		if t != nil && other != nil {
+			result.Width = maxInt(t.Width, other.Width)
+		}
+	}
+	return result
+}
+
+// FitsWithin reports whether the receiver fits within the target type without truncation.
+func (t *SignalType) FitsWithin(target *SignalType) bool {
+	if t == nil || target == nil {
+		return true
+	}
+	if t.IsUnknown() || target.IsUnknown() {
+		return true
+	}
+	return t.Width <= target.Width
+}
+
+// SignedCompatible reports whether assigning the receiver into target preserves signedness.
+func (t *SignalType) SignedCompatible(target *SignalType) bool {
+	if t == nil || target == nil {
+		return true
+	}
+	if t.IsUnknown() || target.IsUnknown() {
+		return true
+	}
+	return t.Signed == target.Signed
+}
+
+// Description returns a user-friendly textual representation.
+func (t *SignalType) Description() string {
+	if t == nil || t.IsUnknown() {
+		return "<unknown>"
+	}
+	sign := "u"
+	if t.Signed {
+		sign = "s"
+	}
+	return fmt.Sprintf("%db%s", t.Width, sign)
+}
+
+func maxInt(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }
 
 // SignalKind classifies how a signal is driven.
