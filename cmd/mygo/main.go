@@ -8,6 +8,7 @@ import (
 	"golang.org/x/tools/go/packages"
 	"golang.org/x/tools/go/ssa"
 
+	"mygo/internal/backend"
 	"mygo/internal/diag"
 	"mygo/internal/frontend"
 	"mygo/internal/ir"
@@ -52,6 +53,10 @@ func runCompile(args []string) error {
 	output := fs.String("o", "", "output file path")
 	target := fs.String("target", "main", "target function or module")
 	diagFormat := fs.String("diag-format", "text", "diagnostic output format (text|json)")
+	circtOpt := fs.String("circt-opt", "", "path to circt-opt (optional, falls back to PATH lookup)")
+	circtTranslate := fs.String("circt-translate", "", "path to circt-translate (optional, falls back to PATH lookup)")
+	circtPipeline := fs.String("circt-pipeline", "", "circt-opt --pass-pipeline string (optional)")
+	circtMLIR := fs.String("circt-mlir", "", "path to dump the MLIR handed to CIRCT (optional)")
 
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -86,7 +91,13 @@ func runCompile(args []string) error {
 	case "mlir":
 		return mlir.Emit(design, *output)
 	case "verilog":
-		return fmt.Errorf("verilog emission is not implemented yet")
+		opts := backend.Options{
+			CIRCTOptPath:       *circtOpt,
+			CIRCTTranslatePath: *circtTranslate,
+			PassPipeline:       *circtPipeline,
+			DumpMLIRPath:       *circtMLIR,
+		}
+		return backend.EmitVerilog(design, *output, opts)
 	default:
 		return fmt.Errorf("unknown emit format: %s", *emit)
 	}
@@ -98,7 +109,7 @@ func printGlobalUsage() {
 	fmt.Fprintf(os.Stderr, "Usage:\n")
 	fmt.Fprintf(os.Stderr, "  mygo <command> [options]\n\n")
 	fmt.Fprintf(os.Stderr, "Commands:\n")
-	fmt.Fprintf(os.Stderr, "  compile    Compile Go source to MLIR or Verilog (stub)\n")
+	fmt.Fprintf(os.Stderr, "  compile    Compile Go source to MLIR or Verilog\n")
 	fmt.Fprintf(os.Stderr, "  dump-ssa   Load Go sources and dump SSA form\n")
 	fmt.Fprintf(os.Stderr, "  dump-ir    Translate SSA into the MyGO hardware IR and dump it\n")
 	fmt.Fprintf(os.Stderr, "  lint       Run validation-only checks (e.g. concurrency rules)\n")
