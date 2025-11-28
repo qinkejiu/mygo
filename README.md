@@ -102,6 +102,7 @@ Create a compiler that translates a subset of Go syntax into hardware RTL (Regis
 3. Translate to CIRCT-compatible MLIR
 4. Generate synthesizable Verilog/SystemVerilog
 5. Provide clear error messages for unsupported constructs
+6. Support Argo-inspired goroutines and buffered channels as deterministic hardware pipelines
 
 ### 2.2 Example: Input Syntax (MyGO)
 
@@ -133,16 +134,28 @@ func main() {
 - Assignment: `x = y + 1`
 - Arithmetic operators: `+`, `-`, `*` (division requires special handling)
 - Integer types: `int8`, `int16`, `int32`, `int64`, `uint8`, `uint16`, `uint32`, `uint64`
+- Fixed-size arrays and zero-cost indexing that can be statically allocated (mirrors `third_party/argo2verilog/test/channel01.go`)
 - Basic control flow: `if`, `for` (with compile-time bounds)
 - Function calls to `fmt.Printf` (for debugging/simulation only)
+- Goroutines with static targets: `go worker(args...)`
+- Buffered channels created with `make(chan T, N)` where `N > 0` and `T` is a supported integer or fixed array type
 
 **Unsupported (will error):**
-- Goroutines, channels
 - Interfaces, reflection
 - Recursion
-- Unbounded loops
-- Maps, slices (initially; fixed arrays may be supported later)
-- Function pointers
+- Unbounded loops or data-dependent loop bounds
+- Maps, slices (only fixed-size arrays are allowed for now)
+- Function pointers or indirect goroutine targets
+- Channel operations without compile-time-known buffer depths, or `select` statements
+
+#### Concurrency & Channels (Argo-aligned)
+
+The goroutine and channel design is derived directly from the Argo reference programs (`third_party/argo2verilog/test/channel01.go`, `pipeline1.go`, `pipeline2.go`) and the Verilog template pipelines (`third_party/argo2verilog/src/verilog/argo_3stage.v`). Key rules:
+
+1. **Deterministic goroutines:** Every `go` statement spawns a synthesizable hardware process. The callee must be a named function with no captured closures so the compiler can emit a dedicated module/process. The number of goroutines is fixed at compile time; dynamic spawning or recursion is rejected during validation.
+2. **Buffered channels map to FIFOs:** `make(chan T, N)` materializes as an `argo_queue`-style FIFO with depth `N` and element width inferred from `T`. Send (`<-`) operations drive FIFO write ports, receives block on reads, and we emit `ivalid/iready` style handshakes mirroring the template pipeline.
+3. **Deterministic scheduling:** Because channels are bounded, back-pressure is explicit. The IR captures readiness/valid signals so we can recreate the three-stage control structure showcased in `argo_3stage.v`.
+4. **Tooling parity:** End-to-end tests will include the Argo channel programs so we can diff our MLIR/Verilog against the known-good iverilog simulations.
 
 ### 2.3 Compilation Pipeline
 
@@ -1292,150 +1305,44 @@ func (r *Reporter) HasErrors() bool {
 
 ## 5. Development Phases
 
-### Phase 1: Minimal Viable Compiler (Weeks 1-4)
+### Phase 1 (Complete): Minimal Viable Compiler (Weeks 1-4)
 
-**Goal:** Successfully compile `simple.go` to MLIR
+We now have an end-to-end path from `simple.go` to MLIR, including the CLI, SSA bridge, hardware IR, and a basic MLIR printer validated with `mlir-opt`. The remaining phases build on this foundation.
 
-**Tasks:**
+### Phase 2: Type System & Deterministic Concurrency (Weeks 5-7)
 
-1. **Setup Project Structure** (Week 1)
- - [ ] Create directory layout
- - [ ] Initialize Go module (`go mod init mygo`)
- - [ ] Setup basic CLI with cobra/flag parsing
- - [ ] Add vendor directory for LLGo components
+**Goal:** Nail type soundness while introducing the goroutine/channel features described above. See `README_PHASE2.md` for the day-to-day checklist.
 
-2. **Implement Frontend** (Week 2)
- - [ ] Implement `internal/frontend/loader.go`
- - [ ] Load `simple.go` using `go/packages`
- - [ ] Implement `internal/frontend/ssa.go`
- - [ ] Generate SSA and dump to stdout for inspection
+- `internal/passes/widthinfer.go`: signedness tracking, mixed-width math, and overflow diagnostics.
+- `internal/validate/checker.go`: whitelist SSA instructions and enforce concurrency rules (static goroutines, buffered channels only, no `select`), rejecting patterns seen as illegal in `third_party/argo2verilog/test/channel01.go`.
+- Channel-aware IR: add FIFO/channel symbols, handshake signals, and process metadata so `pipeline1.go`/`pipeline2.go` style topologies can be represented internally.
+- Diagnostics: source spans for channel misuse plus JSON output for editor integrations.
+- Tests: extend `test/e2e` with the Argo channel programs and diff the emitted MLIR against expectations.
 
-3. **Implement IR Builder** (Week 3)
- - [ ] Define IR types in `internal/ir/`
- - [ ] Implement SSA → IR translation for:
- - Variable declarations (`*ssa.Alloc`)
- - Constants (`*ssa.Const`)
- - Binary operations (`*ssa.BinOp`)
- - Assignments (`*ssa.Store`)
- - [ ] Create symbol table mapping SSA values to signals
+### Phase 3: Control Flow & Streaming Pipelines (Weeks 8-10)
 
-4. **Implement MLIR Emission** (Week 4)
- - [ ] Implement basic MLIR printer
- - [ ] Emit `hw.module` with clock/reset ports
- - [ ] Emit `comb.add` for addition operations
- - [ ] Test with `mlir-opt --verify-diagnostics`
+**Goal:** Support conditional logic, bounded loops, and schedule goroutines into explicit hardware pipelines.
 
-**Success Criteria:**
-```bash
-$ mygo compile test/e2e/simple.go --emit=mlir -o simple.mlir
-$ mlir-opt --verify-diagnostics simple.mlir
-# Should pass without errors
-```
+- Translate `*ssa.If`, phi nodes, and bounded `for` loops into IR blocks and `comb.mux`/state machines.
+- Build a simple scheduler so concurrently running goroutines become separate processes that drive channel endpoints, mirroring the three-stage structure in `third_party/argo2verilog/src/verilog/argo_3stage.v`.
+- Model back-pressure: ensure channel readiness gates loop-carried dependencies to avoid deadlock.
+- Add regression tests for `third_party/argo2verilog/test/pipeline1.go` and `router-csp.go`, comparing both SSA dumps and MLIR.
 
-**Expected Output (`simple.mlir`):**
+### Phase 4: Verilog Backend & Simulation (Weeks 11-13)
 
-```mlir
-module {
-  hw.module @main(%clk: i1, %rst: i1) {
-    %c3 = hw.constant 3 : i32
-    %c1 = hw.constant 1 : i32
-    %c2 = hw.constant 2 : i16
+**Goal:** Emit synthesizable Verilog/SystemVerilog and validate it with the Argo reference benches.
 
-    // dead = 3
-    %dead = seq.compreg %c3, %clk : i32
+- Wire CIRCT's `hw`, `sv`, and `seq` dialects into `circt-opt` to produce `.sv`.
+- Generate FIFO modules equivalent to `third_party/argo2verilog/src/verilog/argo_queue.v` and stitch them into each channel instantiation.
+- Provide make targets that run Icarus/Verilator on the emitted designs; the golden test is reproducing the waveform/printf traces from `argo_3stage_bench.v`.
+- Expand CI to run Verilog lint/simulation in addition to MLIR verification.
 
-    // l = dead
-    %l = seq.compreg %dead, %clk : i32
+### Phase 5: Advanced Features & Optimization (Weeks 14+)
 
-    // i = 1
-    %i = seq.compreg %c1, %clk : i32
-
-    // j = 2
-    %j = seq.compreg %c2, %clk : i16
-
-    // k = i + j (with type extension)
-    %j_ext = comb.zext %j : (i16) -> i64
-    %i_ext = comb.sext %i : (i32) -> i64
-    %k_val = comb.add %i_ext, %j_ext : i64
-    %k = seq.compreg %k_val, %clk : i64
-
-    hw.output
-  }
-}
-```
-
-### Phase 2: Type System & Validation (Weeks 5-6)
-
-**Goal:** Proper type handling and error reporting
-
-**Tasks:**
-
-1. **Bit-width Inference**
- - [ ] Implement `internal/passes/widthinfer.go`
- - [ ] Automatic widening for mixed-type operations
- - [ ] Detect overflow conditions
-
-2. **SSA Validation**
- - [ ] Implement `internal/validate/checker.go`
- - [ ] Whitelist allowed SSA instructions
- - [ ] Reject goroutines, channels, interfaces
-
-3. **Enhanced Diagnostics**
- - [ ] Implement source position tracking
- - [ ] Pretty-print error messages with source snippets
- - [ ] Add JSON output mode
-
-**Test Cases:**
-```go
-// test/e2e/type_mismatch.go
-var a int8 = 100
-var b int64 = 200
-c := a + b  // Should auto-widen to int64
-```
-
-### Phase 3: Control Flow (Weeks 7-9)
-
-**Goal:** Support `if` statements and bounded loops
-
-**Tasks:**
-
-1. **If Statement Translation**
- - [ ] Translate `*ssa.If` to multiplexers
- - [ ] Handle phi nodes for merged values
-
-2. **Bounded Loops**
- - [ ] Detect compile-time loop bounds
- - [ ] Unroll or create state machine
- - [ ] Reject unbounded loops
-
-**Example:**
-```go
-var sum int32 = 0
-for i := 0; i < 10; i++ {
-    sum = sum + i
-}
-```
-
-### Phase 4: Verilog Backend (Weeks 10-12)
-
-**Goal:** Generate synthesizable Verilog
-
-**Tasks:**
-
-1. **CIRCT Integration**
- - [ ] Invoke `circt-opt` with verilog export
- - [ ] Handle tool errors gracefully
-
-2. **E2E Testing**
- - [ ] Golden file tests for Verilog output
- - [ ] Simulation with Verilator or Icarus
-
-### Phase 5: Advanced Features (Weeks 13+)
-
-- Arrays and memories
-- Parameterization
-- Pipeline annotations
-- Optimization passes (dead code elimination, CSE)
+- Arrays/memory blocks that map onto BRAMs and align with the dual-ported RAM in `third_party/argo2verilog/src/verilog/d_p_ram.v`.
+- Parameterization/pipeline annotations for latency tuning.
+- Optimization passes (dead code elimination, CSE, strength reduction) plus formal equivalence tests between MLIR and Verilog outputs.
+- Stretch goals: partial map/slice support, external IP integration, automated floorplanning hints.
 
 ---
 
