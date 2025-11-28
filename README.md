@@ -155,7 +155,7 @@ The goroutine and channel design is derived directly from the Argo reference pro
 1. **Deterministic goroutines:** Every `go` statement spawns a synthesizable hardware process. The callee must be a named function with no captured closures so the compiler can emit a dedicated module/process. The number of goroutines is fixed at compile time; dynamic spawning or recursion is rejected during validation.
 2. **Buffered channels map to FIFOs:** `make(chan T, N)` materializes as an `argo_queue`-style FIFO with depth `N` and element width inferred from `T`. Send (`<-`) operations drive FIFO write ports, receives block on reads, and we emit `ivalid/iready` style handshakes mirroring the template pipeline.
 3. **Deterministic scheduling:** Because channels are bounded, back-pressure is explicit. The IR captures readiness/valid signals so we can recreate the three-stage control structure showcased in `argo_3stage.v`.
-4. **Tooling parity:** End-to-end tests will include the Argo channel programs so we can diff our MLIR/Verilog against the known-good iverilog simulations.
+4. **Tooling parity:** End-to-end tests will include the Argo channel programs so we can diff our MLIR/Verilog against the known-good Verilator simulations.
 
 ### 2.3 Compilation Pipeline
 
@@ -376,7 +376,7 @@ mygo compile -emit=verilog -o simple.sv simple.go
 
 # Compile to Verilog and drive a simulator (auto-detects expected.sim next to the source)
 mygo sim --circt-translate=/path/to/circt-translate \
-         --simulator=scripts/run-iverilog-sim.sh \
+         --simulator=/path/to/verilator-wrapper.sh \
          test/e2e/pipeline1/main.go
 
 # Dump SSA for debugging
@@ -391,6 +391,9 @@ mygo dump-ir simple.go
 # Go's `flag` package stops parsing after the first positional argument, so
 # always specify CLI flags (e.g. `-emit`, `-o`, `-diag-format`) before the Go
 # source files.
+
+# When emitting Verilog, the backend also writes `<output>_fifos.sv`; include both
+# files when running Verilator or any downstream simulator.
 ```
 
 **Global Flags:**
@@ -400,7 +403,7 @@ mygo dump-ir simple.go
 - `--circt-opt=<path>` / `--circt-translate=<path>`: Override the CIRCT binaries invoked by the Verilog backend.
 - `--circt-pipeline=<passes>`: Pass pipeline string forwarded to `circt-opt`.
 - `--circt-mlir=<path>`: Dump the MLIR handed to CIRCT (useful for debugging).
-- `--simulator=<bin>` / `--sim-args="<args>"`: Simulator executable and extra arguments for the `sim` command.
+- `--simulator=<bin>` / `--sim-args="<args>"`: Simulator executable (e.g. a Verilator wrapper) and extra arguments for the `sim` command.
 - `--expect=<path>`: Optional golden stdout file the `sim` command compares the simulator output against.
 
 **Implementation (`cmd/mygo/main.go`):**
@@ -1843,5 +1846,5 @@ For `simple.go` compilation:
 **Maintainer:** Youwei Zhuo
 #### 4.2.2 Simulation Wrapper
 
-- `scripts/run-iverilog-sim.sh` wraps `iverilog`/`vvp` and is the recommended target for `mygo sim --simulator=...`. Override `$IVERILOG`/`$VVP` to point at custom installs.
-- `mygo sim` now auto-detects `expected.sim` files (e.g., `test/e2e/pipeline1/expected.sim`) when you pass a single Go source, so recorded traces are compared automatically.
+- Provide your own Verilator (or other simulator) wrapper script and point `mygo sim --simulator` at it; the CLI will pass the generated Verilog plus any auxiliary IP sources.
+- `mygo sim` auto-detects `expected.sim` files (e.g., `test/e2e/pipeline1/expected.sim`) when you pass a single Go source, so recorded traces are compared automatically.

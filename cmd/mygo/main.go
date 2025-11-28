@@ -98,13 +98,23 @@ func runCompile(args []string) error {
 	case "mlir":
 		return mlir.Emit(design, *output)
 	case "verilog":
+		if *output == "" || *output == "-" {
+			return fmt.Errorf("verilog emission requires -o when auxiliary FIFO sources are generated")
+		}
 		opts := backend.Options{
 			CIRCTOptPath:       *circtOpt,
 			CIRCTTranslatePath: *circtTranslate,
 			PassPipeline:       *circtPipeline,
 			DumpMLIRPath:       *circtMLIR,
 		}
-		return backend.EmitVerilog(design, *output, opts)
+		res, err := backend.EmitVerilog(design, *output, opts)
+		if err != nil {
+			return err
+		}
+		if len(res.AuxPaths) > 0 {
+			fmt.Fprintf(os.Stderr, "additional sources written: %s\n", strings.Join(res.AuxPaths, ", "))
+		}
+		return nil
 	default:
 		return fmt.Errorf("unknown emit format: %s", *emit)
 	}
@@ -281,7 +291,7 @@ func runSim(args []string) error {
 	circtMLIR := fs.String("circt-mlir", "", "path to dump the MLIR handed to CIRCT (optional)")
 	verilogOut := fs.String("verilog-out", "", "path to write the emitted Verilog bundle (optional)")
 	keepArtifacts := fs.Bool("keep-artifacts", false, "keep temporary artifacts generated during simulation")
-	simulator := fs.String("simulator", "", "simulator executable to run (e.g. verilator, iverilog, or a wrapper script)")
+	simulator := fs.String("simulator", "", "simulator executable to run (e.g. a Verilator wrapper script)")
 	simArgs := fs.String("sim-args", "", "additional simulator arguments (space-separated)")
 	expectPath := fs.String("expect", "", "path to file containing expected simulator stdout (optional)")
 
@@ -344,17 +354,24 @@ func runSim(args []string) error {
 		KeepTemps:          *keepArtifacts,
 	}
 
-	if err := backend.EmitVerilog(design, svPath, opts); err != nil {
+	res, err := backend.EmitVerilog(design, svPath, opts)
+	if err != nil {
 		return err
 	}
+	svPath = res.MainPath
+	auxFiles := append([]string{}, res.AuxPaths...)
 
 	if *simulator == "" {
 		fmt.Fprintf(os.Stdout, "Verilog written to %s\n", svPath)
+		if len(auxFiles) > 0 {
+			fmt.Fprintf(os.Stdout, "Additional sources: %s\n", strings.Join(auxFiles, ", "))
+		}
 		return nil
 	}
 
 	simulatorArgs := parseSimArgs(*simArgs)
 	simulatorArgs = append(simulatorArgs, svPath)
+	simulatorArgs = append(simulatorArgs, auxFiles...)
 	cmd := exec.Command(*simulator, simulatorArgs...)
 
 	var stdoutBuf bytes.Buffer

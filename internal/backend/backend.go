@@ -3,10 +3,10 @@ package backend
 import (
 	"bytes"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"mygo/internal/ir"
@@ -31,31 +31,41 @@ type Options struct {
 	KeepTemps bool
 }
 
+// Result lists the artifacts produced during Verilog emission.
+type Result struct {
+	MainPath string
+	AuxPaths []string
+}
+
 // EmitVerilog lowers the design to MLIR, optionally runs circt-opt, and invokes
-// circt-translate --export-verilog to produce SystemVerilog at outputPath. When
-// outputPath is empty or "-", stdout is used.
-func EmitVerilog(design *ir.Design, outputPath string, opts Options) error {
+// circt-translate --export-verilog to produce SystemVerilog at outputPath.
+// When FIFOs are present, auxiliary files are produced as well and returned via
+// Result.AuxPaths.
+func EmitVerilog(design *ir.Design, outputPath string, opts Options) (Result, error) {
 	if design == nil {
-		return fmt.Errorf("backend: design is nil")
+		return Result{}, fmt.Errorf("backend: design is nil")
+	}
+	if outputPath == "" || outputPath == "-" {
+		return Result{}, fmt.Errorf("backend: verilog emission requires -o when auxiliary FIFO sources are generated")
 	}
 
 	fifoInfos := collectFifoDescriptors(design)
 
 	translatePath, err := resolveBinary(opts.CIRCTTranslatePath, "circt-translate")
 	if err != nil {
-		return fmt.Errorf("backend: resolve circt-translate: %w", err)
+		return Result{}, fmt.Errorf("backend: resolve circt-translate: %w", err)
 	}
 
 	var optPath string
 	if needsOpt(opts) {
 		if optPath, err = resolveBinary(opts.CIRCTOptPath, "circt-opt"); err != nil {
-			return fmt.Errorf("backend: resolve circt-opt: %w", err)
+			return Result{}, fmt.Errorf("backend: resolve circt-opt: %w", err)
 		}
 	}
 
 	tempDir, err := os.MkdirTemp("", "mygo-circt-*")
 	if err != nil {
-		return fmt.Errorf("backend: create temp dir: %w", err)
+		return Result{}, fmt.Errorf("backend: create temp dir: %w", err)
 	}
 	if !opts.KeepTemps {
 		defer os.RemoveAll(tempDir)
@@ -65,48 +75,35 @@ func EmitVerilog(design *ir.Design, outputPath string, opts Options) error {
 	if mlirPath == "" {
 		mlirPath = filepath.Join(tempDir, "design.mlir")
 	} else if err := os.MkdirAll(filepath.Dir(mlirPath), 0o755); err != nil {
-		return fmt.Errorf("backend: create circt-mlir dir: %w", err)
+		return Result{}, fmt.Errorf("backend: create circt-mlir dir: %w", err)
 	}
 
 	if err := mlir.Emit(design, mlirPath); err != nil {
-		return fmt.Errorf("backend: emit mlir: %w", err)
+		return Result{}, fmt.Errorf("backend: emit mlir: %w", err)
 	}
 
 	currentInput := mlirPath
 	if needsOpt(opts) {
 		optOutput := filepath.Join(tempDir, "design.opt.mlir")
 		if err := runCirctOpt(optPath, opts.PassPipeline, currentInput, optOutput); err != nil {
-			return err
+			return Result{}, err
 		}
 		currentInput = optOutput
 	}
 
-	writeStdout := outputPath == "" || outputPath == "-"
-	finalOutput := outputPath
-	if writeStdout {
-		finalOutput = filepath.Join(tempDir, "design.sv")
+	if err := runCirctTranslate(translatePath, currentInput, outputPath); err != nil {
+		return Result{}, err
 	}
 
-	if err := runCirctTranslate(translatePath, currentInput, finalOutput); err != nil {
-		return err
+	auxPath, err := stripAndWriteFifos(outputPath, fifoInfos)
+	if err != nil {
+		return Result{}, err
 	}
-
-	if err := injectFifoImplementations(finalOutput, fifoInfos); err != nil {
-		return err
+	res := Result{MainPath: outputPath}
+	if auxPath != "" {
+		res.AuxPaths = append(res.AuxPaths, auxPath)
 	}
-
-	if writeStdout {
-		data, err := os.ReadFile(finalOutput)
-		if err != nil {
-			return err
-		}
-		if _, err := os.Stdout.Write(data); err != nil {
-			return err
-		}
-		return nil
-	}
-
-	return nil
+	return res, nil
 }
 
 func needsOpt(opts Options) bool {
@@ -148,20 +145,6 @@ func runCirctTranslate(binary, inputPath, outputPath string) error {
 	return nil
 }
 
-func outputWriter(path string) (io.Writer, func() error, error) {
-	if path == "" || path == "-" {
-		return os.Stdout, func() error { return nil }, nil
-	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return nil, nil, fmt.Errorf("backend: create output dir: %w", err)
-	}
-	f, err := os.Create(path)
-	if err != nil {
-		return nil, nil, fmt.Errorf("backend: create output file: %w", err)
-	}
-	return f, f.Close, nil
-}
-
 func resolveBinary(explicit, fallback string) (string, error) {
 	if explicit != "" {
 		if _, err := os.Stat(explicit); err != nil {
@@ -200,7 +183,7 @@ func collectFifoDescriptors(design *ir.Design) []fifoDescriptor {
 			if depth <= 0 {
 				depth = 1
 			}
-			elem := typeString(ch.Type)
+			elem := signalTypeString(ch.Type)
 			name := fifoModuleName(elem, depth)
 			if _, ok := seen[name]; ok {
 				continue
@@ -216,56 +199,61 @@ func collectFifoDescriptors(design *ir.Design) []fifoDescriptor {
 	for _, desc := range seen {
 		result = append(result, desc)
 	}
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].name < result[j].name
+	})
 	return result
 }
 
-func injectFifoImplementations(path string, fifos []fifoDescriptor) error {
+func stripAndWriteFifos(mainPath string, fifos []fifoDescriptor) (string, error) {
 	if len(fifos) == 0 {
-		return nil
+		return "", nil
 	}
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(mainPath)
 	if err != nil {
-		return fmt.Errorf("backend: read verilog output: %w", err)
+		return "", fmt.Errorf("backend: read verilog output: %w", err)
 	}
-	content := string(data)
+	updated := string(data)
 	for _, fifo := range fifos {
-		replacement := fifoTemplate(fifo)
-		var replErr error
-		content, replErr = replaceModule(content, fifo.name, replacement)
-		if replErr != nil {
-			return replErr
+		var ok bool
+		updated, ok = removeModuleBlock(updated, fifo.name)
+		if !ok {
+			return "", fmt.Errorf("backend: module %s not found in generated Verilog", fifo.name)
 		}
 	}
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
-		return fmt.Errorf("backend: write patched verilog: %w", err)
+	if err := os.WriteFile(mainPath, []byte(updated), 0o644); err != nil {
+		return "", fmt.Errorf("backend: update main verilog: %w", err)
 	}
-	return nil
+
+	auxPath := strings.TrimSuffix(mainPath, filepath.Ext(mainPath)) + "_fifos.sv"
+	var buf bytes.Buffer
+	buf.WriteString("// Auto-generated FIFO implementations.\n")
+	for _, fifo := range fifos {
+		buf.WriteString(fifoTemplate(fifo))
+		buf.WriteString("\n")
+	}
+	if err := os.WriteFile(auxPath, buf.Bytes(), 0o644); err != nil {
+		return "", fmt.Errorf("backend: write fifo sources: %w", err)
+	}
+	return auxPath, nil
 }
 
-func replaceModule(content, moduleName, replacement string) (string, error) {
+func removeModuleBlock(content, moduleName string) (string, bool) {
 	marker := "module " + moduleName
 	start := strings.Index(content, marker)
 	if start == -1 {
-		return content, fmt.Errorf("backend: module %s not found in translated Verilog", moduleName)
+		return content, false
 	}
 	tail := content[start:]
 	endIdx := strings.Index(tail, "endmodule")
 	if endIdx == -1 {
-		return content, fmt.Errorf("backend: malformed module %s (missing endmodule)", moduleName)
+		return content, false
 	}
-	endIdx += start + len("endmodule")
-	// include trailing newline(s)
-	for endIdx < len(content) && (content[endIdx] == '\n' || content[endIdx] == '\r') {
-		endIdx++
+	end := start + endIdx + len("endmodule")
+	for end < len(content) && (content[end] == '\n' || content[end] == '\r') {
+		end++
 	}
-	var buf bytes.Buffer
-	buf.WriteString(content[:start])
-	buf.WriteString(replacement)
-	if !strings.HasSuffix(replacement, "\n") {
-		buf.WriteString("\n")
-	}
-	buf.WriteString(content[endIdx:])
-	return buf.String(), nil
+	return content[:start] + content[end:], true
 }
 
 func fifoTemplate(desc fifoDescriptor) string {
@@ -297,17 +285,13 @@ func fifoTemplate(desc fifoDescriptor) string {
 	fmt.Fprintf(builder, "  reg [ADDR_BITS-1:0] wptr;\n")
 	fmt.Fprintf(builder, "  reg [ADDR_BITS-1:0] rptr;\n")
 	fmt.Fprintf(builder, "  reg [COUNT_BITS-1:0] count;\n")
-	fmt.Fprintf(builder, "  wire ready_int;\n")
-	fmt.Fprintf(builder, "  wire valid_int;\n")
-	fmt.Fprintf(builder, "  wire push;\n")
-	fmt.Fprintf(builder, "  wire pop;\n")
-	fmt.Fprintf(builder, "  assign ready_int = (count < DEPTH);\n")
-	fmt.Fprintf(builder, "  assign valid_int = (count != 0);\n")
+	fmt.Fprintf(builder, "  wire ready_int = (count < DEPTH);\n")
+	fmt.Fprintf(builder, "  wire valid_int = (count != 0);\n")
+	fmt.Fprintf(builder, "  wire push = in_valid & ready_int;\n")
+	fmt.Fprintf(builder, "  wire pop = valid_int & out_ready;\n")
 	fmt.Fprintf(builder, "  assign in_ready = ready_int;\n")
 	fmt.Fprintf(builder, "  assign out_valid = valid_int;\n")
 	fmt.Fprintf(builder, "  assign out_data = mem[rptr];\n")
-	fmt.Fprintf(builder, "  assign push = in_valid & ready_int;\n")
-	fmt.Fprintf(builder, "  assign pop = valid_int & out_ready;\n")
 	fmt.Fprintf(builder, "  always @(posedge clk) begin\n")
 	fmt.Fprintf(builder, "    if (rst) begin\n")
 	fmt.Fprintf(builder, "      wptr <= {ADDR_BITS{1'b0}};\n")
@@ -352,7 +336,7 @@ func verilogRange(width int) string {
 }
 
 func fifoModuleName(elemType string, depth int) string {
-	return fmt.Sprintf("mygo.fifo_%s_d%d", sanitize(elemType), depth)
+	return fmt.Sprintf("mygo_fifo_%s_d%d", sanitize(elemType), depth)
 }
 
 func signalWidth(t *ir.SignalType) int {
@@ -362,7 +346,7 @@ func signalWidth(t *ir.SignalType) int {
 	return t.Width
 }
 
-func typeString(t *ir.SignalType) string {
+func signalTypeString(t *ir.SignalType) string {
 	return fmt.Sprintf("i%d", signalWidth(t))
 }
 

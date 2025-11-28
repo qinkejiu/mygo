@@ -37,8 +37,15 @@ cat "$INPUT"
 
 	out := filepath.Join(tmp, "out.sv")
 	opts := Options{CIRCTTranslatePath: translate}
-	if err := EmitVerilog(design, out, opts); err != nil {
+	res, err := EmitVerilog(design, out, opts)
+	if err != nil {
 		t.Fatalf("EmitVerilog failed: %v", err)
+	}
+	if res.MainPath != out {
+		t.Fatalf("expected main path %s, got %s", out, res.MainPath)
+	}
+	if len(res.AuxPaths) != 0 {
+		t.Fatalf("expected no aux files, got %v", res.AuxPaths)
 	}
 
 	data, err := os.ReadFile(out)
@@ -108,7 +115,7 @@ cat "$INPUT"
 		CIRCTTranslatePath: translate,
 		PassPipeline:       "pipeline-test",
 	}
-	if err := EmitVerilog(design, out, opts); err != nil {
+	if _, err := EmitVerilog(design, out, opts); err != nil {
 		t.Fatalf("EmitVerilog failed: %v", err)
 	}
 
@@ -124,9 +131,47 @@ cat "$INPUT"
 func TestEmitVerilogMissingTranslate(t *testing.T) {
 	design := testDesign()
 	opts := Options{CIRCTTranslatePath: filepath.Join(t.TempDir(), "missing")}
-	err := EmitVerilog(design, "", opts)
+	out := filepath.Join(t.TempDir(), "out.sv")
+	_, err := EmitVerilog(design, out, opts)
 	if err == nil {
 		t.Fatalf("expected error when circt-translate is missing")
+	}
+}
+
+func TestEmitVerilogEmitsAuxiliaryFifoFile(t *testing.T) {
+	requirePosix(t)
+	design := testDesignWithChannel()
+	tmp := t.TempDir()
+	translate := writeScript(t, tmp, "translate.sh", `#!/bin/sh
+set -e
+cat <<'EOS'
+module main();
+endmodule
+module mygo_fifo_i32_d1();
+endmodule
+EOS
+`)
+	out := filepath.Join(tmp, "design.sv")
+	res, err := EmitVerilog(design, out, Options{CIRCTTranslatePath: translate})
+	if err != nil {
+		t.Fatalf("EmitVerilog failed: %v", err)
+	}
+	if len(res.AuxPaths) != 1 {
+		t.Fatalf("expected one aux file, got %v", res.AuxPaths)
+	}
+	mainData, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatalf("read main: %v", err)
+	}
+	if strings.Contains(string(mainData), "module mygo_fifo") {
+		t.Fatalf("expected fifo module to be stripped:\n%s", string(mainData))
+	}
+	auxData, err := os.ReadFile(res.AuxPaths[0])
+	if err != nil {
+		t.Fatalf("read aux: %v", err)
+	}
+	if !strings.Contains(string(auxData), "module mygo_fifo_i32_d1") {
+		t.Fatalf("expected fifo implementation, got:\n%s", string(auxData))
 	}
 }
 
@@ -139,6 +184,25 @@ func testDesign() *ir.Design {
 		},
 		Signals:  map[string]*ir.Signal{},
 		Channels: map[string]*ir.Channel{},
+	}
+	return &ir.Design{
+		Modules:  []*ir.Module{mod},
+		TopLevel: mod,
+	}
+}
+
+func testDesignWithChannel() *ir.Design {
+	ch := &ir.Channel{
+		Name:  "t0",
+		Type:  &ir.SignalType{Width: 32},
+		Depth: 1,
+	}
+	mod := &ir.Module{
+		Name:      "main",
+		Ports:     []ir.Port{{Name: "clk", Direction: ir.Input, Type: &ir.SignalType{Width: 1}}, {Name: "rst", Direction: ir.Input, Type: &ir.SignalType{Width: 1}}},
+		Signals:   map[string]*ir.Signal{},
+		Channels:  map[string]*ir.Channel{"t0": ch},
+		Processes: []*ir.Process{},
 	}
 	return &ir.Design{
 		Modules:  []*ir.Module{mod},

@@ -33,7 +33,7 @@ Weeks **11-13** bring the MyGO prototype from MLIR-only outputs to a Verilog-cap
 
 ### 3. Simulation Harness
 - Add `mygo sim <case>` (or extend `mygo test`) to compile emitted Verilog with Icarus/Verilator and run the resulting executable.
-- Provide an `iverilog` wrapper script (`scripts/run-iverilog-sim.sh`) that the CLI can invoke locally, with environment overrides for custom tool paths.
+- Provide a Verilator wrapper script (or documented command line) that the CLI/sim users can invoke locally.
 - Capture standard output from the simulation and diff it against the reference traces from `third_party/argo2verilog` (starting with the new `test/e2e/pipeline1/expected.sim` golden).
 - Extend `test/e2e` so each workload can optionally specify a `.sim.out` golden that the CI sim step compares against.
 

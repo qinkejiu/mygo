@@ -51,13 +51,22 @@ func (e *emitter) emitModule(module *ir.Module) {
 		return
 	}
 	processInfos := buildProcessInfos(module)
-	e.emitTopLevelModule(module, processInfos)
+	var root *processInfo
+	others := make([]*processInfo, 0, len(processInfos))
 	for _, info := range processInfos {
+		if info.proc != nil && info.proc.Name == module.Name && root == nil {
+			root = info
+			continue
+		}
+		others = append(others, info)
+	}
+	e.emitTopLevelModule(module, root, others)
+	for _, info := range others {
 		e.emitProcessModule(module, info)
 	}
 }
 
-func (e *emitter) emitTopLevelModule(module *ir.Module, processes []*processInfo) map[*ir.Channel]*channelWireSet {
+func (e *emitter) emitTopLevelModule(module *ir.Module, root *processInfo, processes []*processInfo) map[*ir.Channel]*channelWireSet {
 	e.printIndent()
 	fmt.Fprintf(e.w, "hw.module @%s(", module.Name)
 	inputs, outputs := portLists(module.Ports)
@@ -83,6 +92,9 @@ func (e *emitter) emitTopLevelModule(module *ir.Module, processes []*processInfo
 
 	channelWires := e.emitChannelWires(module)
 	e.emitChannelFifos(module, channelWires)
+	if root != nil {
+		e.emitRootProcess(module, root, channelWires)
+	}
 	for idx, info := range processes {
 		e.emitProcessInstance(idx, info, channelWires)
 	}
@@ -244,6 +256,21 @@ func (e *emitter) emitProcessModule(module *ir.Module, info *processInfo) {
 	fmt.Fprintln(e.w, "}")
 }
 
+func (e *emitter) emitRootProcess(module *ir.Module, info *processInfo, wires map[*ir.Channel]*channelWireSet) {
+	if info == nil || info.proc == nil {
+		return
+	}
+	pp := &processPrinter{
+		w:             e.w,
+		indent:        e.indent,
+		moduleSignals: module.Signals,
+		usedSignals:   info.usedSignals,
+		channelPorts:  channelPortsFromWires(info, wires),
+	}
+	pp.resetState()
+	pp.emitProcess(info.proc)
+}
+
 func (e *emitter) processPorts(info *processInfo) []portDesc {
 	ports := []portDesc{
 		{name: "%clk", typ: "i1"},
@@ -342,6 +369,33 @@ type fifoInfo struct {
 	moduleName string
 	elemType   string
 	depth      int
+}
+
+func channelPortsFromWires(info *processInfo, wires map[*ir.Channel]*channelWireSet) map[*ir.Channel]*channelPortSet {
+	ports := make(map[*ir.Channel]*channelPortSet)
+	if info == nil {
+		return ports
+	}
+	for _, ch := range info.channelOrder {
+		role := info.channelRoles[ch]
+		wire := wires[ch]
+		if role == nil || wire == nil {
+			continue
+		}
+		set := &channelPortSet{}
+		if role.send {
+			set.sendData = wire.writeData
+			set.sendValid = wire.writeValid
+			set.sendReady = wire.writeReady
+		}
+		if role.recv {
+			set.recvData = wire.readData
+			set.recvValid = wire.readValid
+			set.recvReady = wire.readReady
+		}
+		ports[ch] = set
+	}
+	return ports
 }
 
 type processInfo struct {

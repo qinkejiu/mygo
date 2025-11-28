@@ -81,7 +81,7 @@ go run ./cmd/mygo compile -emit=mlir -o channel_basic.mlir test/e2e/channel_basi
    - `internal/validate`: fixtures for allowed vs. rejected goroutines/channel creations.
 2. **End-to-end tests**
    - Port `third_party/argo2verilog/test/channel01.go`, `pipeline1.go`, and `pipeline2.go` into `test/e2e`.
-   - Compare MLIR via golden files; later phases will add Verilog/iverilog checks.
+   - Compare MLIR via golden files; later phases will add Verilog/Verilator checks.
 3. **Simulation parity (stretch)**
    - For each e2e test, dump signal traces and ensure ordering matches the reference printf output.
 
