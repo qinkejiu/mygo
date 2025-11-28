@@ -374,10 +374,9 @@ mygo compile -emit=mlir -o simple.mlir simple.go
 # Compile Go to Verilog
 mygo compile -emit=verilog -o simple.sv simple.go
 
-# Compile to Verilog and drive a simulator (expect iverilog-style stdout)
+# Compile to Verilog and drive a simulator (auto-detects expected.sim next to the source)
 mygo sim --circt-translate=/path/to/circt-translate \
-         --simulator=/path/to/run-sim.sh \
-         --expect=test/e2e/pipeline1/expected.sim \
+         --simulator=scripts/run-iverilog-sim.sh \
          test/e2e/pipeline1/main.go
 
 # Dump SSA for debugging
@@ -1842,3 +1841,7 @@ For `simple.go` compilation:
 **Document Version:** 0.1
 **Last Updated:** 2025-11-02
 **Maintainer:** Youwei Zhuo
+#### 4.2.2 Simulation Wrapper
+
+- `scripts/run-iverilog-sim.sh` wraps `iverilog`/`vvp` and is the recommended target for `mygo sim --simulator=...`. Override `$IVERILOG`/`$VVP` to point at custom installs.
+- `mygo sim` now auto-detects `expected.sim` files (e.g., `test/e2e/pipeline1/expected.sim`) when you pass a single Go source, so recorded traces are compared automatically.

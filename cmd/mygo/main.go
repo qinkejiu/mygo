@@ -294,6 +294,15 @@ func runSim(args []string) error {
 	}
 
 	inputs := fs.Args()
+
+	if *expectPath == "" && len(inputs) == 1 {
+		if candidate := defaultSimExpectPath(inputs[0]); candidate != "" {
+			if _, err := os.Stat(candidate); err == nil {
+				*expectPath = candidate
+			}
+		}
+	}
+
 	result, err := prepareProgram(inputs, *diagFormat)
 	if err != nil {
 		return err
@@ -386,4 +395,12 @@ func parseSimArgs(raw string) []string {
 		}
 	}
 	return result
+}
+
+func defaultSimExpectPath(input string) string {
+	if input == "" {
+		return ""
+	}
+	dir := filepath.Dir(input)
+	return filepath.Join(dir, "expected.sim")
 }
