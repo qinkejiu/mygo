@@ -369,10 +369,10 @@ mygo/
 
 ```bash
 # Compile Go to MLIR
-mygo compile simple.go --emit=mlir -o simple.mlir
+mygo compile -emit=mlir -o simple.mlir simple.go
 
 # Compile Go to Verilog
-mygo compile simple.go --emit=verilog -o simple.sv
+mygo compile -emit=verilog -o simple.sv simple.go
 
 # Dump SSA for debugging
 mygo dump-ssa simple.go
@@ -382,13 +382,17 @@ mygo lint simple.go
 
 # Dump intermediate IR
 mygo dump-ir simple.go
+
+# Go's `flag` package stops parsing after the first positional argument, so
+# always specify CLI flags (e.g. `-emit`, `-o`, `-diag-format`) before the Go
+# source files.
 ```
 
 **Global Flags:**
 - `--target=<name>`: Target function/module (default: `main`)
 - `--clock=<signal>`: Clock signal name (default: `clk`)
 - `--reset=<signal>`: Reset signal name (default: `rst`)
-- `--emit=<format>`: Output format (`mlir`, `verilog`)
+- `-emit=<format>`: Output format (`mlir`, `verilog`)
 - `--diag-format=<format>`: Diagnostic format (`text`, `json`)
 - `--opt-passes=<list>`: Comma-separated optimization passes
 
@@ -1531,69 +1535,27 @@ func TestInferSignalType(t *testing.T) {
 }
 ```
 
+**How to run:** keep fast feedback loops by running `go test ./internal/...` (or `go test ./internal/<pkg>` while iterating). Every package under `internal/` should have colocated `_test.go` files that cover both happy paths and failure diagnostics; avoid relying on integration cases for logic that can be unit-tested in isolation.
+
 ### 7.2 End-to-End Tests
 
+Each scenario now lives in its own folder under `test/e2e/<case>/main.go` so it can be built like a normal Go package without custom build tags. The Go test harness (`test/e2e/e2e_test.go`) enumerates those folders and runs the CLI:
+
 ```go
-// test/e2e/e2e_test.go
-package e2e
-
-import (
- "os"
- "os/exec"
- "path/filepath"
- "testing"
-)
-
-func TestSimpleCompilation(t *testing.T) {
- goFile := "simple.go"
- expectedMLIR := "simple.mlir"
-
- // Run compiler
- cmd := exec.Command("../../mygo", "compile", goFile, "--emit=mlir", "-o", "output.mlir")
- if err := cmd.Run(); err != nil {
- t.Fatalf("compilation failed: %v", err)
- }
- defer os.Remove("output.mlir")
-
- // Compare with golden file
- expected, err := os.ReadFile(expectedMLIR)
- if err != nil {
- t.Fatalf("read golden file: %v", err)
- }
-
- actual, err := os.ReadFile("output.mlir")
- if err != nil {
- t.Fatalf("read output: %v", err)
- }
-
- if !bytes.Equal(normalize(expected), normalize(actual)) {
- t.Errorf("output mismatch\nExpected:\n%s\nActual:\n%s", expected, actual)
- }
-
- // Verify with mlir-opt
- cmd = exec.Command("mlir-opt", "--verify-diagnostics", "output.mlir")
- if err := cmd.Run(); err != nil {
- t.Errorf("mlir-opt verification failed: %v", err)
- }
-}
-
-func normalize(data []byte) []byte {
- // Remove comments, normalize whitespace
- // Implementation details...
+func TestProgramsCompileToMLIR(t *testing.T) {
+    cmd := exec.Command("go", "run", "./cmd/mygo",
+        "compile", "-emit=mlir", "-o", tmpFile, "test/e2e/simple/main.go")
+    if out, err := cmd.CombinedOutput(); err != nil {
+        t.Fatalf("compile failed: %v\n%s", err, out)
+    }
 }
 ```
 
-**Update Golden Files:**
+**How to run / extend:**
 
-```bash
-# scripts/update-goldens.sh
-#!/bin/bash
-cd test/e2e
-for f in *.go; do
- base="${f%.go}"
- ../../mygo compile "$f" --emit=mlir -o "$base.mlir"
-done
-```
+1. `go test ./test/e2e -run TestProgramsCompile` compiles every sample through the real CLI and catches regressions in SSA validation, passes, and MLIR emission.
+2. To add a new workload, create `test/e2e/<name>/main.go` (plus any golden MLIR/Verilog if needed) and add the directory name to the list inside `TestProgramsCompileToMLIR`.
+3. Golden comparisons (when we add them in later phases) should live next to the sample folder so the test can diff `*.mlir` outputs after running the compiler.
 
 ### 7.3 CI Pipeline
 
@@ -1790,7 +1752,7 @@ func main() {
 EOF
 
 # Step 2: Compile to MLIR
-mygo compile add.go --emit=mlir -o add.mlir
+mygo compile -emit=mlir -o add.mlir add.go
 
 # Step 3: Inspect MLIR
 cat add.mlir
@@ -1799,7 +1761,7 @@ cat add.mlir
 mlir-opt --verify-diagnostics add.mlir
 
 # Step 5: Generate Verilog
-mygo compile add.go --emit=verilog -o add.sv
+mygo compile -emit=verilog -o add.sv add.go
 
 # Step 6: Inspect Verilog
 cat add.sv

@@ -14,7 +14,7 @@ import (
 
 // CheckProgram validates that the SSA program only uses the supported subset
 // of Go constructs required by the deterministic concurrency model.
-func CheckProgram(prog *ssa.Program, reporter *diag.Reporter) error {
+func CheckProgram(prog *ssa.Program, pkgs []*ssa.Package, reporter *diag.Reporter) error {
 	if prog == nil {
 		return fmt.Errorf("no SSA program provided for validation")
 	}
@@ -23,7 +23,13 @@ func CheckProgram(prog *ssa.Program, reporter *diag.Reporter) error {
 	}
 
 	c := &checker{
-		reporter: reporter,
+		reporter:   reporter,
+		allowedPkg: make(map[*ssa.Package]struct{}),
+	}
+	for _, pkg := range pkgs {
+		if pkg != nil {
+			c.allowedPkg[pkg] = struct{}{}
+		}
 	}
 	c.run(prog)
 	if c.errCount > 0 {
@@ -33,13 +39,25 @@ func CheckProgram(prog *ssa.Program, reporter *diag.Reporter) error {
 }
 
 type checker struct {
-	reporter *diag.Reporter
-	errCount int
+	reporter   *diag.Reporter
+	errCount   int
+	allowedPkg map[*ssa.Package]struct{}
 }
 
 func (c *checker) run(prog *ssa.Program) {
 	for fn := range ssautil.AllFunctions(prog) {
 		if fn == nil || len(fn.Blocks) == 0 {
+			continue
+		}
+		if fn.Pkg == nil {
+			continue
+		}
+		if len(c.allowedPkg) > 0 {
+			if _, ok := c.allowedPkg[fn.Pkg]; !ok {
+				continue
+			}
+		}
+		if fn.Pkg.Pkg == nil {
 			continue
 		}
 		c.checkFunction(fn)

@@ -99,15 +99,15 @@ func TestValidateRejectsRecursion(t *testing.T) {
 
 func runValidation(t *testing.T, file string) (string, error) {
 	t.Helper()
-	prog, fset := buildSSAProgram(t, file)
+	prog, pkgs, fset := buildSSAProgram(t, file)
 	var buf bytes.Buffer
 	reporter := diag.NewReporter(&buf, "text")
 	reporter.SetFileSet(fset)
-	err := CheckProgram(prog, reporter)
+	err := CheckProgram(prog, pkgs, reporter)
 	return buf.String(), err
 }
 
-func buildSSAProgram(t *testing.T, file string) (*ssa.Program, *token.FileSet) {
+func buildSSAProgram(t *testing.T, file string) (*ssa.Program, []*ssa.Package, *token.FileSet) {
 	t.Helper()
 	cfg := frontend.LoadConfig{
 		Sources: []string{filepath.Join("testdata", file, "main.go")},
@@ -120,12 +120,12 @@ func buildSSAProgram(t *testing.T, file string) (*ssa.Program, *token.FileSet) {
 	if loadReporter.HasErrors() {
 		t.Fatalf("package loading reported errors")
 	}
-	prog, _, err := frontend.BuildSSA(pkgs, loadReporter)
+	prog, ssaPkgs, err := frontend.BuildSSA(pkgs, loadReporter)
 	if err != nil {
 		t.Fatalf("build SSA: %v", err)
 	}
 	if loadReporter.HasErrors() {
 		t.Fatalf("ssa construction reported errors")
 	}
-	return prog, fset
+	return prog, ssaPkgs, fset
 }

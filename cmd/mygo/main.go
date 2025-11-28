@@ -242,7 +242,7 @@ func validateProgram(result *frontendResult) error {
 	if result == nil || result.program == nil {
 		return fmt.Errorf("no program available for validation")
 	}
-	if err := validate.CheckProgram(result.program, result.reporter); err != nil {
+	if err := validate.CheckProgram(result.program, result.ssaPkgs, result.reporter); err != nil {
 		return err
 	}
 	return nil
