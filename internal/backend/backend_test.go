@@ -178,9 +178,64 @@ EOS
 	if err != nil {
 		t.Fatalf("read aux: %v", err)
 	}
-	aux := string(auxData)
-	if aux != fifoBody {
-		t.Fatalf("expected fifo implementation copy, got:\n%s", aux)
+	if got := string(auxData); got != fifoBody {
+		t.Fatalf("expected fifo implementation copy, got:\n%s", got)
+	}
+	expectedAux := strings.TrimSuffix(out, filepath.Ext(out)) + "_fifos.sv"
+	if res.AuxPaths[0] != expectedAux {
+		t.Fatalf("expected aux path %s, got %s", expectedAux, res.AuxPaths[0])
+	}
+	if _, err := os.Stat(expectedAux); err != nil {
+		t.Fatalf("expected aux file to exist: %v", err)
+	}
+}
+
+func TestEmitVerilogCopiesFifoDirectory(t *testing.T) {
+	requirePosix(t)
+	design := testDesignWithChannel()
+	tmp := t.TempDir()
+	translate := writeScript(t, tmp, "translate.sh", `#!/bin/sh
+set -e
+cat <<'EOS'
+module main();
+endmodule
+module mygo_fifo_i32_d1();
+endmodule
+EOS
+`)
+	srcDir := filepath.Join(tmp, "fifo_lib")
+	if err := os.MkdirAll(srcDir, 0o755); err != nil {
+		t.Fatalf("mkdir fifo dir: %v", err)
+	}
+	fileA := filepath.Join(srcDir, "fifo_a.sv")
+	fileB := filepath.Join(srcDir, "helpers", "helper.sv")
+	if err := os.MkdirAll(filepath.Dir(fileB), 0o755); err != nil {
+		t.Fatalf("mkdir helper dir: %v", err)
+	}
+	if err := os.WriteFile(fileA, []byte("module mygo_fifo_i32_d1(); endmodule\n"), 0o644); err != nil {
+		t.Fatalf("write fifo a: %v", err)
+	}
+	if err := os.WriteFile(fileB, []byte("// helper content\n"), 0o644); err != nil {
+		t.Fatalf("write helper: %v", err)
+	}
+	out := filepath.Join(tmp, "design.sv")
+	res, err := EmitVerilog(design, out, Options{
+		CIRCTTranslatePath: translate,
+		FIFOSource:         srcDir,
+	})
+	if err != nil {
+		t.Fatalf("EmitVerilog failed: %v", err)
+	}
+	if len(res.AuxPaths) != 2 {
+		t.Fatalf("expected two aux files, got %v", res.AuxPaths)
+	}
+	for _, p := range res.AuxPaths {
+		if !strings.HasPrefix(p, strings.TrimSuffix(out, filepath.Ext(out))+"_fifo_lib") {
+			t.Fatalf("unexpected aux path %s", p)
+		}
+		if _, err := os.Stat(p); err != nil {
+			t.Fatalf("expected aux file %s to exist: %v", p, err)
+		}
 	}
 }
 

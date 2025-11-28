@@ -372,11 +372,19 @@ mygo/
 mygo compile -emit=mlir -o simple.mlir simple.go
 
 # Compile Go to Verilog (requires your FIFO implementation when channels are present)
-mygo compile -emit=verilog --fifo-src=/path/to/my_fifo.sv -o simple.sv simple.go
+mygo compile -emit=verilog --fifo-src=/path/to/my_fifo_impl -o simple.sv simple.go
+# (the --fifo-src path can point to a single .sv file or an entire directory of helper IP)
 
 # Compile to Verilog and drive a simulator (auto-detects expected.sim next to the source)
 mygo sim --circt-translate=/path/to/circt-translate \
          --simulator=/path/to/verilator-wrapper.sh \
+         --fifo-src=/path/to/my_fifo.sv \
+         test/e2e/pipeline1/main.go
+
+# Dry-run the flow with the bundled mock simulator (prints MYGO_SIM_TRACE)
+MYGO_SIM_TRACE=test/e2e/pipeline1/expected.sim \
+mygo sim --circt-translate=/path/to/circt-translate \
+         --simulator=./scripts/mock-sim.sh \
          --fifo-src=/path/to/my_fifo.sv \
          test/e2e/pipeline1/main.go
 
@@ -405,7 +413,7 @@ mygo dump-ir simple.go
 - `--circt-opt=<path>` / `--circt-translate=<path>`: Override the CIRCT binaries invoked by the Verilog backend.
 - `--circt-pipeline=<passes>`: Pass pipeline string forwarded to `circt-opt`.
 - `--circt-mlir=<path>`: Dump the MLIR handed to CIRCT (useful for debugging).
-- `--fifo-src=<path>`: FIFO implementation source file copied alongside emitted Verilog when the design contains channels.
+- `--fifo-src=<path>`: Points to a FIFO/IP implementation. Files are copied next to the emitted Verilog (`design_fifos.sv`), directories are mirrored into `design_fifo_lib/...`.
 - `--simulator=<bin>` / `--sim-args="<args>"`: Simulator executable (e.g. a Verilator wrapper) and extra arguments for the `sim` command.
 - `--expect=<path>`: Optional golden stdout file the `sim` command compares the simulator output against.
 
@@ -1849,5 +1857,6 @@ For `simple.go` compilation:
 **Maintainer:** Youwei Zhuo
 #### 4.2.2 Simulation Wrapper
 
-- Provide your own Verilator (or other simulator) wrapper script and point `mygo sim --simulator` at it; the CLI will pass the generated Verilog plus any auxiliary IP sources.
+- Provide your own Verilator (or other simulator) wrapper script and point `mygo sim --simulator` at it; the CLI passes the generated Verilog plus every auxiliary IP source (copied from `--fifo-src`).
+- `scripts/mock-sim.sh` demonstrates the contract: it verifies the Verilog files exist, reads `MYGO_SIM_TRACE`, and echoes the captured trace so `mygo sim` can diff it against `expected.sim`.
 - `mygo sim` auto-detects `expected.sim` files (e.g., `test/e2e/pipeline1/expected.sim`) when you pass a single Go source, so recorded traces are compared automatically.

@@ -28,11 +28,13 @@ Weeks **11-13** bring the MyGO prototype from MLIR-only outputs to a Verilog-cap
 
 ### 2. FIFO & IP Library
 - Translate the existing channel metadata into concrete FIFO instantiations (`argo_queue` equivalent) with depth/width parameters. Instead of embedding the implementation, require users to pass `--fifo-src` so known-good IP (kept outside this repo) can be copied alongside the generated Verilog.
+- Backend now accepts either a single FIFO `.sv` file or an entire directory tree; the assets are mirrored next to the emitted Verilog (`design_fifos.sv` or `design_fifo_lib/<files>`) and enumerated via `Result.AuxPaths`.
 - Provide stubs for other shared blocks (e.g., balanced routers, ready/valid shims) and ensure they can either be emitted inline or referenced as external SV sources.
 - Add configuration knobs for FIFO implementation style (simple regs vs. vendor RAM) to prepare for future phases.
 
 ### 3. Simulation Harness
 - Add `mygo sim <case>` (or extend `mygo test`) to compile emitted Verilog with Icarus/Verilator and run the resulting executable.
+- `mygo sim` now ships with `scripts/mock-sim.sh` plus CLI tests (`cmd/mygo/sim_test.go`) that exercise the full flow: CIRCT translation stubs, FIFO copying, simulator invocation, and `expected.sim` comparison.
 - Provide a Verilator wrapper script (or documented command line) that the CLI/sim users can invoke locally.
 - Capture standard output from the simulation and diff it against the reference traces from `third_party/argo2verilog` (starting with the new `test/e2e/pipeline1/expected.sim` golden).
 - Extend `test/e2e` so each workload can optionally specify a `.sim.out` golden that the CI sim step compares against.
@@ -62,6 +64,7 @@ Weeks **11-13** bring the MyGO prototype from MLIR-only outputs to a Verilog-cap
 2. **Integration tests**
    - Extend `test/e2e` to capture both MLIR and SV goldens (textual diff).
    - For at least one small design (`pipeline1.go`), run Verilator/Icarus in CI and compare stdout to a reference log.
+   - CLI regression tests (`cmd/mygo/sim_test.go`) now drive `mygo sim` end-to-end using the bundled mock simulator, ensuring trace comparison logic behaves as expected.
 3. **Manual sanity checks**
    - Run `circt-opt` + `circt-translate` manually on a few workloads when tweaking backend pipelines.
    - Spot-check waveform dumps (via GTKWave) to ensure handshake signals align with the ready/valid contract.

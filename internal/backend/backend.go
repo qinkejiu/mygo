@@ -2,6 +2,8 @@ package backend
 
 import (
 	"fmt"
+	"io"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -97,13 +99,13 @@ func EmitVerilog(design *ir.Design, outputPath string, opts Options) (Result, er
 		return Result{}, err
 	}
 
-	auxPath, err := stripAndWriteFifos(outputPath, fifoInfos, opts.FIFOSource)
+	auxPaths, err := stripAndWriteFifos(outputPath, fifoInfos, opts.FIFOSource)
 	if err != nil {
 		return Result{}, err
 	}
 	res := Result{MainPath: outputPath}
-	if auxPath != "" {
-		res.AuxPaths = append(res.AuxPaths, auxPath)
+	if len(auxPaths) > 0 {
+		res.AuxPaths = append(res.AuxPaths, auxPaths...)
 	}
 	return res, nil
 }
@@ -207,38 +209,34 @@ func collectFifoDescriptors(design *ir.Design) []fifoDescriptor {
 	return result
 }
 
-func stripAndWriteFifos(mainPath string, fifos []fifoDescriptor, fifoSource string) (string, error) {
+func stripAndWriteFifos(mainPath string, fifos []fifoDescriptor, fifoSource string) ([]string, error) {
 	if len(fifos) == 0 {
-		return "", nil
+		return nil, nil
 	}
 	if fifoSource == "" {
-		return "", fmt.Errorf("backend: fifo source required when channels are present")
+		return nil, fmt.Errorf("backend: fifo source required when channels are present")
 	}
 	data, err := os.ReadFile(mainPath)
 	if err != nil {
-		return "", fmt.Errorf("backend: read verilog output: %w", err)
+		return nil, fmt.Errorf("backend: read verilog output: %w", err)
 	}
 	updated := string(data)
 	for _, fifo := range fifos {
 		var ok bool
 		updated, ok = removeModuleBlock(updated, fifo.name)
 		if !ok {
-			return "", fmt.Errorf("backend: module %s not found in generated Verilog", fifo.name)
+			return nil, fmt.Errorf("backend: module %s not found in generated Verilog", fifo.name)
 		}
 	}
 	if err := os.WriteFile(mainPath, []byte(updated), 0o644); err != nil {
-		return "", fmt.Errorf("backend: update main verilog: %w", err)
+		return nil, fmt.Errorf("backend: update main verilog: %w", err)
 	}
 
-	auxPath := strings.TrimSuffix(mainPath, filepath.Ext(mainPath)) + "_fifos.sv"
-	src, err := os.ReadFile(fifoSource)
+	auxPaths, err := copyFifoSources(mainPath, fifoSource)
 	if err != nil {
-		return "", fmt.Errorf("backend: read fifo source: %w", err)
+		return nil, err
 	}
-	if err := os.WriteFile(auxPath, src, 0o644); err != nil {
-		return "", fmt.Errorf("backend: write fifo sources: %w", err)
-	}
-	return auxPath, nil
+	return auxPaths, nil
 }
 
 func removeModuleBlock(content, moduleName string) (string, bool) {
@@ -261,6 +259,76 @@ func removeModuleBlock(content, moduleName string) (string, bool) {
 
 func fifoModuleName(elemType string, depth int) string {
 	return fmt.Sprintf("mygo_fifo_%s_d%d", sanitize(elemType), depth)
+}
+
+func copyFifoSources(mainPath, fifoSource string) ([]string, error) {
+	info, err := os.Stat(fifoSource)
+	if err != nil {
+		return nil, fmt.Errorf("backend: fifo source info: %w", err)
+	}
+	base := strings.TrimSuffix(mainPath, filepath.Ext(mainPath))
+	if info.IsDir() {
+		destRoot := base + "_fifo_lib"
+		if err := os.MkdirAll(destRoot, 0o755); err != nil {
+			return nil, fmt.Errorf("backend: create fifo lib dir: %w", err)
+		}
+		var copied []string
+		err := filepath.WalkDir(fifoSource, func(path string, entry fs.DirEntry, walkErr error) error {
+			if walkErr != nil {
+				return walkErr
+			}
+			if entry.IsDir() {
+				if path == fifoSource {
+					return nil
+				}
+				rel, err := filepath.Rel(fifoSource, path)
+				if err != nil {
+					return err
+				}
+				return os.MkdirAll(filepath.Join(destRoot, rel), 0o755)
+			}
+			rel, err := filepath.Rel(fifoSource, path)
+			if err != nil {
+				return err
+			}
+			dest := filepath.Join(destRoot, rel)
+			if err := copyFile(path, dest); err != nil {
+				return err
+			}
+			copied = append(copied, dest)
+			return nil
+		})
+		if err != nil {
+			return nil, fmt.Errorf("backend: copy fifo directory: %w", err)
+		}
+		sort.Strings(copied)
+		return copied, nil
+	}
+	dest := base + "_fifos" + filepath.Ext(fifoSource)
+	if err := copyFile(fifoSource, dest); err != nil {
+		return nil, err
+	}
+	return []string{dest}, nil
+}
+
+func copyFile(src, dest string) error {
+	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
+		return fmt.Errorf("backend: create fifo dest dir: %w", err)
+	}
+	in, err := os.Open(src)
+	if err != nil {
+		return fmt.Errorf("backend: open fifo source: %w", err)
+	}
+	defer in.Close()
+	out, err := os.OpenFile(dest, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
+	if err != nil {
+		return fmt.Errorf("backend: create fifo copy: %w", err)
+	}
+	defer out.Close()
+	if _, err := io.Copy(out, in); err != nil {
+		return fmt.Errorf("backend: copy fifo data: %w", err)
+	}
+	return nil
 }
 
 func signalWidth(t *ir.SignalType) int {
