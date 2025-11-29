@@ -61,7 +61,6 @@ func runCompile(args []string) error {
 	target := fs.String("target", "main", "target function or module")
 	diagFormat := fs.String("diag-format", "text", "diagnostic output format (text|json)")
 	circtOpt := fs.String("circt-opt", "", "path to circt-opt (optional, falls back to PATH lookup)")
-	circtTranslate := fs.String("circt-translate", "", "path to circt-translate (optional, falls back to PATH lookup)")
 	circtPipeline := fs.String("circt-pipeline", "", "circt-opt --pass-pipeline string (optional)")
 	circtMLIR := fs.String("circt-mlir", "", "path to dump the MLIR handed to CIRCT (optional)")
 	fifoSrc := fs.String("fifo-src", "", "path to FIFO implementation source (required when channels are present)")
@@ -107,11 +106,10 @@ func runCompile(args []string) error {
 			return fmt.Errorf("verilog emission requires --fifo-src when design contains channels")
 		}
 		opts := backend.Options{
-			CIRCTOptPath:       *circtOpt,
-			CIRCTTranslatePath: *circtTranslate,
-			PassPipeline:       *circtPipeline,
-			DumpMLIRPath:       *circtMLIR,
-			FIFOSource:         *fifoSrc,
+			CIRCTOptPath: *circtOpt,
+			PassPipeline: *circtPipeline,
+			DumpMLIRPath: *circtMLIR,
+			FIFOSource:   *fifoSrc,
 		}
 		res, err := backend.EmitVerilog(design, *output, opts)
 		if err != nil {
@@ -292,7 +290,6 @@ func runSim(args []string) error {
 
 	diagFormat := fs.String("diag-format", "text", "diagnostic output format (text|json)")
 	circtOpt := fs.String("circt-opt", "", "path to circt-opt (optional)")
-	circtTranslate := fs.String("circt-translate", "", "path to circt-translate (optional)")
 	circtPipeline := fs.String("circt-pipeline", "", "circt-opt --pass-pipeline string (optional)")
 	circtMLIR := fs.String("circt-mlir", "", "path to dump the MLIR handed to CIRCT (optional)")
 	verilogOut := fs.String("verilog-out", "", "path to write the emitted Verilog bundle (optional)")
@@ -360,12 +357,11 @@ func runSim(args []string) error {
 	}
 
 	opts := backend.Options{
-		CIRCTOptPath:       *circtOpt,
-		CIRCTTranslatePath: *circtTranslate,
-		PassPipeline:       *circtPipeline,
-		DumpMLIRPath:       *circtMLIR,
-		KeepTemps:          *keepArtifacts,
-		FIFOSource:         *fifoSrc,
+		CIRCTOptPath: *circtOpt,
+		PassPipeline: *circtPipeline,
+		DumpMLIRPath: *circtMLIR,
+		KeepTemps:    *keepArtifacts,
+		FIFOSource:   *fifoSrc,
 	}
 
 	if hasChannels && *fifoSrc == "" {

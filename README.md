@@ -13,7 +13,7 @@ cd mygo
 go install ./cmd/mygo
 
 # Verify prerequisites (Go 1.22+, CIRCT tools available on PATH)
-circt-translate --version
+circt-opt --version
 
 # Smoke test
 go test ./...
@@ -33,7 +33,7 @@ mygo compile -emit=mlir -o simple.mlir tests/e2e/simple/main.go
 # Point --fifo-src at either a single SystemVerilog file or an entire directory of helper IP.
 # The repo ships a sample at internal/backend/templates/simple_fifo.sv for quick validation.
 mygo compile -emit=verilog \
-    --circt-translate=$(which circt-translate) \
+    --circt-opt=$(which circt-opt) \
     --fifo-src=internal/backend/templates/simple_fifo.sv \
     -o simple.sv \
     tests/e2e/pipeline1/main.go
@@ -50,7 +50,7 @@ All auxiliary paths are reported via `backend.Result.AuxPaths` so you can hand t
 ```bash
 # With a real simulator wrapper (e.g. Verilator)
 mygo sim \
-    --circt-translate=$(which circt-translate) \
+    --circt-opt=$(which circt-opt) \
     --fifo-src=/path/to/my_fifo_lib \
     --simulator=/path/to/verilator-wrapper.sh \
     tests/e2e/pipeline1/main.go
@@ -58,7 +58,7 @@ mygo sim \
 # With the bundled mock simulator (great for CI or local validation)
 MYGO_SIM_TRACE=tests/e2e/pipeline1/expected.sim \
 mygo sim \
-    --circt-translate=$(which circt-translate) \
+    --circt-opt=$(which circt-opt) \
     --fifo-src=internal/backend/templates/simple_fifo.sv \
     --simulator=./scripts/mock-sim.sh \
     tests/e2e/pipeline1/main.go

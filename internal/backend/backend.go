@@ -17,13 +17,10 @@ import (
 // Options configures how the CIRCT backend is invoked.
 type Options struct {
 	// CIRCTOptPath optionally overrides the circt-opt binary. When empty the
-	// backend looks it up on PATH if needed.
+	// backend looks it up on PATH.
 	CIRCTOptPath string
-	// CIRCTTranslatePath optionally overrides the circt-translate binary. When
-	// empty the backend looks it up on PATH.
-	CIRCTTranslatePath string
-	// PassPipeline holds the circt-opt --pass-pipeline string (empty skips
-	// circt-opt unless CIRCTOptPath is explicitly set).
+	// PassPipeline holds the circt-opt --pass-pipeline string that runs before
+	// --export-verilog.
 	PassPipeline string
 	// DumpMLIRPath writes the MLIR handed to CIRCT to the provided path when
 	// non-empty.
@@ -41,8 +38,9 @@ type Result struct {
 	AuxPaths []string
 }
 
-// EmitVerilog lowers the design to MLIR, optionally runs circt-opt, and invokes
-// circt-translate --export-verilog to produce SystemVerilog at outputPath.
+// EmitVerilog lowers the design to MLIR, runs circt-opt (optionally with a pass
+// pipeline) and invokes --export-verilog to produce SystemVerilog at
+// outputPath.
 // When FIFOs are present, auxiliary files are produced as well and returned via
 // Result.AuxPaths.
 func EmitVerilog(design *ir.Design, outputPath string, opts Options) (Result, error) {
@@ -55,16 +53,9 @@ func EmitVerilog(design *ir.Design, outputPath string, opts Options) (Result, er
 
 	fifoInfos := collectFifoDescriptors(design)
 
-	translatePath, err := resolveBinary(opts.CIRCTTranslatePath, "circt-translate")
+	optPath, err := resolveBinary(opts.CIRCTOptPath, "circt-opt")
 	if err != nil {
-		return Result{}, fmt.Errorf("backend: resolve circt-translate: %w", err)
-	}
-
-	var optPath string
-	if needsOpt(opts) {
-		if optPath, err = resolveBinary(opts.CIRCTOptPath, "circt-opt"); err != nil {
-			return Result{}, fmt.Errorf("backend: resolve circt-opt: %w", err)
-		}
+		return Result{}, fmt.Errorf("backend: resolve circt-opt: %w", err)
 	}
 
 	tempDir, err := os.MkdirTemp("", "mygo-circt-*")
@@ -81,13 +72,11 @@ func EmitVerilog(design *ir.Design, outputPath string, opts Options) (Result, er
 	}
 
 	currentInput := mlirPath
-	if needsOpt(opts) {
-		optOutput := filepath.Join(tempDir, "design.opt.mlir")
-		if err := runCirctOpt(optPath, opts.PassPipeline, currentInput, optOutput); err != nil {
-			return Result{}, err
-		}
-		currentInput = optOutput
+	exportOutput := filepath.Join(tempDir, "design.export.mlir")
+	if err := runCirctExportVerilog(optPath, opts.PassPipeline, currentInput, exportOutput, outputPath); err != nil {
+		return Result{}, err
 	}
+	currentInput = exportOutput
 
 	if opts.DumpMLIRPath != "" {
 		if err := os.MkdirAll(filepath.Dir(opts.DumpMLIRPath), 0o755); err != nil {
@@ -96,10 +85,6 @@ func EmitVerilog(design *ir.Design, outputPath string, opts Options) (Result, er
 		if err := copyFile(currentInput, opts.DumpMLIRPath); err != nil {
 			return Result{}, fmt.Errorf("backend: dump mlir: %w", err)
 		}
-	}
-
-	if err := runCirctTranslate(translatePath, currentInput, outputPath); err != nil {
-		return Result{}, err
 	}
 
 	auxPaths, err := stripAndWriteFifos(outputPath, fifoInfos, opts.FIFOSource)
@@ -113,33 +98,21 @@ func EmitVerilog(design *ir.Design, outputPath string, opts Options) (Result, er
 	return res, nil
 }
 
-func needsOpt(opts Options) bool {
-	return opts.PassPipeline != "" || opts.CIRCTOptPath != ""
-}
-
-func runCirctOpt(binary, pipeline, inputPath, outputPath string) error {
-	args := []string{inputPath, "-o", outputPath}
+func runCirctExportVerilog(binary, pipeline, inputPath, mlirOutputPath, verilogOutputPath string) error {
+	args := []string{inputPath, "-o", mlirOutputPath, "--export-verilog"}
 	if pipeline != "" {
 		args = append(args, "--pass-pipeline="+pipeline)
 	}
 	cmd := exec.Command(binary, args...)
-	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("backend: circt-opt failed: %w", err)
+
+	if err := os.MkdirAll(filepath.Dir(mlirOutputPath), 0o755); err != nil {
+		return fmt.Errorf("backend: create circt-opt output dir: %w", err)
 	}
-	return nil
-}
-
-func runCirctTranslate(binary, inputPath, outputPath string) error {
-	args := []string{"--export-verilog", inputPath}
-	cmd := exec.Command(binary, args...)
-	cmd.Stderr = os.Stderr
-
-	if err := os.MkdirAll(filepath.Dir(outputPath), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(verilogOutputPath), 0o755); err != nil {
 		return fmt.Errorf("backend: create verilog output dir: %w", err)
 	}
-	outFile, err := os.Create(outputPath)
+	outFile, err := os.Create(verilogOutputPath)
 	if err != nil {
 		return fmt.Errorf("backend: create verilog output file: %w", err)
 	}
@@ -147,7 +120,7 @@ func runCirctTranslate(binary, inputPath, outputPath string) error {
 	cmd.Stdout = outFile
 
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("backend: circt-translate failed: %w", err)
+		return fmt.Errorf("backend: circt-opt --export-verilog failed: %w", err)
 	}
 	return nil
 }

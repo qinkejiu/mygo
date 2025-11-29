@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -10,16 +11,16 @@ import (
 	"mygo/internal/ir"
 )
 
-func TestEmitVerilogRunsTranslateOnly(t *testing.T) {
+func TestEmitVerilogRunsExportVerilog(t *testing.T) {
 	requirePosix(t)
 
 	design := testDesign()
 	tmp := t.TempDir()
 
-	translate := filepath.Join("testdata", "fakecirct", "translate.sh")
+	opt := writeFakeCirctOpt(t, tmp)
 
 	out := filepath.Join(tmp, "out.sv")
-	opts := Options{CIRCTTranslatePath: translate}
+	opts := Options{CIRCTOptPath: opt}
 	res, err := EmitVerilog(design, out, opts)
 	if err != nil {
 		t.Fatalf("EmitVerilog failed: %v", err)
@@ -35,8 +36,8 @@ func TestEmitVerilogRunsTranslateOnly(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read output: %v", err)
 	}
-	if !strings.Contains(string(data), "// verilog translator") {
-		t.Fatalf("expected translator banner, got:\n%s", data)
+	if !strings.Contains(string(data), "// circt-opt export") {
+		t.Fatalf("expected circt-opt export banner, got:\n%s", data)
 	}
 }
 
@@ -46,28 +47,12 @@ func TestEmitVerilogRunsOptWhenPipelineProvided(t *testing.T) {
 	design := testDesign()
 	tmp := t.TempDir()
 
-	opt := filepath.Join("testdata", "fakecirct", "opt.sh")
-
-	translate := writeScript(t, tmp, "translate.sh", `#!/bin/sh
-set -e
-INPUT=""
-for arg in "$@"; do
-  case "$arg" in
-    --export-verilog)
-      ;;
-    *)
-      INPUT="$arg"
-      ;;
-  esac
-done
-cat "$INPUT"
-`)
+	opt := writeFakeCirctOpt(t, tmp)
 
 	out := filepath.Join(tmp, "out.sv")
 	opts := Options{
-		CIRCTOptPath:       opt,
-		CIRCTTranslatePath: translate,
-		PassPipeline:       "pipeline-test",
+		CIRCTOptPath: opt,
+		PassPipeline: "pipeline-test",
 	}
 	if _, err := EmitVerilog(design, out, opts); err != nil {
 		t.Fatalf("EmitVerilog failed: %v", err)
@@ -77,8 +62,8 @@ cat "$INPUT"
 	if err != nil {
 		t.Fatalf("read output: %v", err)
 	}
-	if !strings.Contains(string(data), "// opt:pipeline-test") {
-		t.Fatalf("expected circt-opt banner, got:\n%s", data)
+	if !strings.Contains(string(data), "// pipeline:pipeline-test") {
+		t.Fatalf("expected pipeline banner, got:\n%s", data)
 	}
 }
 
@@ -88,15 +73,13 @@ func TestEmitVerilogDumpsFinalMLIR(t *testing.T) {
 	design := testDesign()
 	tmp := t.TempDir()
 
-	translate := filepath.Join("testdata", "fakecirct", "translate.sh")
-	opt := filepath.Join("testdata", "fakecirct", "opt.sh")
+	opt := writeFakeCirctOpt(t, tmp)
 	dumpPath := filepath.Join(tmp, "mlir", "final.mlir")
 	out := filepath.Join(tmp, "out.sv")
 	opts := Options{
-		CIRCTTranslatePath: translate,
-		CIRCTOptPath:       opt,
-		PassPipeline:       "pipeline-test",
-		DumpMLIRPath:       dumpPath,
+		CIRCTOptPath: opt,
+		PassPipeline: "pipeline-test",
+		DumpMLIRPath: dumpPath,
 	}
 	if _, err := EmitVerilog(design, out, opts); err != nil {
 		t.Fatalf("EmitVerilog failed: %v", err)
@@ -110,13 +93,13 @@ func TestEmitVerilogDumpsFinalMLIR(t *testing.T) {
 	}
 }
 
-func TestEmitVerilogMissingTranslate(t *testing.T) {
+func TestEmitVerilogMissingCirctOpt(t *testing.T) {
 	design := testDesign()
-	opts := Options{CIRCTTranslatePath: filepath.Join(t.TempDir(), "missing")}
+	opts := Options{CIRCTOptPath: filepath.Join(t.TempDir(), "missing")}
 	out := filepath.Join(t.TempDir(), "out.sv")
 	_, err := EmitVerilog(design, out, opts)
 	if err == nil {
-		t.Fatalf("expected error when circt-translate is missing")
+		t.Fatalf("expected error when circt-opt is missing")
 	}
 }
 
@@ -124,14 +107,10 @@ func TestEmitVerilogEmitsAuxiliaryFifoFile(t *testing.T) {
 	requirePosix(t)
 	design := testDesignWithChannel()
 	tmp := t.TempDir()
-	translate := writeScript(t, tmp, "translate.sh", `#!/bin/sh
-set -e
-cat <<'EOS'
-module main();
+	opt := writeExportVerilogScript(t, tmp, "circt-opt.sh", `module main();
 endmodule
 module mygo_fifo_i32_d1();
 endmodule
-EOS
 `)
 	fifoSrc := filepath.Join(tmp, "fifo_impl.sv")
 	fifoBody := "// external fifo\nmodule mygo_fifo_i32_d1();\nendmodule\n"
@@ -140,8 +119,8 @@ EOS
 	}
 	out := filepath.Join(tmp, "design.sv")
 	res, err := EmitVerilog(design, out, Options{
-		CIRCTTranslatePath: translate,
-		FIFOSource:         fifoSrc,
+		CIRCTOptPath: opt,
+		FIFOSource:   fifoSrc,
 	})
 	if err != nil {
 		t.Fatalf("EmitVerilog failed: %v", err)
@@ -176,10 +155,7 @@ func TestEmitVerilogStripsAnnotatedFifoModules(t *testing.T) {
 	requirePosix(t)
 	design := testDesignWithChannel()
 	tmp := t.TempDir()
-	translate := writeScript(t, tmp, "translate.sh", `#!/bin/sh
-set -e
-cat <<'EOS'
-module main();
+	opt := writeExportVerilogScript(t, tmp, "circt-opt.sh", `module main();
 endmodule : main
 module helper();
 endmodule // helper
@@ -187,7 +163,6 @@ module mygo_fifo_i32_d1();
 endmodule : mygo_fifo_i32_d1
 module sentinel();
 endmodule // sentinel
-EOS
 `)
 	fifoSrc := filepath.Join(tmp, "fifo_impl.sv")
 	if err := os.WriteFile(fifoSrc, []byte("module mygo_fifo_i32_d1(); endmodule\n"), 0o644); err != nil {
@@ -195,8 +170,8 @@ EOS
 	}
 	out := filepath.Join(tmp, "design.sv")
 	if _, err := EmitVerilog(design, out, Options{
-		CIRCTTranslatePath: translate,
-		FIFOSource:         fifoSrc,
+		CIRCTOptPath: opt,
+		FIFOSource:   fifoSrc,
 	}); err != nil {
 		t.Fatalf("EmitVerilog failed: %v", err)
 	}
@@ -217,14 +192,10 @@ func TestEmitVerilogCopiesFifoDirectory(t *testing.T) {
 	requirePosix(t)
 	design := testDesignWithChannel()
 	tmp := t.TempDir()
-	translate := writeScript(t, tmp, "translate.sh", `#!/bin/sh
-set -e
-cat <<'EOS'
-module main();
+	opt := writeExportVerilogScript(t, tmp, "circt-opt.sh", `module main();
 endmodule
 module mygo_fifo_i32_d1();
 endmodule
-EOS
 `)
 	srcDir := filepath.Join(tmp, "fifo_lib")
 	if err := os.MkdirAll(srcDir, 0o755); err != nil {
@@ -243,8 +214,8 @@ EOS
 	}
 	out := filepath.Join(tmp, "design.sv")
 	res, err := EmitVerilog(design, out, Options{
-		CIRCTTranslatePath: translate,
-		FIFOSource:         srcDir,
+		CIRCTOptPath: opt,
+		FIFOSource:   srcDir,
 	})
 	if err != nil {
 		t.Fatalf("EmitVerilog failed: %v", err)
@@ -266,17 +237,13 @@ func TestEmitVerilogErrorsWithoutFifoSource(t *testing.T) {
 	requirePosix(t)
 	design := testDesignWithChannel()
 	tmp := t.TempDir()
-	translate := writeScript(t, tmp, "translate.sh", `#!/bin/sh
-set -e
-cat <<'EOS'
-module main();
+	opt := writeExportVerilogScript(t, tmp, "circt-opt.sh", `module main();
 endmodule
 module mygo_fifo_i32_d1();
 endmodule
-EOS
 `)
 	out := filepath.Join(tmp, "design.sv")
-	_, err := EmitVerilog(design, out, Options{CIRCTTranslatePath: translate})
+	_, err := EmitVerilog(design, out, Options{CIRCTOptPath: opt})
 	if err == nil || !strings.Contains(err.Error(), "fifo source") {
 		t.Fatalf("expected fifo source error, got %v", err)
 	}
@@ -315,6 +282,95 @@ func testDesignWithChannel() *ir.Design {
 		Modules:  []*ir.Module{mod},
 		TopLevel: mod,
 	}
+}
+
+func writeFakeCirctOpt(t *testing.T, dir string) string {
+	const script = `#!/bin/sh
+set -e
+PIPELINE=""
+OUT=""
+IN=""
+EXPORT=0
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --pass-pipeline=*)
+      PIPELINE="${1#*=}"
+      shift
+      ;;
+    --export-verilog)
+      EXPORT=1
+      shift
+      ;;
+    -o)
+      OUT="$2"
+      shift 2
+      ;;
+    *)
+      IN="$1"
+      shift
+      ;;
+  esac
+done
+if [ "$EXPORT" -eq 0 ]; then
+  echo "missing --export-verilog" >&2
+  exit 1
+fi
+if [ -z "$OUT" ]; then
+  echo "missing -o" >&2
+  exit 1
+fi
+if [ -z "$IN" ]; then
+  IN="/dev/stdin"
+fi
+{
+  echo "// opt:${PIPELINE}"
+  cat "$IN"
+} > "$OUT"
+{
+  echo "// circt-opt export"
+  echo "// pipeline:${PIPELINE}"
+  cat "$IN"
+}
+`
+	return writeScript(t, dir, "circt-opt.sh", script)
+}
+
+func writeExportVerilogScript(t *testing.T, dir, name, verilogBody string) string {
+	script := fmt.Sprintf(`#!/bin/sh
+set -e
+OUT=""
+IN=""
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --pass-pipeline=*)
+      shift
+      ;;
+    --export-verilog)
+      shift
+      ;;
+    -o)
+      OUT="$2"
+      shift 2
+      ;;
+    *)
+      IN="$1"
+      shift
+      ;;
+  esac
+done
+if [ -z "$OUT" ]; then
+  echo "missing -o" >&2
+  exit 1
+fi
+if [ -z "$IN" ]; then
+  IN="/dev/stdin"
+fi
+cat "$IN" > "$OUT"
+cat <<'__VERILOG__'
+%s
+__VERILOG__
+`, verilogBody)
+	return writeScript(t, dir, name, script)
 }
 
 func writeScript(t *testing.T, dir, name, body string) string {

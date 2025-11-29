@@ -5,6 +5,7 @@ bin/
 
 # Go module build caches (local)
 .cache/
+.gocache/
 
 # Editor cruft
 .DS_Store

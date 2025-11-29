@@ -69,24 +69,14 @@ func (e *emitter) emitModule(module *ir.Module) {
 func (e *emitter) emitTopLevelModule(module *ir.Module, root *processInfo, processes []*processInfo) map[*ir.Channel]*channelWireSet {
 	e.printIndent()
 	fmt.Fprintf(e.w, "hw.module @%s(", module.Name)
-	inputs, outputs := portLists(module.Ports)
-	for i, in := range inputs {
+	decls := portDecls(module.Ports)
+	for i, decl := range decls {
 		if i > 0 {
 			fmt.Fprint(e.w, ", ")
 		}
-		fmt.Fprint(e.w, in)
+		fmt.Fprint(e.w, decl)
 	}
 	fmt.Fprint(e.w, ")")
-	if len(outputs) > 0 {
-		fmt.Fprint(e.w, " -> (")
-		for i, out := range outputs {
-			if i > 0 {
-				fmt.Fprint(e.w, ", ")
-			}
-			fmt.Fprint(e.w, out)
-		}
-		fmt.Fprint(e.w, ")")
-	}
 	fmt.Fprintln(e.w, " {")
 	e.indent++
 
@@ -165,23 +155,27 @@ func (e *emitter) emitChannelFifos(module *ir.Module, wires map[*ir.Channel]*cha
 		e.recordFifo(moduleName, ch)
 		e.printIndent()
 		fmt.Fprintf(e.w, "hw.instance \"%s_fifo\" @%s(", sanitize(ch.Name), moduleName)
-		args := []string{
-			"%clk",
-			"%rst",
-			wireSet.writeData,
-			wireSet.writeValid,
-			wireSet.writeReady,
-			wireSet.readData,
-			wireSet.readValid,
-			wireSet.readReady,
+		ports := []struct {
+			name  string
+			value string
+			typ   string
+		}{
+			{name: "clk", value: "%clk", typ: "i1"},
+			{name: "rst", value: "%rst", typ: "i1"},
+			{name: "in_data", value: wireSet.writeData, typ: elemInout},
+			{name: "in_valid", value: wireSet.writeValid, typ: "!hw.inout<i1>"},
+			{name: "in_ready", value: wireSet.writeReady, typ: "!hw.inout<i1>"},
+			{name: "out_data", value: wireSet.readData, typ: elemInout},
+			{name: "out_valid", value: wireSet.readValid, typ: "!hw.inout<i1>"},
+			{name: "out_ready", value: wireSet.readReady, typ: "!hw.inout<i1>"},
 		}
-		for i, arg := range args {
+		for i, port := range ports {
 			if i > 0 {
 				fmt.Fprint(e.w, ", ")
 			}
-			fmt.Fprint(e.w, arg)
+			fmt.Fprintf(e.w, "%s: %s : %s", port.name, port.value, port.typ)
 		}
-		fmt.Fprintf(e.w, ") : (i1, i1, %s, !hw.inout<i1>, !hw.inout<i1>, %s, !hw.inout<i1>, !hw.inout<i1>) -> ()\n", elemInout, elemInout)
+		fmt.Fprintln(e.w, ") -> ()")
 	}
 }
 
@@ -189,38 +183,49 @@ func (e *emitter) emitProcessInstance(idx int, info *processInfo, wires map[*ir.
 	if info == nil {
 		return
 	}
-	args := []string{"%clk", "%rst"}
-	types := []string{"i1", "i1"}
+	ports := e.processPorts(info)
+	connections := map[string]string{
+		"%clk": "%clk",
+		"%rst": "%rst",
+	}
 	for _, ch := range info.channelOrder {
 		role := info.channelRoles[ch]
 		wire := wires[ch]
 		if role == nil || wire == nil {
 			continue
 		}
+		portSet := info.channelPorts[ch]
+		if portSet == nil {
+			continue
+		}
 		if role.send {
-			args = append(args, wire.writeData, wire.writeValid, wire.writeReady)
-			types = append(types, inoutTypeString(ch.Type), "!hw.inout<i1>", "!hw.inout<i1>")
+			connections[portSet.sendData] = wire.writeData
+			connections[portSet.sendValid] = wire.writeValid
+			connections[portSet.sendReady] = wire.writeReady
 		}
 		if role.recv {
-			args = append(args, wire.readData, wire.readValid, wire.readReady)
-			types = append(types, inoutTypeString(ch.Type), "!hw.inout<i1>", "!hw.inout<i1>")
+			connections[portSet.recvData] = wire.readData
+			connections[portSet.recvValid] = wire.readValid
+			connections[portSet.recvReady] = wire.readReady
 		}
 	}
 	instName := fmt.Sprintf("%s_inst%d", sanitize(info.proc.Name), idx)
 	e.printIndent()
 	fmt.Fprintf(e.w, "hw.instance \"%s\" @%s(", instName, info.moduleName)
-	for i, arg := range args {
+	for i, port := range ports {
 		if i > 0 {
 			fmt.Fprint(e.w, ", ")
 		}
-		fmt.Fprint(e.w, arg)
-	}
-	fmt.Fprintf(e.w, ") : (")
-	for i, typ := range types {
-		if i > 0 {
-			fmt.Fprint(e.w, ", ")
+		value := connections[port.name]
+		if value == "" {
+			value = port.name
 		}
-		fmt.Fprint(e.w, typ)
+		portLabel := strings.TrimPrefix(port.name, "%")
+		valueType := port.typ
+		if port.inout {
+			valueType = fmt.Sprintf("!hw.inout<%s>", port.typ)
+		}
+		fmt.Fprintf(e.w, "%s: %s : %s", portLabel, value, valueType)
 	}
 	fmt.Fprintln(e.w, ") -> ()")
 }
@@ -236,7 +241,11 @@ func (e *emitter) emitProcessModule(module *ir.Module, info *processInfo) {
 		if i > 0 {
 			fmt.Fprint(e.w, ", ")
 		}
-		fmt.Fprintf(e.w, "%s: %s", port.name, port.typ)
+		dir := "in"
+		if port.inout {
+			dir = "inout"
+		}
+		fmt.Fprintf(e.w, "%s %s: %s", dir, port.name, port.typ)
 	}
 	fmt.Fprintln(e.w, ") {")
 	e.indent++
@@ -291,9 +300,9 @@ func (e *emitter) processPorts(info *processInfo) []portDesc {
 			portSet.sendValid = fmt.Sprintf("%%chan_%s_wvalid", sanitize(ch.Name))
 			portSet.sendReady = fmt.Sprintf("%%chan_%s_wready", sanitize(ch.Name))
 			ports = append(ports,
-				portDesc{name: portSet.sendData, typ: inoutTypeString(ch.Type)},
-				portDesc{name: portSet.sendValid, typ: "!hw.inout<i1>"},
-				portDesc{name: portSet.sendReady, typ: "!hw.inout<i1>"},
+				portDesc{name: portSet.sendData, typ: typeString(ch.Type), inout: true},
+				portDesc{name: portSet.sendValid, typ: "i1", inout: true},
+				portDesc{name: portSet.sendReady, typ: "i1", inout: true},
 			)
 		}
 		if role.recv {
@@ -301,9 +310,9 @@ func (e *emitter) processPorts(info *processInfo) []portDesc {
 			portSet.recvValid = fmt.Sprintf("%%chan_%s_rvalid", sanitize(ch.Name))
 			portSet.recvReady = fmt.Sprintf("%%chan_%s_rready", sanitize(ch.Name))
 			ports = append(ports,
-				portDesc{name: portSet.recvData, typ: inoutTypeString(ch.Type)},
-				portDesc{name: portSet.recvValid, typ: "!hw.inout<i1>"},
-				portDesc{name: portSet.recvReady, typ: "!hw.inout<i1>"},
+				portDesc{name: portSet.recvData, typ: typeString(ch.Type), inout: true},
+				portDesc{name: portSet.recvValid, typ: "i1", inout: true},
+				portDesc{name: portSet.recvReady, typ: "i1", inout: true},
 			)
 		}
 	}
@@ -337,8 +346,9 @@ func (e *emitter) printIndent() {
 }
 
 type portDesc struct {
-	name string
-	typ  string
+	name  string
+	typ   string
+	inout bool
 }
 
 type channelRole struct {
@@ -651,15 +661,14 @@ func (p *processPrinter) emitOperation(op ir.Operation, proc *ir.Process) {
 			return
 		}
 		p.printIndent()
-		fmt.Fprintf(p.w, "sv.assign %s, %s : %s, %s\n",
+		fmt.Fprintf(p.w, "sv.assign %s, %s : %s\n",
 			ports.sendData,
 			value,
-			inoutTypeString(o.Channel.Type),
 			typeString(o.Value.Type),
 		)
 		validConst := p.boolConst(true)
 		p.printIndent()
-		fmt.Fprintf(p.w, "sv.assign %s, %s : !hw.inout<i1>, i1\n",
+		fmt.Fprintf(p.w, "sv.assign %s, %s : i1\n",
 			ports.sendValid,
 			validConst,
 		)
@@ -679,7 +688,7 @@ func (p *processPrinter) emitOperation(op ir.Operation, proc *ir.Process) {
 		)
 		readyConst := p.boolConst(true)
 		p.printIndent()
-		fmt.Fprintf(p.w, "sv.assign %s, %s : !hw.inout<i1>, i1\n",
+		fmt.Fprintf(p.w, "sv.assign %s, %s : i1\n",
 			ports.recvReady,
 			readyConst,
 		)
@@ -790,21 +799,21 @@ func (p *processPrinter) boolConst(val bool) string {
 	name := fmt.Sprintf("%%c_bool_%d", len(p.boolConsts))
 	p.boolConsts[val] = name
 	p.printIndent()
-	fmt.Fprintf(p.w, "%s = hw.constant %t : i1\n", name, val)
+	fmt.Fprintf(p.w, "%s = hw.constant %t\n", name, val)
 	return name
 }
 
-func portLists(ports []ir.Port) (inputs []string, outputs []string) {
+func portDecls(ports []ir.Port) []string {
+	decls := make([]string, 0, len(ports))
 	for _, port := range ports {
-		entry := fmt.Sprintf("%%%s: %s", sanitize(port.Name), typeString(port.Type))
 		switch port.Direction {
 		case ir.Output:
-			outputs = append(outputs, entry)
+			decls = append(decls, fmt.Sprintf("out %s: %s", sanitize(port.Name), typeString(port.Type)))
 		default:
-			inputs = append(inputs, entry)
+			decls = append(decls, fmt.Sprintf("in %%%s: %s", sanitize(port.Name), typeString(port.Type)))
 		}
 	}
-	return
+	return decls
 }
 
 func typeString(t *ir.SignalType) string {
@@ -925,7 +934,7 @@ func (e *emitter) emitFifoExterns() {
 		info := e.fifoDecls[name]
 		elemInout := inoutTypeString(info.elemType)
 		e.printIndent()
-		fmt.Fprintf(e.w, "hw.module @%s(%%clk: i1, %%rst: i1, %%in_data: %s, %%in_valid: !hw.inout<i1>, %%in_ready: !hw.inout<i1>, %%out_data: %s, %%out_valid: !hw.inout<i1>, %%out_ready: !hw.inout<i1>) external\n",
+		fmt.Fprintf(e.w, "hw.module @%s(in %%clk: i1, in %%rst: i1, in %%in_data: %s, in %%in_valid: !hw.inout<i1>, in %%in_ready: !hw.inout<i1>, in %%out_data: %s, in %%out_valid: !hw.inout<i1>, in %%out_ready: !hw.inout<i1>) external\n",
 			info.moduleName,
 			elemInout,
 			elemInout,

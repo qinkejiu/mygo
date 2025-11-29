@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -13,10 +14,7 @@ func TestRunSimMatchesExpectedTrace(t *testing.T) {
 	tmp := t.TempDir()
 	repo := repoRoot(t)
 
-	translate := writeScript(t, tmp, "translate.sh", `#!/bin/sh
-set -e
-cat <<'EOS'
-module main();
+	opt := writeExportVerilogScript(t, tmp, "circt-opt.sh", `module main();
 endmodule
 module mygo_fifo_i32_d1();
 endmodule
@@ -24,7 +22,6 @@ module mygo_fifo_i32_d4();
 endmodule
 module mygo_fifo_i1_d1();
 endmodule
-EOS
 `)
 	fifoSrc := writeFile(t, tmp, "fifos.sv", fifoLibrary())
 	simulator := filepath.Join(repo, "scripts", "mock-sim.sh")
@@ -32,7 +29,7 @@ EOS
 	t.Setenv("MYGO_SIM_TRACE", trace)
 
 	args := []string{
-		"--circt-translate", translate,
+		"--circt-opt", opt,
 		"--fifo-src", fifoSrc,
 		"--simulator", simulator,
 		filepath.Join(repo, "tests", "e2e", "pipeline1", "main.go"),
@@ -47,10 +44,7 @@ func TestRunSimDetectsMismatch(t *testing.T) {
 	tmp := t.TempDir()
 	repo := repoRoot(t)
 
-	translate := writeScript(t, tmp, "translate.sh", `#!/bin/sh
-set -e
-cat <<'EOS'
-module main();
+	opt := writeExportVerilogScript(t, tmp, "circt-opt.sh", `module main();
 endmodule
 module mygo_fifo_i32_d1();
 endmodule
@@ -58,7 +52,6 @@ module mygo_fifo_i32_d4();
 endmodule
 module mygo_fifo_i1_d1();
 endmodule
-EOS
 `)
 	fifoSrc := writeFile(t, tmp, "fifos.sv", fifoLibrary())
 	simulator := filepath.Join(repo, "scripts", "mock-sim.sh")
@@ -66,7 +59,7 @@ EOS
 	t.Setenv("MYGO_SIM_TRACE", badTrace)
 
 	args := []string{
-		"--circt-translate", translate,
+		"--circt-opt", opt,
 		"--fifo-src", fifoSrc,
 		"--simulator", simulator,
 		filepath.Join(repo, "tests", "e2e", "pipeline1", "main.go"),
@@ -82,10 +75,7 @@ func TestRunSimWithVerilogOutDoesNotLeakTempDir(t *testing.T) {
 	tmp := t.TempDir()
 	repo := repoRoot(t)
 
-	translate := writeScript(t, tmp, "translate.sh", `#!/bin/sh
-set -e
-cat <<'EOS'
-module main();
+	opt := writeExportVerilogScript(t, tmp, "circt-opt.sh", `module main();
 endmodule
 module mygo_fifo_i32_d1();
 endmodule
@@ -93,7 +83,6 @@ module mygo_fifo_i32_d4();
 endmodule
 module mygo_fifo_i1_d1();
 endmodule
-EOS
 `)
 	fifoSrc := writeFile(t, tmp, "fifos.sv", fifoLibrary())
 	simulator := filepath.Join(repo, "scripts", "mock-sim.sh")
@@ -103,7 +92,7 @@ EOS
 
 	before := simTempDirs(t)
 	args := []string{
-		"--circt-translate", translate,
+		"--circt-opt", opt,
 		"--fifo-src", fifoSrc,
 		"--simulator", simulator,
 		"--verilog-out", verilogOut,
@@ -167,6 +156,44 @@ func writeScript(t *testing.T, dir, name, body string) string {
 		t.Fatalf("write script: %v", err)
 	}
 	return path
+}
+
+func writeExportVerilogScript(t *testing.T, dir, name, verilogBody string) string {
+	script := fmt.Sprintf(`#!/bin/sh
+set -e
+OUT=""
+IN=""
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --pass-pipeline=*)
+      shift
+      ;;
+    --export-verilog)
+      shift
+      ;;
+    -o)
+      OUT="$2"
+      shift 2
+      ;;
+    *)
+      IN="$1"
+      shift
+      ;;
+  esac
+done
+if [ -z "$OUT" ]; then
+  echo "missing -o" >&2
+  exit 1
+fi
+if [ -z "$IN" ]; then
+  IN="/dev/stdin"
+fi
+cat "$IN" > "$OUT"
+cat <<'__VERILOG__'
+%s
+__VERILOG__
+`, verilogBody)
+	return writeScript(t, dir, name, script)
 }
 
 func writeFile(t *testing.T, dir, name, body string) string {
