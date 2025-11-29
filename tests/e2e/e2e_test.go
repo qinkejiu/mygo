@@ -15,6 +15,7 @@ func TestProgramsCompileToMLIR(t *testing.T) {
 		"type_mismatch",
 		"channel_basic",
 		"simple_branch",
+		"phi_loop",
 		"pipeline1",
 		"pipeline2",
 		"router_csp",

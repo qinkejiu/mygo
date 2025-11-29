@@ -105,4 +105,8 @@ The CLI itself has regression coverage in `cmd/mygo/sim_test.go`, which exercise
 - Historical READMEs (Phase 1–4 plans and the previous monolithic README) now live in `docs/arxiv/mygo_archive.md` for reference or citation in arXiv write-ups.
 - Templates, helper IP, and additional notes sit under `internal/backend/templates/` and `docs/`.
 
+## Known Issues
+
+- `tests/e2e/phi_loop` is a minimized workload that still triggers the current lack of phi lowering in the MLIR backend. Running the Verilog emission command documented in `docs/phi-repro.md` reproduces the failure until phis are lowered to concrete SSA values.
+
 For architectural or research deep dives, start with the archived document above; keep this README handy for daily work and onboarding.
