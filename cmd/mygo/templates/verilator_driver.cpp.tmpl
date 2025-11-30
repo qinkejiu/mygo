@@ -1,0 +1,25 @@
+#include "verilated.h"
+#include "Vmain.h"
+
+int main(int argc, char** argv) {
+  Verilated::commandArgs(argc, argv);
+  Vmain top;
+  const vluint64_t kMaxCycles = {{ .MaxCycles }}ULL;
+  const vluint64_t kResetCycles = {{ .ResetCycles }}ULL;
+  top.clk = 0;
+  top.rst = 1;
+  for (vluint64_t cycle = 0; cycle < kMaxCycles; ++cycle) {
+    top.clk = 0;
+    top.eval();
+    if (cycle >= kResetCycles) {
+      top.rst = 0;
+    }
+    top.clk = 1;
+    top.eval();
+    if (Verilated::gotFinish()) {
+      break;
+    }
+  }
+  top.final();
+  return 0;
+}

@@ -1,12 +1,13 @@
 package backend
 
 import (
-	"fmt"
+	"bytes"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
+	"text/template"
 
 	"mygo/internal/ir"
 )
@@ -107,13 +108,9 @@ func TestEmitVerilogEmitsAuxiliaryFifoFile(t *testing.T) {
 	requirePosix(t)
 	design := testDesignWithChannel()
 	tmp := t.TempDir()
-	opt := writeExportVerilogScript(t, tmp, "circt-opt.sh", `module main();
-endmodule
-module mygo_fifo_i32_d1();
-endmodule
-`)
+	opt := writeExportVerilogScript(t, tmp, "circt-opt.sh", "verilog_with_fifo.sv")
 	fifoSrc := filepath.Join(tmp, "fifo_impl.sv")
-	fifoBody := "// external fifo\nmodule mygo_fifo_i32_d1();\nendmodule\n"
+	fifoBody := readBackendTestdata(t, "fifo_impl_external.sv")
 	if err := os.WriteFile(fifoSrc, []byte(fifoBody), 0o644); err != nil {
 		t.Fatalf("write fifo src: %v", err)
 	}
@@ -155,17 +152,9 @@ func TestEmitVerilogStripsAnnotatedFifoModules(t *testing.T) {
 	requirePosix(t)
 	design := testDesignWithChannel()
 	tmp := t.TempDir()
-	opt := writeExportVerilogScript(t, tmp, "circt-opt.sh", `module main();
-endmodule : main
-module helper();
-endmodule // helper
-module mygo_fifo_i32_d1();
-endmodule : mygo_fifo_i32_d1
-module sentinel();
-endmodule // sentinel
-`)
+	opt := writeExportVerilogScript(t, tmp, "circt-opt.sh", "verilog_with_annotations.sv")
 	fifoSrc := filepath.Join(tmp, "fifo_impl.sv")
-	if err := os.WriteFile(fifoSrc, []byte("module mygo_fifo_i32_d1(); endmodule\n"), 0o644); err != nil {
+	if err := os.WriteFile(fifoSrc, []byte(readBackendTestdata(t, "fifo_impl_basic.sv")), 0o644); err != nil {
 		t.Fatalf("write fifo impl: %v", err)
 	}
 	out := filepath.Join(tmp, "design.sv")
@@ -192,11 +181,7 @@ func TestEmitVerilogCopiesFifoDirectory(t *testing.T) {
 	requirePosix(t)
 	design := testDesignWithChannel()
 	tmp := t.TempDir()
-	opt := writeExportVerilogScript(t, tmp, "circt-opt.sh", `module main();
-endmodule
-module mygo_fifo_i32_d1();
-endmodule
-`)
+	opt := writeExportVerilogScript(t, tmp, "circt-opt.sh", "verilog_with_fifo.sv")
 	srcDir := filepath.Join(tmp, "fifo_lib")
 	if err := os.MkdirAll(srcDir, 0o755); err != nil {
 		t.Fatalf("mkdir fifo dir: %v", err)
@@ -237,11 +222,7 @@ func TestEmitVerilogErrorsWithoutFifoSource(t *testing.T) {
 	requirePosix(t)
 	design := testDesignWithChannel()
 	tmp := t.TempDir()
-	opt := writeExportVerilogScript(t, tmp, "circt-opt.sh", `module main();
-endmodule
-module mygo_fifo_i32_d1();
-endmodule
-`)
+	opt := writeExportVerilogScript(t, tmp, "circt-opt.sh", "verilog_with_fifo.sv")
 	out := filepath.Join(tmp, "design.sv")
 	_, err := EmitVerilog(design, out, Options{CIRCTOptPath: opt})
 	if err == nil || !strings.Contains(err.Error(), "fifo source") {
@@ -285,104 +266,69 @@ func testDesignWithChannel() *ir.Design {
 }
 
 func writeFakeCirctOpt(t *testing.T, dir string) string {
-	const script = `#!/bin/sh
-set -e
-PIPELINE=""
-OUT=""
-IN=""
-EXPORT=0
-while [ "$#" -gt 0 ]; do
-  case "$1" in
-    --pass-pipeline=*)
-      PIPELINE="${1#*=}"
-      shift
-      ;;
-    --export-verilog)
-      EXPORT=1
-      shift
-      ;;
-    -o)
-      OUT="$2"
-      shift 2
-      ;;
-    *)
-      IN="$1"
-      shift
-      ;;
-  esac
-done
-if [ "$EXPORT" -eq 0 ]; then
-  echo "missing --export-verilog" >&2
-  exit 1
-fi
-if [ -z "$OUT" ]; then
-  echo "missing -o" >&2
-  exit 1
-fi
-if [ -z "$IN" ]; then
-  IN="/dev/stdin"
-fi
-{
-  echo "// opt:${PIPELINE}"
-  cat "$IN"
-} > "$OUT"
-{
-  echo "// circt-opt export"
-  echo "// pipeline:${PIPELINE}"
-  cat "$IN"
-}
-`
-	return writeScript(t, dir, "circt-opt.sh", script)
+	return writeExecutableFromTestdata(t, dir, "circt-opt.sh", "fake_circt_opt.sh")
 }
 
-func writeExportVerilogScript(t *testing.T, dir, name, verilogBody string) string {
-	script := fmt.Sprintf(`#!/bin/sh
-set -e
-OUT=""
-IN=""
-while [ "$#" -gt 0 ]; do
-  case "$1" in
-    --pass-pipeline=*)
-      shift
-      ;;
-    --export-verilog)
-      shift
-      ;;
-    -o)
-      OUT="$2"
-      shift 2
-      ;;
-    *)
-      IN="$1"
-      shift
-      ;;
-  esac
-done
-if [ -z "$OUT" ]; then
-  echo "missing -o" >&2
-  exit 1
-fi
-if [ -z "$IN" ]; then
-  IN="/dev/stdin"
-fi
-cat "$IN" > "$OUT"
-cat <<'__VERILOG__'
-%s
-__VERILOG__
-`, verilogBody)
-	return writeScript(t, dir, name, script)
+func writeExportVerilogScript(t *testing.T, dir, name, verilogFixture string) string {
+	data := struct {
+		VerilogBody string
+	}{
+		VerilogBody: readBackendTestdata(t, verilogFixture),
+	}
+	return writeTemplateFromTestdata(t, dir, name, "export_verilog.sh.tmpl", data)
 }
 
-func writeScript(t *testing.T, dir, name, body string) string {
+func writeExecutableFromTestdata(t *testing.T, dir, name, dataFile string) string {
 	t.Helper()
 	path := filepath.Join(dir, name)
-	if err := os.WriteFile(path, []byte(body), 0o755); err != nil {
-		t.Fatalf("write script: %v", err)
+	contents := readBackendTestdata(t, dataFile)
+	if err := os.WriteFile(path, []byte(contents), 0o755); err != nil {
+		t.Fatalf("write executable %s: %v", path, err)
 	}
 	if runtime.GOOS == "windows" {
 		t.Skip("tests require a POSIX shell")
 	}
 	return path
+}
+
+func writeTemplateFromTestdata(t *testing.T, dir, name, templateName string, data any) string {
+	t.Helper()
+	templateText := readBackendTestdata(t, templateName)
+	tmpl, err := template.New(templateName).Parse(templateText)
+	if err != nil {
+		t.Fatalf("parse template %s: %v", templateName, err)
+	}
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, data); err != nil {
+		t.Fatalf("execute template %s: %v", templateName, err)
+	}
+	path := filepath.Join(dir, name)
+	if err := os.WriteFile(path, buf.Bytes(), 0o755); err != nil {
+		t.Fatalf("write script %s: %v", path, err)
+	}
+	if runtime.GOOS == "windows" {
+		t.Skip("tests require a POSIX shell")
+	}
+	return path
+}
+
+func backendTestdataPath(t *testing.T, name string) string {
+	t.Helper()
+	path := filepath.Join("testdata", name)
+	if _, err := os.Stat(path); err != nil {
+		t.Fatalf("testdata %s: %v", name, err)
+	}
+	return path
+}
+
+func readBackendTestdata(t *testing.T, name string) string {
+	t.Helper()
+	path := backendTestdataPath(t, name)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read testdata %s: %v", name, err)
+	}
+	return string(data)
 }
 
 func requirePosix(t *testing.T) {

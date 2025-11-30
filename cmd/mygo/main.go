@@ -469,7 +469,10 @@ func runBuiltinVerilator(mainPath string, auxPaths []string, expectPath string, 
 	defer os.RemoveAll(tempDir)
 
 	driverPath := filepath.Join(tempDir, "sim_main.cpp")
-	driver := fmt.Sprintf(verilatorDriverTemplate, maxCycles, resetCycles)
+	driver, err := renderVerilatorDriver(maxCycles, resetCycles)
+	if err != nil {
+		return fmt.Errorf("render verilator driver: %w", err)
+	}
 	if err := os.WriteFile(driverPath, []byte(driver), 0o644); err != nil {
 		return fmt.Errorf("write verilator driver: %w", err)
 	}
@@ -549,51 +552,3 @@ func prependPathToEnv(dir string) []string {
 	}
 	return env
 }
-
-const verilatorDriverTemplate = `#include "verilated.h"
-#include "Vmain.h"
-
-int main(int argc, char** argv) {
-  Verilated::commandArgs(argc, argv);
-  Vmain top;
-  const vluint64_t kMaxCycles = %[1]dULL;
-  const vluint64_t kResetCycles = %[2]dULL;
-  top.clk = 0;
-  top.rst = 1;
-  for (vluint64_t cycle = 0; cycle < kMaxCycles; ++cycle) {
-    top.clk = 0;
-    top.eval();
-    if (cycle >= kResetCycles) {
-      top.rst = 0;
-    }
-    top.clk = 1;
-    top.eval();
-    if (Verilated::gotFinish()) {
-      break;
-    }
-  }
-  top.final();
-  return 0;
-}
-`
-
-const xargsShimScript = `#!/usr/bin/env python3
-import subprocess
-import sys
-
-def main():
-    argv = sys.argv[1:]
-    data = sys.stdin.read().split()
-    if not data:
-        return 0
-    cmd = argv + data
-    try:
-        completed = subprocess.run(cmd, check=False)
-        return completed.returncode
-    except FileNotFoundError as exc:
-        sys.stderr.write(f"xargs shim could not find command: {exc}\n")
-        return 127
-
-if __name__ == "__main__":
-    sys.exit(main())
-`

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
@@ -8,6 +9,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"text/template"
 )
 
 func TestRunSimMatchesExpectedTrace(t *testing.T) {
@@ -16,8 +18,8 @@ func TestRunSimMatchesExpectedTrace(t *testing.T) {
 	tmp := t.TempDir()
 	repo := repoRoot(t)
 
-	opt := writeExportVerilogScript(t, tmp, "circt-opt.sh", testVerilogModule())
-	fifoSrc := writeFile(t, tmp, "fifos.sv", fifoLibrary())
+	opt := writeExportVerilogScript(t, tmp, "circt-opt.sh", "verilog_main.sv")
+	fifoSrc := writeFile(t, tmp, "fifos.sv", readTestdata(t, "fifo_library.sv"))
 	trace := writeFile(t, tmp, "expected.sim", "verilator trace=42\n")
 
 	args := []string{
@@ -38,8 +40,8 @@ func TestRunSimDetectsMismatch(t *testing.T) {
 	tmp := t.TempDir()
 	repo := repoRoot(t)
 
-	opt := writeExportVerilogScript(t, tmp, "circt-opt.sh", testVerilogModule())
-	fifoSrc := writeFile(t, tmp, "fifos.sv", fifoLibrary())
+	opt := writeExportVerilogScript(t, tmp, "circt-opt.sh", "verilog_main.sv")
+	fifoSrc := writeFile(t, tmp, "fifos.sv", readTestdata(t, "fifo_library.sv"))
 	badTrace := writeFile(t, tmp, "bad.sim", "unexpected output\n")
 
 	args := []string{
@@ -61,8 +63,8 @@ func TestRunSimWithVerilogOutDoesNotLeakTempDir(t *testing.T) {
 	tmp := t.TempDir()
 	repo := repoRoot(t)
 
-	opt := writeExportVerilogScript(t, tmp, "circt-opt.sh", testVerilogModule())
-	fifoSrc := writeFile(t, tmp, "fifos.sv", fifoLibrary())
+	opt := writeExportVerilogScript(t, tmp, "circt-opt.sh", "verilog_main.sv")
+	fifoSrc := writeFile(t, tmp, "fifos.sv", readTestdata(t, "fifo_library.sv"))
 	trace := writeFile(t, tmp, "expected.sim", "verilator trace=42\n")
 	verilogOut := filepath.Join(tmp, "artifacts", "design.sv")
 
@@ -117,6 +119,66 @@ func TestDefaultSimExpectPathDirectoryInput(t *testing.T) {
 	}
 }
 
+func TestParseSimArgs(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name string
+		in   string
+		want []string
+	}{
+		{name: "empty", in: "", want: nil},
+		{name: "single", in: "foo", want: []string{"foo"}},
+		{name: "dedupe spaces", in: "  foo   bar\tbaz  ", want: []string{"foo", "bar", "baz"}},
+	}
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			if diff := cmpSlice(tc.want, parseSimArgs(tc.in)); diff != "" {
+				t.Fatalf("parseSimArgs mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestPrependPathToEnv(t *testing.T) {
+	dir := t.TempDir()
+	const oldPath = "/usr/bin"
+	t.Setenv("PATH", oldPath)
+	got := pathValue(prependPathToEnv(dir))
+	want := dir + string(os.PathListSeparator) + oldPath
+	if got != want {
+		t.Fatalf("prependPathToEnv path=%s, want %s", got, want)
+	}
+
+	t.Setenv("PATH", "")
+	got = pathValue(prependPathToEnv(dir))
+	if got != dir {
+		t.Fatalf("prependPathToEnv empty PATH=%s, want %s", got, dir)
+	}
+}
+
+func cmpSlice(want, got []string) string {
+	if len(want) != len(got) {
+		return fmt.Sprintf("length mismatch: want %d, got %d (%v)", len(want), len(got), got)
+	}
+	for i := range want {
+		if want[i] != got[i] {
+			return fmt.Sprintf("element %d mismatch: want %q, got %q", i, want[i], got[i])
+		}
+	}
+	return ""
+}
+
+func pathValue(env []string) string {
+	for _, kv := range env {
+		if strings.HasPrefix(kv, "PATH=") {
+			return strings.TrimPrefix(kv, "PATH=")
+		}
+	}
+	return ""
+}
+
 func repoRoot(t *testing.T) string {
 	t.Helper()
 	root, err := filepath.Abs(filepath.Join("..", ".."))
@@ -126,51 +188,53 @@ func repoRoot(t *testing.T) string {
 	return root
 }
 
-func writeScript(t *testing.T, dir, name, body string) string {
+func testdataPath(t *testing.T, name string) string {
 	t.Helper()
-	path := filepath.Join(dir, name)
-	if err := os.WriteFile(path, []byte(body), 0o755); err != nil {
-		t.Fatalf("write script: %v", err)
+	path := filepath.Join(repoRoot(t), "cmd", "mygo", "testdata", name)
+	if _, err := os.Stat(path); err != nil {
+		t.Fatalf("testdata %s: %v", name, err)
 	}
 	return path
 }
 
-func writeExportVerilogScript(t *testing.T, dir, name, verilogBody string) string {
-	script := fmt.Sprintf(`#!/bin/sh
-set -e
-OUT=""
-IN=""
-while [ "$#" -gt 0 ]; do
-  case "$1" in
-    --pass-pipeline=*)
-      shift
-      ;;
-    --export-verilog)
-      shift
-      ;;
-    -o)
-      OUT="$2"
-      shift 2
-      ;;
-    *)
-      IN="$1"
-      shift
-      ;;
-  esac
-done
-if [ -z "$OUT" ]; then
-  echo "missing -o" >&2
-  exit 1
-fi
-if [ -z "$IN" ]; then
-  IN="/dev/stdin"
-fi
-cat "$IN" > "$OUT"
-cat <<'__VERILOG__'
-%s
-__VERILOG__
-`, verilogBody)
-	return writeScript(t, dir, name, script)
+func readTestdata(t *testing.T, name string) string {
+	t.Helper()
+	path := testdataPath(t, name)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read testdata %s: %v", name, err)
+	}
+	return string(data)
+}
+
+func writeTemplateFromTestdata(t *testing.T, dir, name, templateName string, data any, perm os.FileMode) string {
+	t.Helper()
+	tmplBytes := readTestdata(t, templateName)
+	tmpl, err := template.New(templateName).Parse(tmplBytes)
+	if err != nil {
+		t.Fatalf("parse template %s: %v", templateName, err)
+	}
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, data); err != nil {
+		t.Fatalf("execute template %s: %v", templateName, err)
+	}
+	path := filepath.Join(dir, name)
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("mkdir for %s: %v", path, err)
+	}
+	if err := os.WriteFile(path, buf.Bytes(), perm); err != nil {
+		t.Fatalf("write file %s: %v", path, err)
+	}
+	return path
+}
+
+func writeExportVerilogScript(t *testing.T, dir, name, verilogFixture string) string {
+	data := struct {
+		VerilogBody string
+	}{
+		VerilogBody: readTestdata(t, verilogFixture),
+	}
+	return writeTemplateFromTestdata(t, dir, name, "export_verilog.sh.tmpl", data, 0o755)
 }
 
 func writeFile(t *testing.T, dir, name, body string) string {
@@ -183,40 +247,6 @@ func writeFile(t *testing.T, dir, name, body string) string {
 		t.Fatalf("write file %s: %v", path, err)
 	}
 	return path
-}
-
-func fifoLibrary() string {
-	return `module mygo_fifo_i32_d1();
-endmodule
-module mygo_fifo_i32_d4();
-endmodule
-module mygo_fifo_i1_d1();
-endmodule
-`
-}
-
-func testVerilogModule() string {
-	return `module main(
-  input clk,
-        rst
-);
-  reg fired = 0;
-  always @(posedge clk) begin
-    if (rst) begin
-      fired <= 0;
-    end else if (!fired) begin
-      fired <= 1;
-      $fwrite(32'h80000001, "verilator trace=42\n");
-    end
-  end
-endmodule
-module mygo_fifo_i32_d1();
-endmodule
-module mygo_fifo_i32_d4();
-endmodule
-module mygo_fifo_i1_d1();
-endmodule
-`
 }
 
 func simTempDirs(t *testing.T) map[string]struct{} {
