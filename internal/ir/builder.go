@@ -5,6 +5,7 @@ import (
 	"go/constant"
 	"go/token"
 	"go/types"
+	"sort"
 	"strings"
 
 	"golang.org/x/tools/go/ssa"
@@ -489,7 +490,9 @@ func (b *builder) translateInstr(proc *Process, bb *BasicBlock, instr ssa.Instru
 	case *ssa.DebugRef:
 		// Skip debug markers.
 	case *ssa.Call:
-		// Calls such as fmt.Printf are host-side only for Phase 1; ignore.
+		if b.handleFmtPrint(proc, bb, v) {
+			return
+		}
 	case *ssa.Go:
 		b.handleGo(proc, bb, v)
 	case *ssa.IndexAddr:
@@ -747,6 +750,235 @@ func (b *builder) newConstName() string {
 	name := fmt.Sprintf("const_%d", b.tempID)
 	b.tempID++
 	return name
+}
+
+func (b *builder) handleFmtPrint(proc *Process, bb *BasicBlock, call *ssa.Call) bool {
+	fn, ok := call.Call.Value.(*ssa.Function)
+	if !ok || fn.Pkg == nil || fn.Pkg.Pkg == nil {
+		return false
+	}
+	if fn.Pkg.Pkg.Path() != "fmt" {
+		return false
+	}
+
+	var segments []PrintSegment
+	var err error
+
+	switch fn.Name() {
+	case "Printf":
+		if len(call.Call.Args) == 0 {
+			b.reporter.Warning(call.Pos(), "fmt.Printf requires a constant format string")
+			return true
+		}
+		formatConst, ok := call.Call.Args[0].(*ssa.Const)
+		if !ok {
+			b.reporter.Warning(call.Pos(), "fmt.Printf format must be a constant string")
+			return true
+		}
+		format := constant.StringVal(formatConst.Value)
+		argValues, argErr := b.expandCallArgs(call.Call.Args[1:])
+		if argErr != nil {
+			err = argErr
+			break
+		}
+		segments, err = b.buildPrintfSegments(format, argValues)
+	case "Println":
+		segments, err = b.buildPrintSegments(call.Call.Args, true)
+	case "Print":
+		segments, err = b.buildPrintSegments(call.Call.Args, false)
+	default:
+		return false
+	}
+
+	if err != nil {
+		b.reporter.Warning(call.Pos(), fmt.Sprintf("fmt.%s: %v", fn.Name(), err))
+		return true
+	}
+	if len(segments) == 0 {
+		segments = appendLiteralSegment(nil, "")
+	}
+	bb.Ops = append(bb.Ops, &PrintOperation{Segments: segments})
+	return true
+}
+
+func (b *builder) buildPrintfSegments(format string, args []ssa.Value) ([]PrintSegment, error) {
+	var segments []PrintSegment
+	argIndex := 0
+	var literal strings.Builder
+	flushLiteral := func() {
+		if literal.Len() == 0 {
+			return
+		}
+		segments = appendLiteralSegment(segments, literal.String())
+		literal.Reset()
+	}
+	for i := 0; i < len(format); {
+		if format[i] != '%' {
+			literal.WriteByte(format[i])
+			i++
+			continue
+		}
+		if i+1 < len(format) && format[i+1] == '%' {
+			literal.WriteByte('%')
+			i += 2
+			continue
+		}
+		i++
+		if i >= len(format) {
+			return nil, fmt.Errorf("trailing %% in format string")
+		}
+		verbChar := format[i]
+		i++
+		flushLiteral()
+		if argIndex >= len(args) {
+			return nil, fmt.Errorf("not enough arguments for format")
+		}
+		sig := b.signalForValue(args[argIndex])
+		if sig == nil {
+			return nil, fmt.Errorf("unsupported argument type %T", args[argIndex])
+		}
+		argIndex++
+		var verb PrintVerb
+		switch verbChar {
+		case 'd', 'v':
+			verb = PrintVerbDec
+		case 'x', 'X':
+			verb = PrintVerbHex
+		case 'b':
+			verb = PrintVerbBin
+		case 't':
+			verb = PrintVerbDec
+		default:
+			return nil, fmt.Errorf("unsupported verb %%%c", verbChar)
+		}
+		segments = append(segments, PrintSegment{Value: sig, Verb: verb})
+	}
+	flushLiteral()
+	if argIndex != len(args) {
+		return nil, fmt.Errorf("too many arguments for format")
+	}
+	return segments, nil
+}
+
+func (b *builder) buildPrintSegments(args []ssa.Value, newline bool) ([]PrintSegment, error) {
+	var segments []PrintSegment
+	appendValueSegments := func(v ssa.Value) error {
+		switch val := v.(type) {
+		case *ssa.Const:
+			if val.Value.Kind() == constant.String {
+				segments = appendLiteralSegment(segments, constant.StringVal(val.Value))
+				return nil
+			}
+		}
+		sig := b.signalForValue(v)
+		if sig == nil {
+			return fmt.Errorf("unsupported argument %T", v)
+		}
+		segments = append(segments, PrintSegment{Value: sig, Verb: PrintVerbDec})
+		return nil
+	}
+	for idx, arg := range args {
+		if idx > 0 {
+			segments = appendLiteralSegment(segments, " ")
+		}
+		if err := appendValueSegments(arg); err != nil {
+			return nil, err
+		}
+	}
+	if newline {
+		segments = appendLiteralSegment(segments, "\n")
+	}
+	if len(segments) == 0 && newline {
+		segments = appendLiteralSegment(segments, "\n")
+	}
+	return segments, nil
+}
+
+func appendLiteralSegment(segments []PrintSegment, text string) []PrintSegment {
+	if text == "" {
+		return segments
+	}
+	if len(segments) > 0 && segments[len(segments)-1].Value == nil {
+		segments[len(segments)-1].Text += text
+		return segments
+	}
+	return append(segments, PrintSegment{Text: text})
+}
+
+func (b *builder) expandCallArgs(args []ssa.Value) ([]ssa.Value, error) {
+	var expanded []ssa.Value
+	for _, arg := range args {
+		if slice, ok := arg.(*ssa.Slice); ok {
+			values, err := b.expandVarArgs(slice)
+			if err != nil {
+				return nil, err
+			}
+			expanded = append(expanded, values...)
+			continue
+		}
+		expanded = append(expanded, arg)
+	}
+	return expanded, nil
+}
+
+func (b *builder) expandVarArgs(slice *ssa.Slice) ([]ssa.Value, error) {
+	alloc, ok := slice.X.(*ssa.Alloc)
+	if !ok || alloc.Comment != "varargs" {
+		return nil, fmt.Errorf("unsupported variadic argument form %T", slice.X)
+	}
+	referrers := alloc.Referrers()
+	if referrers == nil {
+		return nil, fmt.Errorf("varargs slice has no referrers")
+	}
+	type indexedValue struct {
+		index int
+		value ssa.Value
+	}
+	var items []indexedValue
+	for _, ref := range *referrers {
+		idxAddr, ok := ref.(*ssa.IndexAddr)
+		if !ok || idxAddr.X != alloc {
+			continue
+		}
+		idxConst, ok := idxAddr.Index.(*ssa.Const)
+		if !ok {
+			continue
+		}
+		index64, ok := constant.Int64Val(idxConst.Value)
+		if !ok {
+			return nil, fmt.Errorf("non-integer vararg index")
+		}
+		index := int(index64)
+		var stored ssa.Value
+		if users := idxAddr.Referrers(); users != nil {
+			for _, user := range *users {
+				store, ok := user.(*ssa.Store)
+				if !ok {
+					continue
+				}
+				stored = store.Val
+				break
+			}
+		}
+		if stored == nil {
+			continue
+		}
+		if mi, ok := stored.(*ssa.MakeInterface); ok {
+			stored = mi.X
+		}
+		items = append(items, indexedValue{index: index, value: stored})
+	}
+	if len(items) == 0 {
+		return nil, fmt.Errorf("failed to decode variadic arguments")
+	}
+	sort.Slice(items, func(i, j int) bool {
+		return items[i].index < items[j].index
+	})
+	values := make([]ssa.Value, 0, len(items))
+	for _, item := range items {
+		values = append(values, item.value)
+	}
+	return values, nil
 }
 
 func defaultPorts() []Port {

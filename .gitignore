@@ -13,6 +13,5 @@ bin/
 
 # Large third-party mirrors cloned locally
 third_party/llgo/tmp/
-third_party/circt
 
 *.mlir

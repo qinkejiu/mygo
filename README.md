@@ -46,6 +46,10 @@ The backend removes auto-generated FIFO definitions from the main Verilog file a
 
 All auxiliary paths are reported via `backend.Result.AuxPaths` so you can hand them to downstream tools.
 
+### Simulator Prints
+
+`fmt.Print`, `fmt.Println`, and `fmt.Printf` calls whose first argument is a constant string literal lower directly to `$fwrite` statements inside `sv.always` blocks, so they fire once per module clock tick. The current formatter understands `%d`, `%b`, `%x`, `%t`, and `%%` and requires every substituted argument to be an integer or boolean SSA value. Unsupported verbs, non-literal format strings, or non-integer operands trigger a warning and the print is dropped so other programs keep compiling.
+
 ### Simulate
 ```bash
 # With a real simulator wrapper (e.g. Verilator)

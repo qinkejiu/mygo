@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 
 	"mygo/internal/ir"
@@ -536,6 +537,10 @@ func collectProcessSignals(proc *ir.Process) map[*ir.Signal]struct{} {
 				for _, in := range o.Incomings {
 					add(in.Value)
 				}
+			case *ir.PrintOperation:
+				for _, seg := range o.Segments {
+					add(seg.Value)
+				}
 			case *ir.SpawnOperation:
 				for _, arg := range o.Args {
 					add(arg)
@@ -563,6 +568,7 @@ type processPrinter struct {
 	moduleSignals map[string]*ir.Signal
 	usedSignals   map[*ir.Signal]struct{}
 	boolConsts    map[bool]string
+	stdoutFD      string
 }
 
 func (p *processPrinter) resetState() {
@@ -582,6 +588,7 @@ func (p *processPrinter) resetState() {
 	if p.boolConsts == nil {
 		p.boolConsts = make(map[bool]string)
 	}
+	p.stdoutFD = ""
 }
 
 func (p *processPrinter) emitProcess(proc *ir.Process) {
@@ -724,6 +731,8 @@ func (p *processPrinter) emitOperation(op ir.Operation, proc *ir.Process) {
 	case *ir.PhiOperation:
 		p.printIndent()
 		fmt.Fprintf(p.w, "// phi %s has %d incoming values\n", sanitize(o.Dest.Name), len(o.Incomings))
+	case *ir.PrintOperation:
+		p.emitPrintOperation(o)
 	default:
 		// skip unknown operations
 	}
@@ -868,6 +877,76 @@ func (p *processPrinter) emitConvertOperation(o *ir.ConvertOperation) {
 			to,
 		)
 	}
+}
+
+func (p *processPrinter) emitPrintOperation(op *ir.PrintOperation) {
+	if op == nil {
+		return
+	}
+	format, operands, operandTypes := p.buildPrintfFormat(op)
+	fd := p.stdoutConstant()
+	clk := p.portRef("clk")
+
+	p.printIndent()
+	fmt.Fprintf(p.w, "sv.always posedge %s {\n", clk)
+	p.indent++
+	p.printIndent()
+	if len(operands) == 0 {
+		fmt.Fprintf(p.w, "sv.fwrite %s, %s\n", fd, strconv.Quote(format))
+	} else {
+		fmt.Fprintf(p.w, "sv.fwrite %s, %s(%s) : %s\n",
+			fd,
+			strconv.Quote(format),
+			strings.Join(operands, ", "),
+			strings.Join(operandTypes, ", "),
+		)
+	}
+	p.indent--
+	p.printIndent()
+	fmt.Fprintln(p.w, "}")
+}
+
+func (p *processPrinter) buildPrintfFormat(op *ir.PrintOperation) (string, []string, []string) {
+	var builder strings.Builder
+	var values []string
+	var types []string
+
+	for _, seg := range op.Segments {
+		if seg.Value == nil {
+			builder.WriteString(escapePercent(seg.Text))
+			continue
+		}
+		values = append(values, p.valueRef(seg.Value))
+		types = append(types, typeString(seg.Value.Type))
+		builder.WriteString(printVerbSpecifier(seg.Verb))
+	}
+	return builder.String(), values, types
+}
+
+func escapePercent(text string) string {
+	return strings.ReplaceAll(text, "%", "%%")
+}
+
+func printVerbSpecifier(verb ir.PrintVerb) string {
+	switch verb {
+	case ir.PrintVerbHex:
+		return "%x"
+	case ir.PrintVerbBin:
+		return "%b"
+	default:
+		return "%d"
+	}
+}
+
+func (p *processPrinter) stdoutConstant() string {
+	if p.stdoutFD != "" {
+		return p.stdoutFD
+	}
+	name := p.freshValueName("stdout_fd")
+	p.printIndent()
+	fmt.Fprintf(p.w, "%s = hw.constant %d : i32\n", name, 0x80000001)
+	p.stdoutFD = name
+	return name
 }
 
 func portDecls(ports []ir.Port) []string {

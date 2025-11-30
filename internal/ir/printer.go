@@ -119,6 +119,23 @@ func renderOp(op Operation) string {
 			values = append(values, fmt.Sprintf("%s:%s", blockName(in.Block), signalName(in.Value)))
 		}
 		return fmt.Sprintf("%s := phi[%s]", o.Dest.Name, strings.Join(values, ", "))
+	case *PrintOperation:
+		parts := make([]string, 0, len(o.Segments))
+		for _, seg := range o.Segments {
+			if seg.Value == nil {
+				parts = append(parts, fmt.Sprintf("%q", seg.Text))
+				continue
+			}
+			verb := "%d"
+			switch seg.Verb {
+			case PrintVerbHex:
+				verb = "%x"
+			case PrintVerbBin:
+				verb = "%b"
+			}
+			parts = append(parts, fmt.Sprintf(verb, signalName(seg.Value)))
+		}
+		return fmt.Sprintf("print %s", strings.Join(parts, ""))
 	case *SendOperation:
 		return fmt.Sprintf("send %s <- %s", o.Channel.Name, o.Value.Name)
 	case *RecvOperation:

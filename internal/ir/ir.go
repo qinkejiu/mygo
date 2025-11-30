@@ -220,9 +220,9 @@ const (
 
 // BasicBlock mirrors SSA basic blocks at the IR level.
 type BasicBlock struct {
-	Label       string
-	Ops         []Operation
-	Terminator  Terminator
+	Label        string
+	Ops          []Operation
+	Terminator   Terminator
 	Predecessors []*BasicBlock
 	Successors   []*BasicBlock
 }
@@ -325,6 +325,29 @@ type PhiIncoming struct {
 }
 
 func (PhiOperation) isOperation() {}
+
+// PrintVerb enumerates supported formatting styles for print operations.
+type PrintVerb int
+
+const (
+	PrintVerbDec PrintVerb = iota
+	PrintVerbHex
+	PrintVerbBin
+)
+
+// PrintSegment represents either a literal chunk or a formatted value.
+type PrintSegment struct {
+	Text  string
+	Value *Signal
+	Verb  PrintVerb
+}
+
+// PrintOperation emits formatted text to the simulator console.
+type PrintOperation struct {
+	Segments []PrintSegment
+}
+
+func (PrintOperation) isOperation() {}
 
 // SendOperation emits a value onto a channel.
 type SendOperation struct {

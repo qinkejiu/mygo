@@ -16,6 +16,7 @@ func TestProgramsCompileToMLIR(t *testing.T) {
 	repoRoot := filepath.Clean(filepath.Join("..", ".."))
 	testcases := []string{
 		"simple",
+		"print_basic",
 		"type_mismatch",
 		"channel_basic",
 		"simple_branch",
@@ -67,6 +68,7 @@ func TestProgramsCompileToVerilog(t *testing.T) {
 	repoRoot := filepath.Clean(filepath.Join("..", ".."))
 	testcases := []string{
 		"simple",
+		"print_basic",
 		"simple_branch",
 	}
 	for _, name := range testcases {

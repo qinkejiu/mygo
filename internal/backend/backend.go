@@ -75,8 +75,15 @@ func EmitVerilog(design *ir.Design, outputPath string, opts Options) (Result, er
 	}
 
 	currentInput := mlirPath
+	if opts.PassPipeline != "" {
+		pipelineOutput := filepath.Join(tempDir, "design.pipeline.mlir")
+		if err := runCirctPipeline(optPath, opts.PassPipeline, currentInput, pipelineOutput); err != nil {
+			return Result{}, err
+		}
+		currentInput = pipelineOutput
+	}
 	exportOutput := filepath.Join(tempDir, "design.export.mlir")
-	if err := runCirctExportVerilog(optPath, opts.PassPipeline, opts.LoweringOptions, currentInput, exportOutput, outputPath); err != nil {
+	if err := runCirctExportVerilog(optPath, "", opts.LoweringOptions, currentInput, exportOutput, outputPath); err != nil {
 		return Result{}, err
 	}
 	currentInput = exportOutput
@@ -128,6 +135,16 @@ func runCirctExportVerilog(binary, pipeline, loweringOptions, inputPath, mlirOut
 
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("backend: circt-opt --export-verilog failed: %w", err)
+	}
+	return nil
+}
+
+func runCirctPipeline(binary, pipeline, inputPath, outputPath string) error {
+	args := []string{inputPath, "-o", outputPath, "--pass-pipeline=" + pipeline}
+	cmd := exec.Command(binary, args...)
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("backend: circt-opt --pass-pipeline failed: %w", err)
 	}
 	return nil
 }

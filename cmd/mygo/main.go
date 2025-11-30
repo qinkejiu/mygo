@@ -65,7 +65,6 @@ func runCompile(args []string) error {
 	circtLowering := fs.String("circt-lowering-options", "", "comma-separated circt-opt --lowering-options string (optional)")
 	circtMLIR := fs.String("circt-mlir", "", "path to dump the MLIR handed to CIRCT (optional)")
 	fifoSrc := fs.String("fifo-src", "", "path to FIFO implementation source (required when channels are present)")
-
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -301,7 +300,6 @@ func runSim(args []string) error {
 	simArgs := fs.String("sim-args", "", "additional simulator arguments (space-separated)")
 	expectPath := fs.String("expect", "", "path to file containing expected simulator stdout (optional)")
 	fifoSrc := fs.String("fifo-src", "", "path to FIFO implementation source (required when channels are present)")
-
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
