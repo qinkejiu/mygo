@@ -634,18 +634,7 @@ func (p *processPrinter) emitOperation(op ir.Operation, proc *ir.Process) {
 			typeString(o.Dest.Type),
 		)
 	case *ir.ConvertOperation:
-		src := p.valueRef(o.Value)
-		dest := p.bindSSA(o.Dest)
-		from := typeString(o.Value.Type)
-		to := typeString(o.Dest.Type)
-		p.printIndent()
-		if o.Value.Type.Width == o.Dest.Type.Width {
-			fmt.Fprintf(p.w, "%s = comb.bitcast %s : %s -> %s\n", dest, src, from, to)
-		} else if o.Value.Type.Signed {
-			fmt.Fprintf(p.w, "%s = comb.sext %s : %s to %s\n", dest, src, from, to)
-		} else {
-			fmt.Fprintf(p.w, "%s = comb.zext %s : %s to %s\n", dest, src, from, to)
-		}
+		p.emitConvertOperation(o)
 	case *ir.AssignOperation:
 		clk := p.portRef("clk")
 		src := p.valueRef(o.Value)
@@ -707,7 +696,7 @@ func (p *processPrinter) emitOperation(op ir.Operation, proc *ir.Process) {
 		dest := p.bindSSA(o.Dest)
 		operandType := typeString(o.Left.Type)
 		p.printIndent()
-		fmt.Fprintf(p.w, "%s = comb.icmp %s, %s, %s : %s\n",
+		fmt.Fprintf(p.w, "%s = comb.icmp %s %s, %s : %s\n",
 			dest,
 			comparePredicateName(o.Predicate),
 			left,
@@ -725,12 +714,11 @@ func (p *processPrinter) emitOperation(op ir.Operation, proc *ir.Process) {
 		fVal := p.valueRef(o.FalseValue)
 		dest := p.bindSSA(o.Dest)
 		p.printIndent()
-		fmt.Fprintf(p.w, "%s = comb.mux %s, %s, %s : %s, %s\n",
+		fmt.Fprintf(p.w, "%s = comb.mux %s, %s, %s : %s\n",
 			dest,
 			cond,
 			tVal,
 			fVal,
-			typeString(o.Cond.Type),
 			typeString(o.Dest.Type),
 		)
 	case *ir.PhiOperation:
@@ -801,6 +789,85 @@ func (p *processPrinter) boolConst(val bool) string {
 	p.printIndent()
 	fmt.Fprintf(p.w, "%s = hw.constant %t\n", name, val)
 	return name
+}
+
+func (p *processPrinter) freshValueName(prefix string) string {
+	if prefix == "" {
+		prefix = "tmp"
+	}
+	name := fmt.Sprintf("%%%s%d", prefix, p.nextTemp)
+	p.nextTemp++
+	return name
+}
+
+func (p *processPrinter) emitConvertOperation(o *ir.ConvertOperation) {
+	if o == nil || o.Value == nil || o.Dest == nil {
+		return
+	}
+	srcWidth := signalWidth(o.Value.Type)
+	destWidth := signalWidth(o.Dest.Type)
+	src := p.valueRef(o.Value)
+	dest := p.bindSSA(o.Dest)
+	from := typeString(o.Value.Type)
+	to := typeString(o.Dest.Type)
+
+	switch {
+	case destWidth == srcWidth:
+		p.printIndent()
+		fmt.Fprintf(p.w, "%s = comb.bitcast %s : %s -> %s\n", dest, src, from, to)
+	case destWidth > srcWidth:
+		extendWidth := destWidth - srcWidth
+		if extendWidth <= 0 {
+			p.printIndent()
+			fmt.Fprintf(p.w, "%s = comb.bitcast %s : %s -> %s\n", dest, src, from, to)
+			return
+		}
+		if o.Value.Type != nil && o.Value.Type.Signed {
+			signBit := p.freshValueName("sext_msb")
+			p.printIndent()
+			fmt.Fprintf(p.w, "%s = comb.extract %s from %d : (%s) -> i1\n",
+				signBit,
+				src,
+				srcWidth-1,
+				from,
+			)
+			replicated := p.freshValueName("sext_bits")
+			p.printIndent()
+			fmt.Fprintf(p.w, "%s = comb.replicate %s : (i1) -> i%d\n",
+				replicated,
+				signBit,
+				extendWidth,
+			)
+			p.printIndent()
+			fmt.Fprintf(p.w, "%s = comb.concat %s, %s : i%d, %s\n",
+				dest,
+				replicated,
+				src,
+				extendWidth,
+				from,
+			)
+		} else {
+			p.printIndent()
+			zeros := p.freshValueName("zext_pad")
+			fmt.Fprintf(p.w, "%s = hw.constant 0 : i%d\n", zeros, extendWidth)
+			p.printIndent()
+			fmt.Fprintf(p.w, "%s = comb.concat %s, %s : i%d, %s\n",
+				dest,
+				zeros,
+				src,
+				extendWidth,
+				from,
+			)
+		}
+	default:
+		p.printIndent()
+		fmt.Fprintf(p.w, "%s = comb.extract %s from 0 : (%s) -> %s\n",
+			dest,
+			src,
+			from,
+			to,
+		)
+	}
 }
 
 func portDecls(ports []ir.Port) []string {
@@ -951,4 +1018,11 @@ func fifoModuleName(ch *ir.Channel) string {
 		depth = 1
 	}
 	return fmt.Sprintf("mygo_fifo_%s_d%d", sanitize(typeString(ch.Type)), depth)
+}
+
+func signalWidth(t *ir.SignalType) int {
+	if t == nil || t.Width <= 0 {
+		return 1
+	}
+	return t.Width
 }
