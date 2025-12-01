@@ -26,7 +26,7 @@ go test ./...
 
 ### Compile to MLIR
 ```bash
-mygo compile -emit=mlir -o simple.mlir tests/e2e/simple/main.go
+mygo compile -emit=mlir -o simple.mlir tests/stages/simple/main.go
 ```
 
 ### Compile to Verilog
@@ -37,7 +37,7 @@ mygo compile -emit=verilog \
     --circt-opt=$(which circt-opt) \
     --fifo-src=internal/backend/templates/simple_fifo.sv \
     -o simple.sv \
-    tests/e2e/pipeline1/main.go
+    tests/stages/pipeline1/main.go
 ```
 
 The backend removes auto-generated FIFO definitions from the main Verilog file and mirrors your FIFO/IP sources next to the output:
@@ -58,7 +58,7 @@ mygo sim \
     --circt-opt=$(which circt-opt) \
     --fifo-src=internal/backend/templates/simple_fifo.sv \
     --sim-max-cycles=64 \
-    tests/e2e/pipeline1/main.go
+    tests/stages/pipeline1/main.go
 
 # Point to a custom simulator wrapper if needed
 mygo sim \
@@ -66,7 +66,7 @@ mygo sim \
     --fifo-src=/path/to/my_fifo_lib \
     --simulator=/path/to/custom-sim.sh \
     --sim-args="--extra --flags" \
-    tests/e2e/pipeline1/main.go
+    tests/stages/pipeline1/main.go
 
 `--sim-max-cycles` and `--sim-reset-cycles` control how long the built-in driver
 ticks the design before aborting, and `--expect <path>` enables golden trace
@@ -91,7 +91,7 @@ want to inspect the generated C++/Makefile/Verilog bundle.
 | `internal/ir` | Defines the hardware IR, processes, channels, and validation helpers. |
 | `internal/mlir` | Lowers the IR to structural MLIR (`hw`, `seq`, `sv` dialects) and emits FIFO extern declarations. |
 | `internal/backend` | Manages CIRCT temp files, optional `circt-opt` passes, Verilog emission, FIFO stripping, and mirroring of user-provided helper IP. |
-| `tests/e2e` | End-to-end workloads (ported from Argo) plus golden MLIR and simulation traces. |
+| `tests/stages` | Stage harness. Each workload lives under `tests/stages/<case>/` with `main.go` and optional `main.{mlir,sv,sim}.golden` references. |
 | `internal/backend/templates/simple_fifo.sv` | Reference FIFO implementation for quick experimentation. Copy/modify this outside the repo for production flows. |
 
 ---
@@ -105,9 +105,11 @@ go test ./...
 # Focus on backend/package tests
 go test ./internal/backend -run .
 
-# Run the e2e harness (compares MLIR, SV, and sim goldens)
-go test ./tests/e2e -run TestProgramsLoweringAndSimulation
+# Run the stage harness (separate MLIR, SV, and simulation checks)
+go test ./tests/stages
 ```
+
+Each workload directory contains the original Go program plus whatever stage goldens you care about, so leaving out (say) `main.sim.golden` skips simulation while still validating MLIR and SV output. The harness exposes dedicated `TestMLIRGeneration`, `TestVerilogGeneration`, and `TestSimulation` suites so triaging a failure is straightforward, and includes targeted sims that exercise mismatch detection and artifact emission.
 
 The CLI itself has regression coverage in `cmd/mygo/sim_test.go`, which stubs the CIRCT binaries and executes the built-in Verilator flow (or any custom simulator you point it at).
 
@@ -120,6 +122,6 @@ The CLI itself has regression coverage in `cmd/mygo/sim_test.go`, which stubs th
 
 ## Known Issues
 
-- `tests/e2e/phi_loop` is a minimized workload that still triggers the current lack of phi lowering in the MLIR backend. Running the Verilog emission command documented in `docs/phi-repro.md` reproduces the failure until phis are lowered to concrete SSA values.
+- `tests/stages/phi_loop` is a minimized workload that still triggers the current lack of phi lowering in the MLIR backend. Running the Verilog emission command documented in `docs/phi-repro.md` reproduces the failure until phis are lowered to concrete SSA values.
 
 For architectural or research deep dives, start with the archived document above; keep this README handy for daily work and onboarding.

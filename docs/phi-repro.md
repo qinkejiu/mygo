@@ -1,6 +1,6 @@
 # Phi Lowering Reproduction
 
-The `tests/e2e/phi_loop` workload is a tiny Go program that exercises a pair of
+The `tests/stages/phi_loop` workload is a tiny Go program that exercises a pair of
 counted loops (one writer, one reader) connected by a buffered channel.  When
 lowered to the MyGO IR each loop introduces `ir.PhiOperation`s to thread the
 loop-carried state, so it is the smallest example we have that still hits the
@@ -16,7 +16,7 @@ go run ./cmd/mygo compile \
     --circt-opt=third_party/circt/build/bin/circt-opt \
     --fifo-src=internal/backend/templates/simple_fifo.sv \
     -o /tmp/phi_loop.sv \
-    tests/e2e/phi_loop/main.go
+    tests/stages/phi_loop/main.go
 ```
 
 Expected failure (abridged):
