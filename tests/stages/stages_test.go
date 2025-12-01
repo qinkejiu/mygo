@@ -43,7 +43,10 @@ var testCases = []testCase{
 	{Name: "router_csp", NeedsFIFO: true},
 }
 
-var verilatorAvailable = checkVerilator()
+var (
+	circtOptAvailable = checkBinary("circt-opt")
+	verilatorAvailable = checkBinary("verilator")
+)
 
 func TestMLIRGeneration(t *testing.T) {
 	runStageTests(t, func(t *testing.T, h harness, tc testCase) {
@@ -73,6 +76,9 @@ func TestSimulation(t *testing.T) {
 }
 
 func TestSimulationDetectsMismatch(t *testing.T) {
+	if !circtOptAvailable {
+		t.Skip("circt-opt not on PATH")
+	}
 	if !verilatorAvailable {
 		t.Skip("verilator not on PATH")
 	}
@@ -100,6 +106,9 @@ func TestSimulationDetectsMismatch(t *testing.T) {
 }
 
 func TestSimulationVerilogOutWritesArtifacts(t *testing.T) {
+	if !circtOptAvailable {
+		t.Skip("circt-opt not on PATH")
+	}
 	if !verilatorAvailable {
 		t.Skip("verilator not on PATH")
 	}
@@ -172,6 +181,10 @@ func maybeVerifyVerilog(t *testing.T, repoRoot, source, golden, fifoLib string, 
 	if !fileExists(t, filepath.Join(repoRoot, golden)) {
 		return
 	}
+	if !circtOptAvailable {
+		t.Logf("skipping verilog check for %s: circt-opt not on PATH", source)
+		return
+	}
 	output := filepath.Join(t.TempDir(), "main.sv")
 	args := []string{
 		"run", "./cmd/mygo", "compile",
@@ -197,6 +210,10 @@ func maybeVerifySimulation(t *testing.T, repoRoot, source, golden, fifoLib strin
 	}
 	if !verilatorAvailable {
 		t.Logf("skipping simulation for %s: verilator not on PATH", tc.Name)
+		return
+	}
+	if !circtOptAvailable {
+		t.Logf("skipping simulation for %s: circt-opt not on PATH", tc.Name)
 		return
 	}
 	args := []string{
@@ -273,8 +290,8 @@ func getTestCase(t *testing.T, name string) testCase {
 	return testCase{}
 }
 
-func checkVerilator() bool {
-	_, err := exec.LookPath("verilator")
+func checkBinary(name string) bool {
+	_, err := exec.LookPath(name)
 	return err == nil
 }
 
