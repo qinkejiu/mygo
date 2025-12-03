@@ -150,10 +150,10 @@ func TestEmitVerilogEmitsAuxiliaryFifoFile(t *testing.T) {
 		if err := copyFile(inputPath, mlirOutputPath); err != nil {
 			return err
 		}
-		return os.WriteFile(verilogOutputPath, []byte(readBackendTestdata(t, "verilog_with_fifo.sv")), 0o644)
+		return os.WriteFile(verilogOutputPath, []byte(readBackendTestdata(t, "design_inline_fifo.sv")), 0o644)
 	})
 	fifoSrc := filepath.Join(tmp, "fifo_impl.sv")
-	fifoBody := readBackendTestdata(t, "fifo_impl_external.sv")
+	fifoBody := readBackendTestdata(t, "fifo_impl_external_stub.sv")
 	if err := os.WriteFile(fifoSrc, []byte(fifoBody), 0o644); err != nil {
 		t.Fatalf("write fifo src: %v", err)
 	}
@@ -199,10 +199,10 @@ func TestEmitVerilogGeneratesFifoWrappers(t *testing.T) {
 		if err := copyFile(inputPath, mlirOutputPath); err != nil {
 			return err
 		}
-		return os.WriteFile(verilogOutputPath, []byte(readBackendTestdata(t, "verilog_with_fifo.sv")), 0o644)
+		return os.WriteFile(verilogOutputPath, []byte(readBackendTestdata(t, "design_inline_fifo.sv")), 0o644)
 	})
-	fifoSrc := filepath.Join(tmp, "fifo_template.sv")
-	if err := os.WriteFile(fifoSrc, []byte(readBackendTestdata(t, "fifo_template.sv")), 0o644); err != nil {
+	fifoSrc := filepath.Join(tmp, "fifo_impl_template_parametric.sv")
+	if err := os.WriteFile(fifoSrc, []byte(readBackendTestdata(t, "fifo_impl_template_parametric.sv")), 0o644); err != nil {
 		t.Fatalf("write fifo template: %v", err)
 	}
 	out := filepath.Join(tmp, "design.sv")
@@ -237,10 +237,10 @@ func TestEmitVerilogStripsAnnotatedFifoModules(t *testing.T) {
 		if err := copyFile(inputPath, mlirOutputPath); err != nil {
 			return err
 		}
-		return os.WriteFile(verilogOutputPath, []byte(readBackendTestdata(t, "verilog_with_annotations.sv")), 0o644)
+		return os.WriteFile(verilogOutputPath, []byte(readBackendTestdata(t, "design_fifo_with_attrs.sv")), 0o644)
 	})
 	fifoSrc := filepath.Join(tmp, "fifo_impl.sv")
-	if err := os.WriteFile(fifoSrc, []byte(readBackendTestdata(t, "fifo_impl_basic.sv")), 0o644); err != nil {
+	if err := os.WriteFile(fifoSrc, []byte(readBackendTestdata(t, "fifo_impl_concrete.sv")), 0o644); err != nil {
 		t.Fatalf("write fifo impl: %v", err)
 	}
 	out := filepath.Join(tmp, "design.sv")
@@ -271,7 +271,7 @@ func TestEmitVerilogCopiesFifoDirectory(t *testing.T) {
 		if err := copyFile(inputPath, mlirOutputPath); err != nil {
 			return err
 		}
-		return os.WriteFile(verilogOutputPath, []byte(readBackendTestdata(t, "verilog_with_fifo.sv")), 0o644)
+		return os.WriteFile(verilogOutputPath, []byte(readBackendTestdata(t, "design_inline_fifo.sv")), 0o644)
 	})
 	srcDir := filepath.Join(tmp, "fifo_lib")
 	if err := os.MkdirAll(srcDir, 0o755); err != nil {
@@ -317,7 +317,7 @@ func TestEmitVerilogErrorsWithoutFifoSource(t *testing.T) {
 		if err := copyFile(inputPath, mlirOutputPath); err != nil {
 			return err
 		}
-		return os.WriteFile(verilogOutputPath, []byte(readBackendTestdata(t, "verilog_with_fifo.sv")), 0o644)
+		return os.WriteFile(verilogOutputPath, []byte(readBackendTestdata(t, "design_inline_fifo.sv")), 0o644)
 	})
 	out := filepath.Join(tmp, "design.sv")
 	_, err := EmitVerilog(design, out, Options{CIRCTOptPath: opt})

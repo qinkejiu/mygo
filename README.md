@@ -41,6 +41,7 @@ These suites gracefully skip Verilog/Sim checks if `circt-opt` or `verilator` is
 - `docs/sim.md` – simulator options, default Verilator flow, test structure, and how goldens/expectations work.
 - `docs/dump.md` – `dump-ssa`, `dump-ir`, and `lint` workflows for debugging and doc curation.
 - `docs/phi-repro.md` – current known issues such as the `phi_loop` workload.
+- `docs/backend/testdata.md` – catalog of backend SystemVerilog fixtures used in unit tests.
 - `docs/archive/` – historical plans and previous READMEs for citation only.
 
 Always update the relevant doc instead of bloating this README when you add flags or tweak flows.
@@ -62,4 +63,3 @@ Always update the relevant doc instead of bloating this README when you add flag
 - Run the **Workflow** commands before submitting or debugging a feature.
 - When documenting or reviewing new CLI flags, place the explanation in `docs/compile.md`, `docs/sim.md`, or `docs/dump.md` and link back here only if the quick path changes.
 - Prefer `tests/stages/simple` for smoke coverage; introduce new workloads only when a behavior cannot be expressed there.
-
