@@ -1,16 +1,28 @@
 # Phi Lowering Reproduction
 
-The `tests/stages/phi_loop` workload is a tiny Go program that exercises a pair of
-counted loops (one writer, one reader) connected by a buffered channel.  When
-lowered to the MyGO IR each loop introduces `ir.PhiOperation`s to thread the
-loop-carried state, so it is the smallest example we have that still hits the
-current "phis are not lowered" gap in the MLIR backend.
+The `tests/stages/phi_loop` workload exercises a pair of counted loops
+connected by a buffered channel. Each loop carries state via
+`ir.PhiOperation`s, so this workload historically exposed the MLIR backend's
+lack of phi lowering.
 
-## Running the Repro
+## Current Status (December 3, 2025)
+
+Phi lowering now materializes explicit registers and predicate muxes
+(`sv.reg` + `sv.passign`) in `internal/mlir/emitter.go`. Running the workload
+through either the stage tests or the CLI succeeds without additional patches.
+The snippet below is a quick sanity check that regenerates Verilog and compares
+it to the checked-in golden:
 
 ```bash
-cd /path/to/mygo
-GOCACHE=$PWD/.gocache \
+PATH=$PWD/third_party/circt/build/bin:$PATH \
+GOCACHE=$PWD/.gocache GOTMPDIR=$PWD/.gotmp \
+go test ./tests/stages -run TestVerilogGeneration/phi_loop
+```
+
+You can also emit Verilog directly:
+
+```bash
+GOCACHE=$PWD/.gocache GOTMPDIR=$PWD/.gotmp \
 go run ./cmd/mygo compile \
     -emit=verilog \
     --circt-opt=third_party/circt/build/bin/circt-opt \
@@ -19,7 +31,13 @@ go run ./cmd/mygo compile \
     tests/stages/phi_loop/main.go
 ```
 
-Expected failure (abridged):
+The `docs/phi-repro.md` file remains as a regression note; if either command
+above fails, please update this document with the new failure signature.
+
+## Historical Failure Mode
+
+Before the lowering change, `circt-opt` rejected the intermediate MLIR because
+the phi result never materialized and stayed as a dangling SSA reference:
 
 ```
 /tmp/mygo-XXXX/design.mlir:42:24: error: expected SSA operand
@@ -27,8 +45,3 @@ Expected failure (abridged):
                        ^
 backend: circt-opt --export-verilog failed: exit status 1
 ```
-
-The undefined `%t1_11` value is a phi result that currently lowers to a comment
-in `internal/mlir/emitter.go`.  Once the phi lowering pass materializes real
-SSA values (likely via `seq.compreg` + muxes per block predicate) this command
-should succeed and the documentation above can be retired.
