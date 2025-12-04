@@ -26,6 +26,7 @@ mygo compile \
 - Verilog emission requires `-o` because the backend writes auxiliary FIFO/IP bundles next to that file.
 - `--fifo-src` is required whenever the design instantiates channels; point it at a single `.sv` file or a directory of helper IP.
 - The backend mirrors the FIFO assets alongside `pipeline1.sv` (e.g. `design_fifos.sv` or `design_fifo_lib/`).
+- CIRCT temps (e.g. `design.mlir`, `design.pipeline.mlir`) now live under `<workload>/mygo-circt-*`, aligned with the simulation temp layout.
 
 ## Flag Reference
 

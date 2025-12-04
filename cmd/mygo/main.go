@@ -75,6 +75,7 @@ func runCompile(args []string) error {
 	}
 
 	inputs := fs.Args()
+	tempRoot := artifactTempRoot(inputs)
 	result, err := prepareProgram(inputs, *diagFormat)
 	if err != nil {
 		return err
@@ -115,6 +116,7 @@ func runCompile(args []string) error {
 			PassPipeline:    *circtPipeline,
 			LoweringOptions: *circtLowering,
 			DumpMLIRPath:    *circtMLIR,
+			TempRoot:        tempRoot,
 			FIFOSource:      *fifoSrc,
 		}
 		res, err := emitVerilog(design, *output, opts)
@@ -278,7 +280,7 @@ func runSim(args []string) error {
 	}
 
 	hasChannels := designHasChannels(design)
-	tempRoot := simulationTempRoot(inputs)
+	tempRoot := artifactTempRoot(inputs)
 
 	var tempDir string
 	if *verilogOut == "" {
@@ -305,6 +307,7 @@ func runSim(args []string) error {
 		LoweringOptions: *circtLowering,
 		DumpMLIRPath:    *circtMLIR,
 		KeepTemps:       *keepArtifacts,
+		TempRoot:        tempRoot,
 		FIFOSource:      *fifoSrc,
 	}
 
@@ -390,7 +393,7 @@ func defaultSimExpectPath(input string) string {
 	return filepath.Join(dir, "expected.sim")
 }
 
-func simulationTempRoot(inputs []string) string {
+func artifactTempRoot(inputs []string) string {
 	for _, in := range inputs {
 		if dir := resolveInputDir(in); dir != "" {
 			return dir

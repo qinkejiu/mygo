@@ -41,7 +41,7 @@ When `--simulator` is omitted, MyGO:
 3. Invokes `verilator --cc --exe --build` with the generated bundle.
 4. Runs the produced `mygo_sim` binary and optionally checks stdout against `--expect` / auto goldens.
 
-Artifacts now stick around by default, so you can inspect them under `<workload>/mygo-sim-*`. Pass `--keep-artifacts=false` to opt back into auto-cleanup.
+Artifacts now stick around by default, so you can inspect Verilog, CIRCT MLIR temps (from `mygo-circt-*`), and Verilator builds under `<workload>/mygo-*-*`. Pass `--keep-artifacts=false` to opt back into auto-cleanup.
 
 ## Flag Reference
 

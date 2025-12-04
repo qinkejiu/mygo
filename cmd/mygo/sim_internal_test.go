@@ -60,7 +60,7 @@ func TestParseSimArgs(t *testing.T) {
 	}
 }
 
-func TestSimulationTempRoot(t *testing.T) {
+func TestArtifactTempRoot(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		name   string
@@ -117,14 +117,14 @@ func TestSimulationTempRoot(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			base := t.TempDir()
 			inputs := tc.setup(base)
-			got := simulationTempRoot(inputs)
+			got := artifactTempRoot(inputs)
 			want := tc.expect(base)
 			wantAbs, err := filepath.Abs(want)
 			if err != nil {
 				t.Fatalf("abs want: %v", err)
 			}
 			if got != wantAbs {
-				t.Fatalf("simulationTempRoot mismatch: got %s want %s", got, wantAbs)
+				t.Fatalf("artifactTempRoot mismatch: got %s want %s", got, wantAbs)
 			}
 		})
 	}

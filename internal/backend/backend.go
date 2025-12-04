@@ -45,6 +45,9 @@ type Options struct {
 	DumpMLIRPath string
 	// KeepTemps preserves the intermediate directory on disk for debugging.
 	KeepTemps bool
+	// TempRoot, when non-empty, scopes backend temp dirs under the provided
+	// path instead of the system temp location.
+	TempRoot string
 	// FIFOSource points to a user-provided FIFO implementation that will be
 	// copied next to the emitted Verilog when channels are present.
 	FIFOSource string
@@ -76,7 +79,7 @@ func EmitVerilog(design *ir.Design, outputPath string, opts Options) (Result, er
 		return Result{}, fmt.Errorf("backend: resolve circt-opt: %w", err)
 	}
 
-	tempDir, err := os.MkdirTemp("", "mygo-circt-*")
+	tempDir, err := os.MkdirTemp(opts.TempRoot, "mygo-circt-*")
 	if err != nil {
 		return Result{}, fmt.Errorf("backend: create temp dir: %w", err)
 	}
