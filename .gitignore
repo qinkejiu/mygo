@@ -35,3 +35,6 @@ third_party/argo2verilog
 
 # Generated MLIR/Verilog snapshots
 *.mlir
+
+# Tooling temp directories created under workloads
+**/.mygo-tmp/

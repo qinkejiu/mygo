@@ -79,7 +79,7 @@ func EmitVerilog(design *ir.Design, outputPath string, opts Options) (Result, er
 		return Result{}, fmt.Errorf("backend: resolve circt-opt: %w", err)
 	}
 
-	tempDir, err := os.MkdirTemp(opts.TempRoot, "mygo-circt-*")
+	tempDir, err := os.MkdirTemp(opts.TempRoot, ".mygo-circt-*")
 	if err != nil {
 		return Result{}, fmt.Errorf("backend: create temp dir: %w", err)
 	}

@@ -41,7 +41,13 @@ When `--simulator` is omitted, MyGO:
 3. Invokes `verilator --cc --exe --build` with the generated bundle.
 4. Runs the produced `mygo_sim` binary and optionally checks stdout against `--expect` / auto goldens.
 
-Artifacts now stick around by default, so you can inspect Verilog, CIRCT MLIR temps (from `mygo-circt-*`), and Verilator builds under `<workload>/mygo-*-*`. Pass `--keep-artifacts=false` to opt back into auto-cleanup.
+Artifacts now stick around by default, so you can inspect Verilog, CIRCT MLIR temps, and Verilator builds under `<workload>/.mygo-tmp/`. Pass `--keep-artifacts=false` to opt back into auto-cleanup.
+
+### Artifact Layout
+
+- **`.mygo-tmp/.mygo-sim-*`** – Verilog bundles emitted by `mygo sim` when `--verilog-out` is omitted. Each directory contains `design.sv` plus any FIFO aux files.
+- **`.mygo-tmp/.mygo-circt-*`** – CIRCT pipeline scratch (the MLIR handed between passes and `--export-verilog`). These are shared with the compile command; they are removed unless the run fails or you interrupt it.
+- **`.mygo-tmp/.mygo-verilator-*/verilator`** – The full Verilator project for the built-in simulator. Expect `sim_main.cpp`, the generated `obj_dir`, and the final `mygo_sim` binary here. Because the helper installs its xargs shim in the same folder, the layout is self-contained and easy to inspect/copy.
 
 ## Flag Reference
 

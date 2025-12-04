@@ -285,7 +285,7 @@ func runSim(args []string) error {
 	var tempDir string
 	if *verilogOut == "" {
 		var err error
-		tempDir, err = os.MkdirTemp(tempRoot, "mygo-sim-*")
+		tempDir, err = os.MkdirTemp(tempRoot, ".mygo-sim-*")
 		if err != nil {
 			return err
 		}
@@ -396,13 +396,13 @@ func defaultSimExpectPath(input string) string {
 func artifactTempRoot(inputs []string) string {
 	for _, in := range inputs {
 		if dir := resolveInputDir(in); dir != "" {
-			return dir
+			return ensureArtifactRoot(dir)
 		}
 	}
 	if cwd, err := os.Getwd(); err == nil {
-		return cwd
+		return ensureArtifactRoot(cwd)
 	}
-	return ""
+	return os.TempDir()
 }
 
 func resolveInputDir(input string) string {
@@ -432,6 +432,17 @@ func existingDirectory(path string) string {
 	return abs
 }
 
+func ensureArtifactRoot(base string) string {
+	if base == "" {
+		return os.TempDir()
+	}
+	root := filepath.Join(base, ".mygo-tmp")
+	if err := os.MkdirAll(root, 0o755); err != nil {
+		return base
+	}
+	return root
+}
+
 func runBuiltinVerilator(mainPath string, auxPaths []string, expectPath string, maxCycles, resetCycles int, tempRoot string, keepArtifacts bool) error {
 	if maxCycles <= 0 {
 		return fmt.Errorf("default simulator requires --sim-max-cycles > 0 (got %d)", maxCycles)
@@ -444,7 +455,7 @@ func runBuiltinVerilator(mainPath string, auxPaths []string, expectPath string, 
 		return fmt.Errorf("resolve verilator: %w", err)
 	}
 
-	tempDir, err := os.MkdirTemp(tempRoot, "mygo-verilator-*")
+	tempDir, err := os.MkdirTemp(tempRoot, ".mygo-verilator-*")
 	if err != nil {
 		return fmt.Errorf("create verilator temp dir: %w", err)
 	}
@@ -452,7 +463,11 @@ func runBuiltinVerilator(mainPath string, auxPaths []string, expectPath string, 
 		defer os.RemoveAll(tempDir)
 	}
 
-	driverPath := filepath.Join(tempDir, "sim_main.cpp")
+	buildDir := filepath.Join(tempDir, "verilator")
+	if err := os.MkdirAll(buildDir, 0o755); err != nil {
+		return fmt.Errorf("create verilator build dir: %w", err)
+	}
+	driverPath := filepath.Join(buildDir, "sim_main.cpp")
 	driver, err := renderVerilatorDriver(maxCycles, resetCycles)
 	if err != nil {
 		return fmt.Errorf("render verilator driver: %w", err)
@@ -460,11 +475,11 @@ func runBuiltinVerilator(mainPath string, auxPaths []string, expectPath string, 
 	if err := os.WriteFile(driverPath, []byte(driver), 0o644); err != nil {
 		return fmt.Errorf("write verilator driver: %w", err)
 	}
-	if _, err := installXargsShim(tempDir); err != nil {
+	if _, err := installXargsShim(buildDir); err != nil {
 		return err
 	}
 
-	objDir := filepath.Join(tempDir, "obj_dir")
+	objDir := filepath.Join(buildDir, "obj_dir")
 	args := []string{
 		"--cc", "--exe", "--build",
 		"--sv",
@@ -479,7 +494,7 @@ func runBuiltinVerilator(mainPath string, auxPaths []string, expectPath string, 
 	cmd := exec.Command(verilatorPath, args...)
 	cmd.Stdout = os.Stderr
 	cmd.Stderr = os.Stderr
-	cmd.Env = prependPathToEnv(tempDir)
+	cmd.Env = prependPathToEnv(buildDir)
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("verilator build failed: %w", err)
 	}

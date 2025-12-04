@@ -82,7 +82,7 @@ func TestArtifactTempRoot(t *testing.T) {
 				return []string{file}
 			},
 			expect: func(base string) string {
-				return filepath.Join(base, "proj")
+				return filepath.Join(base, "proj", ".mygo-tmp")
 			},
 		},
 		{
@@ -95,7 +95,7 @@ func TestArtifactTempRoot(t *testing.T) {
 				return []string{dir}
 			},
 			expect: func(base string) string {
-				return filepath.Join(base, "pkg")
+				return filepath.Join(base, "pkg", ".mygo-tmp")
 			},
 		},
 		{
@@ -108,7 +108,7 @@ func TestArtifactTempRoot(t *testing.T) {
 				if err != nil {
 					t.Fatalf("getwd: %v", err)
 				}
-				return cwd
+				return filepath.Join(cwd, ".mygo-tmp")
 			},
 		},
 	}
