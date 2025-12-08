@@ -42,6 +42,8 @@ module main__proc_producer(
   reg [31:0] phi_reg10;
   assign chan_t0_wdata = phi_reg10;
   assign chan_t0_wvalid = 1'h1;
+  always @(posedge clk)
+    $fwrite(32'h80000001, "producer sent %d\n", phi_reg10);
   always @(posedge clk) begin
     case (state_reg8)
       3'b000: begin

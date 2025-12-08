@@ -1,0 +1,39 @@
+module main
+  ports:
+    in  clk 1bu
+    in  rst 1bu
+  signals:
+    const_1  const 32bs = 0
+    const_3  const 32bs = 4
+    const_5  const 32bs = 1
+    const_6  const 32bs = 42
+    t0_0     wire  32bs
+    t1_4     wire  1bu
+    t4_7     wire  1bu
+    t7_2     wire  32bs
+    varargs  reg   32bs
+  channels:
+    t0       depth=1 type=32bs
+  process 0 main (stage=0, sequential)
+    block entry
+      go producer(stage=1)(ch:t0)
+      br t4_7 ? if.then : if.done
+    block if.then
+      jump if.done
+    block if.done
+      return
+  process 1 producer (stage=1, sequential)
+    block entry
+      jump for.loop
+    block for.loop
+      t0_0 := phi[entry:const_1, for.body:t7_2]
+      t1_4 := cmp(t0_0 <s const_3)
+      br t1_4 ? for.body : for.done
+    block for.done
+      return
+    block for.body
+      send t0 <- t0_0
+      print "producer sent "%!d(string=t0_0)"\n"
+      t7_2 := t0_0 + const_5
+      jump for.loop
+

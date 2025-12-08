@@ -4,68 +4,71 @@ import "fmt"
 
 const (
 	numPackets = 4
-	numPorts   = 2
 	fieldSrc   = 0
 	fieldDest  = 1
 	fieldData  = 2
 )
 
-type packet [3]int32
+// Pack a three-field packet into a 32-bit word: [src|dest|data].
+func makePacket(src, dest, data uint32) uint32 {
+	return (src << 24) | (dest << 16) | (data & 0xFFFF)
+}
 
-func producer(id int32, baseDest int32, out chan<- packet, ack <-chan bool) {
-	for i := int32(0); i < numPackets; i++ {
+func unpackPacket(pkt uint32) (src, dest, data uint32) {
+	src = (pkt >> 24) & 0xFF
+	dest = (pkt >> 16) & 0xFF
+	data = pkt & 0xFFFF
+	return
+}
+
+func producer(id uint32, baseDest uint32, out chan<- uint32) {
+	for i := uint32(0); i < numPackets; i++ {
 		dest := (baseDest + i) & 1
-		out <- packet{id, dest, id*10 + i}
-		<-ack
+		pkt := makePacket(id, dest, id*10+i)
+		out <- pkt
+		fmt.Printf("producer %d sent dest=%d payload=%d\n", id, dest, id*10+i)
 	}
 }
 
-func router(left, right <-chan packet, ackLeft, ackRight chan<- bool, outA, outB chan<- packet, readyA, readyB <-chan bool) {
-	for i := int32(0); i < numPackets; i++ {
-		routePacket(<-left, outA, outB, readyA, readyB)
-		ackLeft <- true
-		routePacket(<-right, outA, outB, readyA, readyB)
-		ackRight <- true
+func router(left, right <-chan uint32, outA, outB chan<- uint32) {
+	for i := uint32(0); i < numPackets; i++ {
+		routePacket(<-left, outA, outB)
+		routePacket(<-right, outA, outB)
 	}
 }
 
-func routePacket(pkt packet, outA, outB chan<- packet, readyA, readyB <-chan bool) {
-	if pkt[fieldDest]&1 == 0 {
+func routePacket(pkt uint32, outA, outB chan<- uint32) {
+	_, dest, _ := unpackPacket(pkt)
+	if dest&1 == 0 {
 		outA <- pkt
-		<-readyA
 	} else {
 		outB <- pkt
-		<-readyB
 	}
 }
 
-func consumer(id int32, in <-chan packet, ready chan<- bool, done chan<- bool) {
-	for i := int32(0); i < numPackets; i++ {
+func consumer(id uint32, in <-chan uint32, done chan<- bool) {
+	for i := uint32(0); i < numPackets; i++ {
 		pkt := <-in
-		fmt.Printf("consumer %d got packet from %d with payload %d\n", id, pkt[fieldSrc], pkt[fieldData])
-		ready <- true
+		src, dest, data := unpackPacket(pkt)
+		fmt.Printf("consumer %d got src=%d dest=%d payload=%d\n", id, src, dest, data)
 	}
 	done <- true
 }
 
 func main() {
-	left := make(chan packet, 1)
-	right := make(chan packet, 1)
-	outA := make(chan packet, 1)
-	outB := make(chan packet, 1)
-	ackLeft := make(chan bool, 1)
-	ackRight := make(chan bool, 1)
-	readyA := make(chan bool, 1)
-	readyB := make(chan bool, 1)
-	done := make(chan bool, numPorts)
+	left := make(chan uint32, 1)
+	right := make(chan uint32, 1)
+	outA := make(chan uint32, 1)
+	outB := make(chan uint32, 1)
+	done := make(chan bool, 2)
 
-	go consumer(0, outA, readyA, done)
-	go consumer(1, outB, readyB, done)
-	go router(left, right, ackLeft, ackRight, outA, outB, readyA, readyB)
-	go producer(0, 0, left, ackLeft)
-	go producer(1, 1, right, ackRight)
+	go consumer(0, outA, done)
+	go consumer(1, outB, done)
+	go router(left, right, outA, outB)
+	go producer(0, 0, left)
+	go producer(1, 1, right)
 
-	for i := 0; i < numPorts; i++ {
+	for i := 0; i < 2; i++ {
 		<-done
 	}
 	fmt.Println("router complete")

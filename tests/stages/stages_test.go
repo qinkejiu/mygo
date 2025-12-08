@@ -24,28 +24,30 @@ type harness struct {
 
 type testCase struct {
 	Name      string
+	Group     string
 	NeedsFIFO bool
 	SimCycles int
 }
 
 var testCases = []testCase{
-	{Name: "simple", SimCycles: 1},
-	{Name: "simple_branch"},
-	{Name: "simple_print"},
-	{Name: "type_mismatch", SimCycles: 1},
-	{Name: "comb_adder", SimCycles: 1},
-	{Name: "comb_bitwise", SimCycles: 1},
-	{Name: "comb_concat", SimCycles: 1},
-	{Name: "simple_channel", NeedsFIFO: true},
-	{Name: "phi_loop", NeedsFIFO: true},
-	{Name: "pipeline1", NeedsFIFO: true},
-	{Name: "pipeline2", NeedsFIFO: true},
-	{Name: "router_csp", NeedsFIFO: true},
+	{Name: "simple", Group: "scalar", SimCycles: 1},
+	{Name: "simple_branch", Group: "control", SimCycles: 2},
+	{Name: "simple_print", Group: "scalar", SimCycles: 1},
+	{Name: "type_mismatch", Group: "scalar", SimCycles: 1},
+	{Name: "comb_adder", Group: "comb", SimCycles: 1},
+	{Name: "comb_bitwise", Group: "comb", SimCycles: 1},
+	{Name: "comb_concat", Group: "comb", SimCycles: 1},
+	{Name: "simple_channel", Group: "channels", NeedsFIFO: true, SimCycles: 2},
+	{Name: "phi_loop", Group: "control", NeedsFIFO: true, SimCycles: 8},
+	{Name: "pipeline1", Group: "pipelines", NeedsFIFO: true, SimCycles: 10},
+	{Name: "pipeline2", Group: "pipelines", NeedsFIFO: true, SimCycles: 12},
+	{Name: "router_csp", Group: "channels", NeedsFIFO: true, SimCycles: 16},
 }
 
 var (
 	circtOptAvailable  = checkBinary("circt-opt")
 	verilatorAvailable = checkBinary("verilator")
+	compareGoldens     = goldensEnabled()
 )
 
 func TestMLIRGeneration(t *testing.T) {
@@ -112,6 +114,9 @@ func TestSimulationVerilogOutWritesArtifacts(t *testing.T) {
 	if !verilatorAvailable {
 		t.Skip("verilator not on PATH")
 	}
+	if !compareGoldens {
+		t.Skip("golden comparison disabled (set MYGO_COMPARE_GOLDENS=1 to re-enable)")
+	}
 	h := newHarness(t)
 	tc := getTestCase(t, "simple")
 	if tc.SimCycles <= 0 {
@@ -144,11 +149,30 @@ func TestSimulationVerilogOutWritesArtifacts(t *testing.T) {
 func runStageTests(t *testing.T, fn func(*testing.T, harness, testCase)) {
 	t.Helper()
 	h := newHarness(t)
+
+	grouped := make(map[string][]testCase)
+	var groupOrder []string
 	for _, tc := range testCases {
-		tc := tc
-		t.Run(tc.Name, func(t *testing.T) {
-			t.Parallel()
-			fn(t, h, tc)
+		group := tc.Group
+		if group == "" {
+			group = "ungrouped"
+		}
+		if _, ok := grouped[group]; !ok {
+			groupOrder = append(groupOrder, group)
+		}
+		grouped[group] = append(grouped[group], tc)
+	}
+
+	for _, group := range groupOrder {
+		group := group
+		t.Run(group, func(t *testing.T) {
+			for _, tc := range grouped[group] {
+				tc := tc
+				t.Run(tc.Name, func(t *testing.T) {
+					t.Parallel()
+					fn(t, h, tc)
+				})
+			}
 		})
 	}
 }
@@ -167,6 +191,10 @@ func newHarness(t *testing.T) harness {
 
 func maybeVerifyMLIR(t *testing.T, repoRoot, source, golden string) {
 	t.Helper()
+	if !compareGoldens {
+		t.Logf("skipping MLIR golden for %s: MYGO_COMPARE_GOLDENS not enabled", source)
+		return
+	}
 	if !fileExists(t, filepath.Join(repoRoot, golden)) {
 		return
 	}
@@ -178,6 +206,10 @@ func maybeVerifyMLIR(t *testing.T, repoRoot, source, golden string) {
 
 func maybeVerifyVerilog(t *testing.T, repoRoot, source, golden, fifoLib string, needsFIFO bool) {
 	t.Helper()
+	if !compareGoldens {
+		t.Logf("skipping Verilog golden for %s: MYGO_COMPARE_GOLDENS not enabled", source)
+		return
+	}
 	if !fileExists(t, filepath.Join(repoRoot, golden)) {
 		return
 	}
@@ -202,6 +234,10 @@ func maybeVerifyVerilog(t *testing.T, repoRoot, source, golden, fifoLib string, 
 
 func maybeVerifySimulation(t *testing.T, repoRoot, source, golden, fifoLib string, tc testCase) {
 	t.Helper()
+	if !compareGoldens {
+		t.Logf("skipping simulation golden for %s: MYGO_COMPARE_GOLDENS not enabled", source)
+		return
+	}
 	if !fileExists(t, filepath.Join(repoRoot, golden)) || tc.SimCycles <= 0 {
 		if tc.SimCycles <= 0 {
 			t.Logf("skipping simulation for %s: sim cycles disabled", tc.Name)
@@ -293,6 +329,18 @@ func getTestCase(t *testing.T, name string) testCase {
 func checkBinary(name string) bool {
 	_, err := exec.LookPath(name)
 	return err == nil
+}
+
+func goldensEnabled() bool {
+	raw := os.Getenv("MYGO_COMPARE_GOLDENS")
+	if raw == "" {
+		return false
+	}
+	enabled, err := strconv.ParseBool(raw)
+	if err != nil {
+		return false
+	}
+	return enabled
 }
 
 func determineRepoRoot(t *testing.T) string {

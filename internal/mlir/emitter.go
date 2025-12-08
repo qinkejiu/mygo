@@ -905,7 +905,16 @@ func (p *processPrinter) emitConstants() {
 		}
 		ssaName := p.assignConst(sig)
 		p.printIndent()
-		fmt.Fprintf(p.w, "%s = hw.constant %v : %s\n", ssaName, sig.Value, typeString(sig.Type))
+		val := sig.Value
+		switch v := val.(type) {
+		case bool:
+			if v {
+				val = 1
+			} else {
+				val = 0
+			}
+		}
+		fmt.Fprintf(p.w, "%s = hw.constant %v : %s\n", ssaName, val, typeString(sig.Type))
 	}
 }
 
@@ -1109,7 +1118,11 @@ func (p *processPrinter) boolConst(val bool) string {
 	name := fmt.Sprintf("%%c_bool_%d", len(p.boolConsts))
 	p.boolConsts[val] = name
 	p.printIndent()
-	fmt.Fprintf(p.w, "%s = hw.constant %t\n", name, val)
+	intVal := 0
+	if val {
+		intVal = 1
+	}
+	fmt.Fprintf(p.w, "%s = hw.constant %d : i1\n", name, intVal)
 	return name
 }
 

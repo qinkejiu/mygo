@@ -1,0 +1,87 @@
+module main
+  ports:
+    in  clk 1bu
+    in  rst 1bu
+  signals:
+    const_1  const 32bu = 0
+    const_11 const 32bu = 4
+    const_14 const 32bu = 1
+    const_15 const 32bu = 4
+    const_17 const 32bu = 0
+    const_19 const 32bu = 4
+    const_22 const 32bu = 1
+    const_3  const 32bu = 4
+    const_5  const 32bu = 1
+    const_6  const 1bu = true
+    const_9  const 32bu = 0
+    t0_16    wire  32bu
+    t0_7     wire  32bu
+    t11_10   wire  32bu
+    t1_0     wire  32bu
+    t1_20    wire  1bu
+    t2_21    wire  32bu
+    t2_4     wire  1bu
+    t2_8     wire  32bu
+    t3_12    wire  1bu
+    t4_13    wire  32bu
+    t8_18    wire  32bu
+    t8_23    wire  1bu
+    t9_2     wire  32bu
+    varargs  reg   32bs
+  channels:
+    t0       depth=1 type=32bu
+    t1       depth=8 type=8bu
+    t2       depth=1 type=1bu
+  process 0 main (stage=0, sequential)
+    block entry
+      go stage3(stage=1)(ch:t1, t2)
+      go stage2(stage=2)(ch:t0, t1)
+      go stage1(stage=3)(ch:t0)
+      t8_23 <- t2
+      print "finished is "%!d(string=t8_23)"\n"
+      return
+  process 1 stage3 (stage=1, sequential)
+    block entry
+      jump for.loop
+    block for.loop
+      t1_0 := phi[entry:const_1, for.body:t9_2]
+      t2_4 := cmp(t1_0 <u const_3)
+      br t2_4 ? for.body : for.done
+    block for.done
+      send t2 <- const_6
+      return
+    block for.body
+      t9_2 := t1_0 + const_5
+      jump for.loop
+  process 2 stage2 (stage=2, sequential)
+    block entry
+      t0_7 <- t0
+      jump for.loop
+    block for.loop
+      t2_8 := phi[entry:const_9, for.body:t11_10]
+      t3_12 := cmp(t2_8 <u const_11)
+      br t3_12 ? for.body : for.done
+    block for.done
+      return
+    block for.body
+      t4_13 <- t0
+      print "stage 2: emitted 4 bytes for "%!d(string=t4_13)"\n"
+      t11_10 := t2_8 + const_14
+      jump for.loop
+  process 3 stage1 (stage=3, sequential)
+    block entry
+      send t0 <- const_15
+      jump for.loop
+    block for.loop
+      t0_16 := phi[entry:const_17, for.body:t8_18]
+      t1_20 := cmp(t0_16 <u const_19)
+      br t1_20 ? for.body : for.done
+    block for.done
+      return
+    block for.body
+      t2_21 := t0_16 + t0_16
+      send t0 <- t2_21
+      print "stage 1: sent integer "%!d(string=t2_21)"\n"
+      t8_18 := t0_16 + const_22
+      jump for.loop
+

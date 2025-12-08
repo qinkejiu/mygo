@@ -1,0 +1,28 @@
+module main
+  ports:
+    in  clk 1bu
+    in  rst 1bu
+  signals:
+    const_0  const 16bs = -12
+    const_2  const 16bs = 25
+    const_7  const 16bu = 4660
+    t0_1     wire  32bs
+    t1_3     wire  32bs
+    t2_4     wire  32bs
+    t3_5     wire  16bu
+    t4_6     wire  32bu
+    t5_8     wire  32bu
+    t6_9     wire  32bu
+    varargs  reg   32bs
+  process 0 main (stage=0, sequential)
+    block entry
+      t0_1 := convert(const_0)
+      t1_3 := convert(const_2)
+      t2_4 := t0_1 + t1_3
+      t3_5 := convert(t2_4)
+      t4_6 := convert(t3_5)
+      t5_8 := convert(const_7)
+      t6_9 := t4_6 + t5_8
+      print "partial="%!d(string=t2_4)" widened=0x"74365f39"\n"
+      return
+

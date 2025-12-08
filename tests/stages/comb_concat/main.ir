@@ -1,0 +1,35 @@
+module main
+  ports:
+    in  clk 1bu
+    in  rst 1bu
+  signals:
+    const_0  const 8bu = 171
+    const_11 const 16bu = 15
+    const_13 const 16bu = 255
+    const_2  const 32bu = 8
+    const_5  const 8bu = 205
+    const_8  const 32bu = 12
+    shift_10 wire  16bu
+    shift_4  wire  16bu
+    t0_1     wire  16bu
+    t1_3     wire  16bu
+    t2_6     wire  16bu
+    t3_7     wire  16bu
+    t4_9     wire  16bu
+    t5_12    wire  16bu
+    t6_14    wire  16bu
+    varargs  reg   32bs
+  process 0 main (stage=0, sequential)
+    block entry
+      t0_1 := convert(const_0)
+      shift_4 := convert(const_2)
+      t1_3 := t0_1 << shift_4
+      t2_6 := convert(const_5)
+      t3_7 := t1_3 | t2_6
+      shift_10 := convert(const_8)
+      t4_9 := t3_7 >> shift_10
+      t5_12 := t4_9 & const_11
+      t6_14 := t3_7 & const_13
+      print "word=0x"74335f37" high="%!d(string=t5_12)" low=0x"74365f3134"\n"
+      return
+

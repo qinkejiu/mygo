@@ -1,0 +1,28 @@
+module main
+  ports:
+    in  clk 1bu
+    in  rst 1bu
+  signals:
+    const_0  const 32bs = 10
+    const_1  const 32bs = 3
+    t0_2     wire  1bu
+    t11_4    wire  32bs
+    t13_5    wire  32bs
+    t1_3     wire  32bs
+    varargs  reg   32bs
+  process 0 main (stage=0, sequential)
+    block entry
+      t0_2 := cmp(const_0 >s const_1)
+      br t0_2 ? if.then : if.else
+    block if.else
+      t13_5 := const_1 - const_0
+      print "branch y>=x delta="%!d(string=t13_5)" (x="%!d(string=const_0)" y="%!d(string=const_1)")\n"
+      jump if.done
+    block if.then
+      t1_3 := const_0 - const_1
+      print "branch x>y delta="%!d(string=t1_3)" (x="%!d(string=const_0)" y="%!d(string=const_1)")\n"
+      jump if.done
+    block if.done
+      t11_4 := mux(t0_2 ? t1_3 : t13_5)
+      return
+

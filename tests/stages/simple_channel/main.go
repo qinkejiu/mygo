@@ -1,8 +1,12 @@
 package main
 
+import "fmt"
+
 func worker(in <-chan int32, out chan<- int32) {
 	v := <-in
-	out <- v + 1
+	result := v + 1
+	fmt.Printf("worker received=%d produced=%d\n", v, result)
+	out <- result
 }
 
 func main() {
@@ -12,5 +16,6 @@ func main() {
 	go worker(in, out)
 
 	in <- 5
-	<-out
+	value := <-out
+	fmt.Printf("main observed=%d\n", value)
 }

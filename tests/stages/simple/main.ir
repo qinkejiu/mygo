@@ -1,0 +1,19 @@
+module main
+  ports:
+    in  clk 1bu
+    in  rst 1bu
+  signals:
+    const_0  const 32bs = 1
+    const_2  const 16bs = 2
+    t0_1     wire  64bs
+    t1_3     wire  64bs
+    t2_4     wire  64bs
+    varargs  reg   32bs
+  process 0 main (stage=0, sequential)
+    block entry
+      t0_1 := convert(const_0)
+      t1_3 := convert(const_2)
+      t2_4 := t0_1 + t1_3
+      print "The result is small: "%!d(string=t2_4)"\n"
+      return
+

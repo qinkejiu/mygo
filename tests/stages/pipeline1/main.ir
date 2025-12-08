@@ -1,0 +1,128 @@
+module main
+  ports:
+    in  clk 1bu
+    in  rst 1bu
+  signals:
+    const_10 const 32bu = 5
+    const_12 const 32bu = 0
+    const_14 const 32bu = 5
+    const_17 const 32bu = 426771240
+    const_2  const 32bu = 0
+    const_20 const 32bu = 537200675
+    const_21 const 32bu = 537334308
+    const_22 const 32bu = 1
+    const_23 const 32bu = 426770689
+    const_25 const 32bu = 5
+    const_27 const 32bu = 0
+    const_29 const 32bu = 5
+    const_31 const 32bu = 1
+    const_34 const 32bu = 426771240
+    const_35 const 32bu = 426770689
+    const_36 const 32bu = 1
+    const_37 const 32bu = 2
+    const_4  const 32bu = 5
+    const_7  const 32bu = 1
+    const_8  const 1bu = true
+    t0_0     wire  32bu
+    t0_26    wire  32bu
+    t0_9     wire  32bu
+    t11_28   wire  32bu
+    t11_3    wire  32bu
+    t12_38   wire  1bu
+    t1_1     wire  32bu
+    t1_11    wire  32bu
+    t1_30    wire  1bu
+    t2_15    wire  1bu
+    t2_32    wire  1bu
+    t2_5     wire  1bu
+    t3_16    wire  32bu
+    t3_33    wire  32bu
+    t3_6     wire  32bu
+    t4_18    wire  1bu
+    t5_19    wire  32bu
+    t6_13    wire  32bu
+    t7_24    wire  1bu
+    t8_39    wire  1bu
+    varargs  reg   32bs
+  channels:
+    t0       depth=1 type=32bu
+    t1       depth=4 type=32bu
+    t2       depth=1 type=1bu
+  process 0 main (stage=0, sequential)
+    block entry
+      go sink(stage=1)(ch:t1, t2)
+      go filter(stage=2)(ch:t0, t1)
+      go source(stage=3)(ch:t0)
+      t8_39 <- t2
+      print "finished is "%!d(string=t8_39)"\n"
+      return
+  process 1 sink (stage=1, sequential)
+    block entry
+      t0_0 <- t1
+      jump for.loop
+    block for.loop
+      t1_1 := phi[entry:const_2, for.body:t11_3]
+      t2_5 := cmp(t1_1 <u const_4)
+      br t2_5 ? for.body : for.done
+    block for.done
+      send t2 <- const_8
+      return
+    block for.body
+      t3_6 <- t1
+      print "output: count "%!d(string=t1_1)" got integer 0x"74335f36"\n"
+      t11_3 := t1_1 + const_7
+      jump for.loop
+  process 2 filter (stage=2, sequential)
+    block entry
+      t0_9 <- t0
+      send t1 <- const_10
+      jump for.loop
+    block for.loop
+      t1_11 := phi[entry:const_12, if.done:t6_13]
+      t2_15 := cmp(t1_11 <u const_14)
+      br t2_15 ? for.body : for.done
+    block for.done
+      return
+    block for.body
+      t3_16 <- t0
+      t4_18 := cmp(t3_16 == const_17)
+      br t4_18 ? if.then : if.else
+    block if.else
+      t7_24 := cmp(t3_16 == const_23)
+      br t7_24 ? if.then : if.done
+    block if.then
+      jump if.done
+    block if.then
+      jump if.done
+    block if.done
+      t5_19 := phi[if.then:const_20, if.else:t3_16, if.then:const_21]
+      send t1 <- t5_19
+      t6_13 := t1_11 + const_22
+      jump for.loop
+  process 3 source (stage=3, sequential)
+    block entry
+      send t0 <- const_25
+      jump for.loop
+    block for.loop
+      t0_26 := phi[entry:const_27, if.done:t11_28]
+      t1_30 := cmp(t0_26 <u const_29)
+      br t1_30 ? for.body : for.done
+    block for.done
+      return
+    block for.body
+      t2_32 := cmp(t0_26 == const_31)
+      br t2_32 ? if.then : if.else
+    block if.else
+      t12_38 := cmp(t0_26 == const_37)
+      br t12_38 ? if.then : if.done
+    block if.then
+      jump if.done
+    block if.then
+      jump if.done
+    block if.done
+      t3_33 := phi[if.then:const_34, if.else:t0_26, if.then:const_35]
+      send t0 <- t3_33
+      print "input: count "%!d(string=t0_26)" sent integer 0x"74335f3333"\n"
+      t11_28 := t0_26 + const_36
+      jump for.loop
+

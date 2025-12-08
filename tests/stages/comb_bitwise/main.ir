@@ -1,0 +1,19 @@
+module main
+  ports:
+    in  clk 1bu
+    in  rst 1bu
+  signals:
+    const_0  const 16bu = 13260
+    const_1  const 16bu = 3855
+    t0_2     wire  16bu
+    t1_3     wire  16bu
+    t2_4     wire  16bu
+    varargs  reg   32bs
+  process 0 main (stage=0, sequential)
+    block entry
+      t0_2 := const_0 & const_1
+      t1_3 := const_0 | const_1
+      t2_4 := const_0 ^ const_1
+      print "and=0x"74305f32" or=0x"74315f33" xor=0x"74325f34"\n"
+      return
+
