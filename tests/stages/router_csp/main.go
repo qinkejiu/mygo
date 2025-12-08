@@ -9,24 +9,13 @@ const (
 	fieldData  = 2
 )
 
-// Pack a three-field packet into a 32-bit word: [src|dest|data].
-func makePacket(src, dest, data uint32) uint32 {
-	return (src << 24) | (dest << 16) | (data & 0xFFFF)
-}
-
-func unpackPacket(pkt uint32) (src, dest, data uint32) {
-	src = (pkt >> 24) & 0xFF
-	dest = (pkt >> 16) & 0xFF
-	data = pkt & 0xFFFF
-	return
-}
-
 func producer(id uint32, baseDest uint32, out chan<- uint32) {
 	for i := uint32(0); i < numPackets; i++ {
 		dest := (baseDest + i) & 1
-		pkt := makePacket(id, dest, id*10+i)
+		payload := id*10 + i
+		pkt := (id << 24) | (dest << 16) | (payload & 0xFFFF)
 		out <- pkt
-		fmt.Printf("producer %d sent dest=%d payload=%d\n", id, dest, id*10+i)
+		fmt.Printf("producer %d sent dest=%d payload=%d\n", id, dest, payload)
 	}
 }
 
@@ -38,7 +27,7 @@ func router(left, right <-chan uint32, outA, outB chan<- uint32) {
 }
 
 func routePacket(pkt uint32, outA, outB chan<- uint32) {
-	_, dest, _ := unpackPacket(pkt)
+	dest := (pkt >> 16) & 0xFF
 	if dest&1 == 0 {
 		outA <- pkt
 	} else {
@@ -49,7 +38,9 @@ func routePacket(pkt uint32, outA, outB chan<- uint32) {
 func consumer(id uint32, in <-chan uint32, done chan<- bool) {
 	for i := uint32(0); i < numPackets; i++ {
 		pkt := <-in
-		src, dest, data := unpackPacket(pkt)
+		src := (pkt >> 24) & 0xFF
+		dest := (pkt >> 16) & 0xFF
+		data := pkt & 0xFFFF
 		fmt.Printf("consumer %d got src=%d dest=%d payload=%d\n", id, src, dest, data)
 	}
 	done <- true
@@ -71,5 +62,5 @@ func main() {
 	for i := 0; i < 2; i++ {
 		<-done
 	}
-	fmt.Println("router complete")
+	fmt.Printf("router complete packets=%d\n", numPackets)
 }

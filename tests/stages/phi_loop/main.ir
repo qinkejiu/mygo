@@ -4,23 +4,40 @@ module main
     in  rst 1bu
   signals:
     const_1  const 32bs = 0
+    const_10 const 32bs = 0
+    const_12 const 32bs = 4
+    const_15 const 32bs = 1
+    const_17 const 32bs = 42
     const_3  const 32bs = 4
     const_5  const 32bs = 1
-    const_6  const 32bs = 42
+    const_7  const 32bs = 0
     t0_0     wire  32bs
+    t0_6     wire  32bs
+    t12_11   wire  32bs
     t1_4     wire  1bu
-    t4_7     wire  1bu
+    t1_9     wire  32bs
+    t2_13    wire  1bu
+    t3_14    wire  32bs
+    t4_8     wire  32bs
+    t5_16    wire  32bs
+    t6_18    wire  1bu
     t7_2     wire  32bs
     varargs  reg   32bs
   channels:
     t0       depth=1 type=32bs
+    t1       depth=1 type=32bs
   process 0 main (stage=0, sequential)
     block entry
       go producer(stage=1)(ch:t0)
-      br t4_7 ? if.then : if.done
+      go consumer(stage=2)(ch:t0, t1)
+      t5_16 <- t1
+      t6_18 := cmp(t5_16 == const_17)
+      br t6_18 ? if.then : if.done
     block if.then
+      send t0 <- t5_16
       jump if.done
     block if.done
+      print "phi loop final="%!d(string=t5_16)"\n"
       return
   process 1 producer (stage=1, sequential)
     block entry
@@ -35,5 +52,22 @@ module main
       send t0 <- t0_0
       print "producer sent "%!d(string=t0_0)"\n"
       t7_2 := t0_0 + const_5
+      jump for.loop
+  process 2 consumer (stage=2, sequential)
+    block entry
+      jump for.loop
+    block for.loop
+      t0_6 := phi[entry:const_7, for.body:t4_8]
+      t1_9 := phi[entry:const_10, for.body:t12_11]
+      t2_13 := cmp(t1_9 <s const_12)
+      br t2_13 ? for.body : for.done
+    block for.done
+      send t1 <- t0_6
+      return
+    block for.body
+      t3_14 <- t0
+      t4_8 := t0_6 + t3_14
+      print "consumer received "%!d(string=t3_14)" (running total "%!d(string=t4_8)")\n"
+      t12_11 := t1_9 + const_15
       jump for.loop
 

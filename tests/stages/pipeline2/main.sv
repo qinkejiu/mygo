@@ -71,6 +71,9 @@ module main(
   main__proc_stage3 stage3_inst2 (
     .clk            (clk),
     .rst            (rst),
+    .chan_t1_rdata  (chan_t1_rdata),
+    .chan_t1_rvalid (chan_t1_rvalid),
+    .chan_t1_rready (chan_t1_rready),
     .chan_t2_wdata  (chan_t2_wdata),
     .chan_t2_wvalid (chan_t2_wvalid),
     .chan_t2_wready (chan_t2_wready)
@@ -164,41 +167,52 @@ module main__proc_stage2(
 endmodule
 
 module main__proc_stage3(
-  input clk,
-        rst,
-  inout chan_t2_wdata,
-        chan_t2_wvalid,
-        chan_t2_wready
+  input       clk,
+              rst,
+  inout [7:0] chan_t1_rdata,
+  inout       chan_t1_rvalid,
+              chan_t1_rready,
+              chan_t2_wdata,
+              chan_t2_wvalid,
+              chan_t2_wready
 );
 
-  reg [2:0]  state_reg9;
+  reg [2:0]  state_reg12;
   initial
-    state_reg9 = 3'h0;
-  reg [31:0] phi_reg11;
+    state_reg12 = 3'h0;
+  reg [31:0] phi_reg14;
   assign chan_t2_wdata = 1'h1;
   assign chan_t2_wvalid = 1'h1;
+  assign chan_t1_rready = 1'h1;
+  assign chan_t1_rready = 1'h1;
+  assign chan_t1_rready = 1'h1;
+  assign chan_t1_rready = 1'h1;
+  always @(posedge clk)
+    $fwrite(32'h80000001, "stage 3: reconstructed integer %d\n",
+            {24'h0, chan_t1_rdata} << 32'h18 | {24'h0, chan_t1_rdata} << 32'h10
+            | {24'h0, chan_t1_rdata} << 32'h8 | {24'h0, chan_t1_rdata});
   always @(posedge clk) begin
-    case (state_reg9)
+    case (state_reg12)
       3'b000: begin
-        state_reg9 <= 3'h1;
-        phi_reg11 <= 32'h0;
+        state_reg12 <= 3'h1;
+        phi_reg14 <= 32'h0;
       end
       3'b001: begin
-        if (phi_reg11 < 32'h4)
-          state_reg9 <= 3'h3;
+        if (phi_reg14 < 32'h4)
+          state_reg12 <= 3'h3;
         else
-          state_reg9 <= 3'h2;
+          state_reg12 <= 3'h2;
       end
       3'b010:
-        state_reg9 <= 3'h4;
+        state_reg12 <= 3'h4;
       3'b011: begin
-        state_reg9 <= 3'h1;
-        phi_reg11 <= phi_reg11 + 32'h1;
+        state_reg12 <= 3'h1;
+        phi_reg14 <= phi_reg14 + 32'h1;
       end
       3'b100:
-        state_reg9 <= state_reg9;
+        state_reg12 <= state_reg12;
       default:
-        state_reg9 <= state_reg9;
+        state_reg12 <= state_reg12;
     endcase
   end // always @(posedge)
 endmodule

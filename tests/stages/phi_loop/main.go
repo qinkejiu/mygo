@@ -13,22 +13,24 @@ func producer(out chan<- int) {
 }
 
 // consumer drains exactly loopTripCount values and accumulates them.
-func consumer(in <-chan int) int {
+func consumer(in <-chan int, resultOut chan<- int) {
 	total := 0
 	for i := 0; i < loopTripCount; i++ {
 		value := <-in
 		total += value
 		fmt.Printf("consumer received %d (running total %d)\n", value, total)
 	}
-	return total
+	resultOut <- total
 }
 
 func main() {
 	stream := make(chan int, 1)
+	resultOut := make(chan int, 1)
 
 	go producer(stream)
+	go consumer(stream, resultOut)
 
-	result := consumer(stream)
+	result := <-resultOut
 
 	// Keep the result live so the SSA builder materializes the loop state.
 	// The value is intentionally unused otherwise to keep the program small.

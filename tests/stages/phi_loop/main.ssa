@@ -3172,7 +3172,7 @@ package math/bits:
 
 
 package mygo/tests/stages/phi_loop:
-  func  consumer      func(in <-chan int) int
+  func  consumer      func(in <-chan int, resultOut chan<- int)
   func  init          func()
   var   init$guard    bool
   const loopTripCount loopTripCount = 4:untyped int

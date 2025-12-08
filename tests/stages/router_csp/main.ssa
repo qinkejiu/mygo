@@ -3172,19 +3172,17 @@ package math/bits:
 
 
 package mygo/tests/stages/router_csp:
-  func  consumer     func(id uint32, in <-chan uint32, done chan<- bool)
-  const fieldData    fieldData = 2:untyped int
-  const fieldDest    fieldDest = 1:untyped int
-  const fieldSrc     fieldSrc = 0:untyped int
-  func  init         func()
-  var   init$guard   bool
-  func  main         func()
-  func  makePacket   func(src uint32, dest uint32, data uint32) uint32
-  const numPackets   numPackets = 4:untyped int
-  func  producer     func(id uint32, baseDest uint32, out chan<- uint32)
-  func  routePacket  func(pkt uint32, outA chan<- uint32, outB chan<- uint32)
-  func  router       func(left <-chan uint32, right <-chan uint32, outA chan<- uint32, outB chan<- uint32)
-  func  unpackPacket func(pkt uint32) (src uint32, dest uint32, data uint32)
+  func  consumer    func(id uint32, in <-chan uint32, done chan<- bool)
+  const fieldData   fieldData = 2:untyped int
+  const fieldDest   fieldDest = 1:untyped int
+  const fieldSrc    fieldSrc = 0:untyped int
+  func  init        func()
+  var   init$guard  bool
+  func  main        func()
+  const numPackets  numPackets = 4:untyped int
+  func  producer    func(id uint32, baseDest uint32, out chan<- uint32)
+  func  routePacket func(pkt uint32, outA chan<- uint32, outB chan<- uint32)
+  func  router      func(left <-chan uint32, right <-chan uint32, outA chan<- uint32, outB chan<- uint32)
 
 
 package os:

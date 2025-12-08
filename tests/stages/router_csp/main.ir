@@ -4,49 +4,65 @@ module main
     in  rst 1bu
   signals:
     const_0  const 32bu = 0
-    const_11 const 32bu = 0
-    const_13 const 32bu = 4
+    const_11 const 32bu = 16
+    const_13 const 32bu = 255
+    const_15 const 32bu = 65535
     const_17 const 32bu = 1
-    const_18 const 32bu = 0
-    const_19 const 32bu = 0
+    const_18 const 1bu = true
+    const_19 const 32bu = 1
     const_2  const 32bu = 0
     const_21 const 32bu = 0
     const_23 const 32bu = 4
-    const_26 const 32bu = 1
-    const_28 const 32bu = 10
-    const_31 const 32bu = 10
-    const_34 const 32bu = 1
-    const_35 const 32bu = 1
+    const_27 const 32bu = 1
+    const_28 const 32bu = 0
+    const_29 const 32bu = 0
+    const_31 const 32bu = 0
+    const_33 const 32bu = 4
     const_36 const 32bu = 1
-    const_38 const 32bs = 0
+    const_38 const 32bu = 10
     const_4  const 32bu = 4
-    const_40 const 32bs = 2
-    const_43 const 32bs = 1
-    const_7  const 32bu = 1
-    const_8  const 1bu = true
-    const_9  const 32bu = 1
+    const_41 const 32bu = 24
+    const_43 const 32bu = 16
+    const_46 const 32bu = 65535
+    const_49 const 32bu = 1
+    const_50 const 32bu = 1
+    const_51 const 32bu = 1
+    const_53 const 32bs = 0
+    const_55 const 32bs = 2
+    const_58 const 32bs = 1
+    const_59 const 32bs = 4
+    const_7  const 32bu = 24
+    const_9  const 32bu = 255
     t0_1     wire  32bu
-    t0_10    wire  32bu
     t0_20    wire  32bu
-    t15_37   wire  32bs
-    t16_41   wire  1bu
-    t17_42   wire  1bu
-    t18_22   wire  32bu
-    t18_3    wire  32bu
-    t18_39   wire  32bs
-    t1_14    wire  1bu
+    t0_30    wire  32bu
+    t10_48   wire  32bu
+    t15_52   wire  32bs
+    t16_56   wire  1bu
+    t17_57   wire  1bu
+    t18_54   wire  32bs
+    t19_3    wire  32bu
     t1_24    wire  1bu
+    t1_34    wire  1bu
     t1_5     wire  1bu
-    t2_15    wire  32bu
+    t20_32   wire  32bu
     t2_25    wire  32bu
+    t2_35    wire  32bu
     t2_6     wire  32bu
-    t3_27    wire  32bu
-    t4_16    wire  32bu
-    t4_29    wire  32bu
-    t5_30    wire  32bu
-    t6_12    wire  32bu
-    t7_32    wire  32bu
-    t8_33    wire  32bu
+    t3_37    wire  32bu
+    t3_8     wire  32bu
+    t4_10    wire  32bu
+    t4_26    wire  32bu
+    t4_39    wire  32bu
+    t5_12    wire  32bu
+    t5_40    wire  32bu
+    t6_14    wire  32bu
+    t6_22    wire  32bu
+    t6_42    wire  32bu
+    t7_16    wire  32bu
+    t7_44    wire  32bu
+    t8_45    wire  32bu
+    t9_47    wire  32bu
     varargs  reg   32bs
   channels:
     t0       depth=1 type=32bu
@@ -57,66 +73,77 @@ module main
   process 0 main (stage=0, sequential)
     block entry
       go consumer(stage=2)(const_0; ch:t2, t4)
-      go consumer(stage=2)(const_9; ch:t3, t4)
+      go consumer(stage=2)(const_19; ch:t3, t4)
       go router(stage=3)(ch:t0, t1, t2, t3)
-      go producer(stage=5)(const_18, const_19; ch:t0)
-      go producer(stage=5)(const_35, const_36; ch:t1)
+      go producer(stage=5)(const_28, const_29; ch:t0)
+      go producer(stage=5)(const_50, const_51; ch:t1)
       jump for.loop
     block for.loop
-      t15_37 := phi[entry:const_38, for.body:t18_39]
-      t16_41 := cmp(t15_37 <s const_40)
-      br t16_41 ? for.body : for.done
+      t15_52 := phi[entry:const_53, for.body:t18_54]
+      t16_56 := cmp(t15_52 <s const_55)
+      br t16_56 ? for.body : for.done
     block for.done
+      print "router complete packets="%!d(string=const_59)"\n"
       return
     block for.body
-      t17_42 <- t4
-      t18_39 := t15_37 + const_43
+      t17_57 <- t4
+      t18_54 := t15_52 + const_58
       jump for.loop
   process 1 consumer (stage=2, sequential)
     block entry
       jump for.loop
     block for.loop
-      t0_1 := phi[entry:const_2, for.body:t18_3]
+      t0_1 := phi[entry:const_2, for.body:t19_3]
       t1_5 := cmp(t0_1 <u const_4)
       br t1_5 ? for.body : for.done
     block for.done
-      send t4 <- const_8
+      send t4 <- const_18
       return
     block for.body
       t2_6 <- t2
-      t18_3 := t0_1 + const_7
+      t3_8 := t2_6 >> const_7
+      t4_10 := t3_8 & const_9
+      t5_12 := t2_6 >> const_11
+      t6_14 := t5_12 & const_13
+      t7_16 := t2_6 & const_15
+      print "consumer "%!d(string=const_0)" got src="%!d(string=t4_10)" dest="%!d(string=t6_14)" payload="%!d(string=t7_16)"\n"
+      t19_3 := t0_1 + const_17
       jump for.loop
   process 2 router (stage=3, sequential)
     block entry
       jump for.loop
     block for.loop
-      t0_10 := phi[entry:const_11, for.body:t6_12]
-      t1_14 := cmp(t0_10 <u const_13)
-      br t1_14 ? for.body : for.done
-    block for.done
-      return
-    block for.body
-      t2_15 <- t0
-      t4_16 <- t1
-      t6_12 := t0_10 + const_17
-      jump for.loop
-  process 3 producer (stage=5, sequential)
-    block entry
-      jump for.loop
-    block for.loop
-      t0_20 := phi[entry:const_21, for.body:t18_22]
+      t0_20 := phi[entry:const_21, for.body:t6_22]
       t1_24 := cmp(t0_20 <u const_23)
       br t1_24 ? for.body : for.done
     block for.done
       return
     block for.body
-      t2_25 := const_19 + t0_20
-      t3_27 := t2_25 & const_26
-      t4_29 := const_18 * const_28
-      t5_30 := t4_29 + t0_20
-      t7_32 := const_18 * const_31
-      t8_33 := t7_32 + t0_20
-      print "producer "%!d(string=const_18)" sent dest="%!d(string=t3_27)" payload="%!d(string=t8_33)"\n"
-      t18_22 := t0_20 + const_34
+      t2_25 <- t0
+      t4_26 <- t1
+      t6_22 := t0_20 + const_27
+      jump for.loop
+  process 3 producer (stage=5, sequential)
+    block entry
+      jump for.loop
+    block for.loop
+      t0_30 := phi[entry:const_31, for.body:t20_32]
+      t1_34 := cmp(t0_30 <u const_33)
+      br t1_34 ? for.body : for.done
+    block for.done
+      return
+    block for.body
+      t2_35 := const_29 + t0_30
+      t3_37 := t2_35 & const_36
+      t4_39 := const_28 * const_38
+      t5_40 := t4_39 + t0_30
+      t6_42 := const_28 << const_41
+      t7_44 := t3_37 << const_43
+      t8_45 := t6_42 | t7_44
+      t9_47 := t5_40 & const_46
+      t10_48 := t8_45 | t9_47
+      send t0 <- t10_48
+      print "producer "%!d(string=const_28)" sent dest="%!d(string=t3_37)" payload="%!d(string=t5_40)"\n"
+      t20_32 := t0_30 + const_49
       jump for.loop
 

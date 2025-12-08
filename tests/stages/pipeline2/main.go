@@ -26,7 +26,11 @@ func stage2(in <-chan uint32, out chan<- byte) {
 func stage3(in <-chan byte, done chan<- bool) {
 	_ = readUint32(in)
 	for count := uint32(0); count < totalPairs; count++ {
-		value := readUint32(in)
+		b0 := uint32(<-in)
+		b1 := uint32(<-in)
+		b2 := uint32(<-in)
+		b3 := uint32(<-in)
+		value := (b0 << 24) | (b1 << 16) | (b2 << 8) | b3
 		fmt.Printf("stage 3: reconstructed integer %d\n", value)
 	}
 	done <- true
