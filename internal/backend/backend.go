@@ -119,6 +119,9 @@ func EmitVerilog(design *ir.Design, outputPath string, opts Options) (Result, er
 	if err != nil {
 		return Result{}, err
 	}
+	if err := applySignedVerilog(design, outputPath); err != nil {
+		return Result{}, err
+	}
 	res := Result{MainPath: outputPath}
 	if len(auxPaths) > 0 {
 		res.AuxPaths = append(res.AuxPaths, auxPaths...)
