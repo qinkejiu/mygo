@@ -1,11 +1,11 @@
 CLEAN SIMULATION RESULTS (Verilator logs filtered)
-Generated: 2026-03-02 14:50:20
+Generated: 2026-03-02 15:50:29
 ======================================================================
 
 
 ======================================================================
 📁 comb_adder | hardware simulation
-⏱️  14:50:20 | $ go run ./cmd/mygo sim --sim-max-cycles 64 tests/stages/comb_adder/main.go
+⏱️  15:50:29 | $ go run ./cmd/mygo sim --sim-max-cycles 64 tests/stages/comb_adder/main.go
 ======================================================================
 
 partial=         13 widened=0x00001241
@@ -74,25 +74,25 @@ partial=         13 widened=0x00001241
 partial=         13 widened=0x00001241
 
 ======================================================================
-✅ | End: 14:50:24
+✅ | End: 15:50:36
 ======================================================================
 
 
 ======================================================================
 📁 comb_adder | software simulation
-⏱️  14:50:24 | $ go run tests/stages/comb_adder/main.go
+⏱️  15:50:36 | $ go run tests/stages/comb_adder/main.go
 ======================================================================
 
 partial=13 widened=0x1241
 
 ======================================================================
-✅ | End: 14:50:24
+✅ | End: 15:50:36
 ======================================================================
 
 
 ======================================================================
 📁 comb_bitwise | hardware simulation
-⏱️  14:50:24 | $ go run ./cmd/mygo sim --sim-max-cycles 64 tests/stages/comb_bitwise/main.go
+⏱️  15:50:36 | $ go run ./cmd/mygo sim --sim-max-cycles 64 tests/stages/comb_bitwise/main.go
 ======================================================================
 
 and=0x030c or=0x3fcf xor=0x3cc3
@@ -161,25 +161,25 @@ and=0x030c or=0x3fcf xor=0x3cc3
 and=0x030c or=0x3fcf xor=0x3cc3
 
 ======================================================================
-✅ | End: 14:50:28
+✅ | End: 15:50:40
 ======================================================================
 
 
 ======================================================================
 📁 comb_bitwise | software simulation
-⏱️  14:50:28 | $ go run tests/stages/comb_bitwise/main.go
+⏱️  15:50:40 | $ go run tests/stages/comb_bitwise/main.go
 ======================================================================
 
 and=0x30c or=0x3fcf xor=0x3cc3
 
 ======================================================================
-✅ | End: 14:50:29
+✅ | End: 15:50:40
 ======================================================================
 
 
 ======================================================================
 📁 comb_concat | hardware simulation
-⏱️  14:50:29 | $ go run ./cmd/mygo sim --sim-max-cycles 64 tests/stages/comb_concat/main.go
+⏱️  15:50:40 | $ go run ./cmd/mygo sim --sim-max-cycles 64 tests/stages/comb_concat/main.go
 ======================================================================
 
 word=0xabcd high=   10 low=0x00cd
@@ -248,25 +248,25 @@ word=0xabcd high=   10 low=0x00cd
 word=0xabcd high=   10 low=0x00cd
 
 ======================================================================
-✅ | End: 14:50:33
+✅ | End: 15:50:44
 ======================================================================
 
 
 ======================================================================
 📁 comb_concat | software simulation
-⏱️  14:50:33 | $ go run tests/stages/comb_concat/main.go
+⏱️  15:50:44 | $ go run tests/stages/comb_concat/main.go
 ======================================================================
 
 word=0xabcd high=10 low=0xcd
 
 ======================================================================
-✅ | End: 14:50:33
+✅ | End: 15:50:44
 ======================================================================
 
 
 ======================================================================
 📁 phi_loop | hardware simulation
-⏱️  14:50:33 | $ go run ./cmd/mygo sim --sim-max-cycles 64 tests/stages/phi_loop/main.go
+⏱️  15:50:44 | $ go run ./cmd/mygo sim --sim-max-cycles 64 tests/stages/phi_loop/main.go
 ======================================================================
 
 producer sent           0
@@ -280,13 +280,13 @@ consumer received           3 (running total           6)
 phi loop final=          6
 
 ======================================================================
-✅ | End: 14:50:37
+✅ | End: 15:50:48
 ======================================================================
 
 
 ======================================================================
 📁 phi_loop | software simulation
-⏱️  14:50:37 | $ go run tests/stages/phi_loop/main.go
+⏱️  15:50:48 | $ go run tests/stages/phi_loop/main.go
 ======================================================================
 
 producer sent 0
@@ -300,13 +300,13 @@ consumer received 3 (running total 6)
 phi loop final=6
 
 ======================================================================
-✅ | End: 14:50:37
+✅ | End: 15:50:49
 ======================================================================
 
 
 ======================================================================
 📁 pipeline1 | hardware simulation
-⏱️  14:50:37 | $ go run ./cmd/mygo sim --sim-max-cycles 64 tests/stages/pipeline1/main.go
+⏱️  15:50:49 | $ go run ./cmd/mygo sim --sim-max-cycles 64 tests/stages/pipeline1/main.go
 ======================================================================
 
 input: count          0 sent integer 0x00000000
@@ -322,13 +322,13 @@ output: count          4 got integer 0x00000004
 finished is 1
 
 ======================================================================
-✅ | End: 14:50:42
+✅ | End: 15:50:53
 ======================================================================
 
 
 ======================================================================
 📁 pipeline1 | software simulation
-⏱️  14:50:42 | $ go run tests/stages/pipeline1/main.go
+⏱️  15:50:53 | $ go run tests/stages/pipeline1/main.go
 ======================================================================
 
 output: count 0 got integer 0x0
@@ -344,13 +344,13 @@ output: count 4 got integer 0x4
 finished is true
 
 ======================================================================
-✅ | End: 14:50:42
+✅ | End: 15:50:53
 ======================================================================
 
 
 ======================================================================
 📁 pipeline2 | hardware simulation
-⏱️  14:50:42 | $ go run ./cmd/mygo sim --sim-max-cycles 80 tests/stages/pipeline2/main.go
+⏱️  15:50:53 | $ go run ./cmd/mygo sim --sim-max-cycles 80 tests/stages/pipeline2/main.go
 ======================================================================
 
 stage 1: sent integer          0
@@ -368,13 +368,13 @@ stage 3: reconstructed integer          6
 finished is 1
 
 ======================================================================
-✅ | End: 14:50:46
+✅ | End: 15:50:57
 ======================================================================
 
 
 ======================================================================
 📁 pipeline2 | software simulation
-⏱️  14:50:46 | $ go run tests/stages/pipeline2/main.go
+⏱️  15:50:57 | $ go run tests/stages/pipeline2/main.go
 ======================================================================
 
 stage 2: emitted 4 bytes for 0
@@ -392,13 +392,13 @@ stage 3: reconstructed integer 6
 finished is true
 
 ======================================================================
-✅ | End: 14:50:46
+✅ | End: 15:50:57
 ======================================================================
 
 
 ======================================================================
 📁 router_csp | hardware simulation
-⏱️  14:50:46 | $ go run ./cmd/mygo sim --sim-max-cycles 80 tests/stages/router_csp/main.go
+⏱️  15:50:57 | $ go run ./cmd/mygo sim --sim-max-cycles 80 tests/stages/router_csp/main.go
 ======================================================================
 
 producer          0 sent dest=         0 payload=         0
@@ -420,13 +420,13 @@ consumer          0 got src=         1 dest=         0 payload=        13
 router complete packets=          4
 
 ======================================================================
-✅ | End: 14:50:54
+✅ | End: 15:51:01
 ======================================================================
 
 
 ======================================================================
 📁 router_csp | software simulation
-⏱️  14:50:54 | $ go run tests/stages/router_csp/main.go
+⏱️  15:51:01 | $ go run tests/stages/router_csp/main.go
 ======================================================================
 
 producer 1 sent dest=1 payload=10
@@ -448,13 +448,13 @@ consumer 1 got src=0 dest=1 payload=3
 router complete packets=4
 
 ======================================================================
-✅ | End: 14:50:54
+✅ | End: 15:51:02
 ======================================================================
 
 
 ======================================================================
 📁 simple | hardware simulation
-⏱️  14:50:54 | $ go run ./cmd/mygo sim --sim-max-cycles 64 tests/stages/simple/main.go
+⏱️  15:51:02 | $ go run ./cmd/mygo sim --sim-max-cycles 64 tests/stages/simple/main.go
 ======================================================================
 
 The result is small:                    3
@@ -523,202 +523,75 @@ The result is small:                    3
 The result is small:                    3
 
 ======================================================================
-✅ | End: 14:50:58
+✅ | End: 15:51:07
 ======================================================================
 
 
 ======================================================================
 📁 simple | software simulation
-⏱️  14:50:58 | $ go run tests/stages/simple/main.go
+⏱️  15:51:07 | $ go run tests/stages/simple/main.go
 ======================================================================
 
 The result is small: 3
 
 ======================================================================
-✅ | End: 14:50:58
+✅ | End: 15:51:08
 ======================================================================
 
 
 ======================================================================
 📁 simple_branch | hardware simulation
-⏱️  14:50:58 | $ go run ./cmd/mygo sim --sim-max-cycles 64 tests/stages/simple_branch/main.go
+⏱️  15:51:08 | $ go run ./cmd/mygo sim --sim-max-cycles 64 tests/stages/simple_branch/main.go
 ======================================================================
 
-branch y>=x delta=         -7 (x=         10 y=          3)
-branch x>y delta=          7 (x=         10 y=          3)
-branch y>=x delta=         -7 (x=         10 y=          3)
-branch x>y delta=          7 (x=         10 y=          3)
-branch y>=x delta=         -7 (x=         10 y=          3)
-branch x>y delta=          7 (x=         10 y=          3)
-branch y>=x delta=         -7 (x=         10 y=          3)
-branch x>y delta=          7 (x=         10 y=          3)
-branch y>=x delta=         -7 (x=         10 y=          3)
-branch x>y delta=          7 (x=         10 y=          3)
-branch y>=x delta=         -7 (x=         10 y=          3)
-branch x>y delta=          7 (x=         10 y=          3)
-branch y>=x delta=         -7 (x=         10 y=          3)
-branch x>y delta=          7 (x=         10 y=          3)
-branch y>=x delta=         -7 (x=         10 y=          3)
-branch x>y delta=          7 (x=         10 y=          3)
-branch y>=x delta=         -7 (x=         10 y=          3)
-branch x>y delta=          7 (x=         10 y=          3)
-branch y>=x delta=         -7 (x=         10 y=          3)
-branch x>y delta=          7 (x=         10 y=          3)
-branch y>=x delta=         -7 (x=         10 y=          3)
-branch x>y delta=          7 (x=         10 y=          3)
-branch y>=x delta=         -7 (x=         10 y=          3)
-branch x>y delta=          7 (x=         10 y=          3)
-branch y>=x delta=         -7 (x=         10 y=          3)
-branch x>y delta=          7 (x=         10 y=          3)
-branch y>=x delta=         -7 (x=         10 y=          3)
-branch x>y delta=          7 (x=         10 y=          3)
-branch y>=x delta=         -7 (x=         10 y=          3)
-branch x>y delta=          7 (x=         10 y=          3)
-branch y>=x delta=         -7 (x=         10 y=          3)
-branch x>y delta=          7 (x=         10 y=          3)
-branch y>=x delta=         -7 (x=         10 y=          3)
-branch x>y delta=          7 (x=         10 y=          3)
-branch y>=x delta=         -7 (x=         10 y=          3)
-branch x>y delta=          7 (x=         10 y=          3)
-branch y>=x delta=         -7 (x=         10 y=          3)
-branch x>y delta=          7 (x=         10 y=          3)
-branch y>=x delta=         -7 (x=         10 y=          3)
-branch x>y delta=          7 (x=         10 y=          3)
-branch y>=x delta=         -7 (x=         10 y=          3)
-branch x>y delta=          7 (x=         10 y=          3)
-branch y>=x delta=         -7 (x=         10 y=          3)
-branch x>y delta=          7 (x=         10 y=          3)
-branch y>=x delta=         -7 (x=         10 y=          3)
-branch x>y delta=          7 (x=         10 y=          3)
-branch y>=x delta=         -7 (x=         10 y=          3)
-branch x>y delta=          7 (x=         10 y=          3)
-branch y>=x delta=         -7 (x=         10 y=          3)
-branch x>y delta=          7 (x=         10 y=          3)
-branch y>=x delta=         -7 (x=         10 y=          3)
-branch x>y delta=          7 (x=         10 y=          3)
-branch y>=x delta=         -7 (x=         10 y=          3)
-branch x>y delta=          7 (x=         10 y=          3)
-branch y>=x delta=         -7 (x=         10 y=          3)
-branch x>y delta=          7 (x=         10 y=          3)
-branch y>=x delta=         -7 (x=         10 y=          3)
-branch x>y delta=          7 (x=         10 y=          3)
-branch y>=x delta=         -7 (x=         10 y=          3)
-branch x>y delta=          7 (x=         10 y=          3)
-branch y>=x delta=         -7 (x=         10 y=          3)
-branch x>y delta=          7 (x=         10 y=          3)
-branch y>=x delta=         -7 (x=         10 y=          3)
-branch x>y delta=          7 (x=         10 y=          3)
-branch y>=x delta=         -7 (x=         10 y=          3)
-branch x>y delta=          7 (x=         10 y=          3)
-branch y>=x delta=         -7 (x=         10 y=          3)
-branch x>y delta=          7 (x=         10 y=          3)
-branch y>=x delta=         -7 (x=         10 y=          3)
-branch x>y delta=          7 (x=         10 y=          3)
-branch y>=x delta=         -7 (x=         10 y=          3)
-branch x>y delta=          7 (x=         10 y=          3)
-branch y>=x delta=         -7 (x=         10 y=          3)
-branch x>y delta=          7 (x=         10 y=          3)
-branch y>=x delta=         -7 (x=         10 y=          3)
-branch x>y delta=          7 (x=         10 y=          3)
-branch y>=x delta=         -7 (x=         10 y=          3)
-branch x>y delta=          7 (x=         10 y=          3)
-branch y>=x delta=         -7 (x=         10 y=          3)
-branch x>y delta=          7 (x=         10 y=          3)
-branch y>=x delta=         -7 (x=         10 y=          3)
-branch x>y delta=          7 (x=         10 y=          3)
-branch y>=x delta=         -7 (x=         10 y=          3)
-branch x>y delta=          7 (x=         10 y=          3)
-branch y>=x delta=         -7 (x=         10 y=          3)
-branch x>y delta=          7 (x=         10 y=          3)
-branch y>=x delta=         -7 (x=         10 y=          3)
-branch x>y delta=          7 (x=         10 y=          3)
-branch y>=x delta=         -7 (x=         10 y=          3)
-branch x>y delta=          7 (x=         10 y=          3)
-branch y>=x delta=         -7 (x=         10 y=          3)
-branch x>y delta=          7 (x=         10 y=          3)
-branch y>=x delta=         -7 (x=         10 y=          3)
-branch x>y delta=          7 (x=         10 y=          3)
-branch y>=x delta=         -7 (x=         10 y=          3)
-branch x>y delta=          7 (x=         10 y=          3)
-branch y>=x delta=         -7 (x=         10 y=          3)
-branch x>y delta=          7 (x=         10 y=          3)
-branch y>=x delta=         -7 (x=         10 y=          3)
-branch x>y delta=          7 (x=         10 y=          3)
-branch y>=x delta=         -7 (x=         10 y=          3)
-branch x>y delta=          7 (x=         10 y=          3)
-branch y>=x delta=         -7 (x=         10 y=          3)
-branch x>y delta=          7 (x=         10 y=          3)
-branch y>=x delta=         -7 (x=         10 y=          3)
-branch x>y delta=          7 (x=         10 y=          3)
-branch y>=x delta=         -7 (x=         10 y=          3)
-branch x>y delta=          7 (x=         10 y=          3)
-branch y>=x delta=         -7 (x=         10 y=          3)
-branch x>y delta=          7 (x=         10 y=          3)
-branch y>=x delta=         -7 (x=         10 y=          3)
-branch x>y delta=          7 (x=         10 y=          3)
-branch y>=x delta=         -7 (x=         10 y=          3)
-branch x>y delta=          7 (x=         10 y=          3)
-branch y>=x delta=         -7 (x=         10 y=          3)
-branch x>y delta=          7 (x=         10 y=          3)
-branch y>=x delta=         -7 (x=         10 y=          3)
-branch x>y delta=          7 (x=         10 y=          3)
-branch y>=x delta=         -7 (x=         10 y=          3)
-branch x>y delta=          7 (x=         10 y=          3)
-branch y>=x delta=         -7 (x=         10 y=          3)
-branch x>y delta=          7 (x=         10 y=          3)
-branch y>=x delta=         -7 (x=         10 y=          3)
-branch x>y delta=          7 (x=         10 y=          3)
-branch y>=x delta=         -7 (x=         10 y=          3)
-branch x>y delta=          7 (x=         10 y=          3)
-branch y>=x delta=         -7 (x=         10 y=          3)
 branch x>y delta=          7 (x=         10 y=          3)
 
 ======================================================================
-✅ | End: 14:51:03
+✅ | End: 15:51:12
 ======================================================================
 
 
 ======================================================================
 📁 simple_branch | software simulation
-⏱️  14:51:03 | $ go run tests/stages/simple_branch/main.go
+⏱️  15:51:12 | $ go run tests/stages/simple_branch/main.go
 ======================================================================
 
 branch x>y delta=7 (x=10 y=3)
 
 ======================================================================
-✅ | End: 14:51:03
+✅ | End: 15:51:12
 ======================================================================
 
 
 ======================================================================
 📁 simple_channel | hardware simulation
-⏱️  14:51:03 | $ go run ./cmd/mygo sim --sim-max-cycles 32 tests/stages/simple_channel/main.go
+⏱️  15:51:12 | $ go run ./cmd/mygo sim --sim-max-cycles 32 tests/stages/simple_channel/main.go
 ======================================================================
 
 worker received=          5 produced=          6
 main observed=          6
 
 ======================================================================
-✅ | End: 14:51:07
+✅ | End: 15:51:16
 ======================================================================
 
 
 ======================================================================
 📁 simple_channel | software simulation
-⏱️  14:51:07 | $ go run tests/stages/simple_channel/main.go
+⏱️  15:51:16 | $ go run tests/stages/simple_channel/main.go
 ======================================================================
 
 worker received=5 produced=6
 main observed=6
 
 ======================================================================
-✅ | End: 14:51:07
+✅ | End: 15:51:16
 ======================================================================
 
 
 ======================================================================
 📁 simple_print | hardware simulation
-⏱️  14:51:07 | $ go run ./cmd/mygo sim --sim-max-cycles 64 tests/stages/simple_print/main.go
+⏱️  15:51:16 | $ go run ./cmd/mygo sim --sim-max-cycles 64 tests/stages/simple_print/main.go
 ======================================================================
 
 x=         42
@@ -787,25 +660,25 @@ x=         42
 x=         42
 
 ======================================================================
-✅ | End: 14:51:12
+✅ | End: 15:51:20
 ======================================================================
 
 
 ======================================================================
 📁 simple_print | software simulation
-⏱️  14:51:12 | $ go run tests/stages/simple_print/main.go
+⏱️  15:51:20 | $ go run tests/stages/simple_print/main.go
 ======================================================================
 
 x=42
 
 ======================================================================
-✅ | End: 14:51:12
+✅ | End: 15:51:20
 ======================================================================
 
 
 ======================================================================
 📁 type_mismatch | hardware simulation
-⏱️  14:51:12 | $ go run ./cmd/mygo sim --sim-max-cycles 64 tests/stages/type_mismatch/main.go
+⏱️  15:51:20 | $ go run ./cmd/mygo sim --sim-max-cycles 64 tests/stages/type_mismatch/main.go
 ======================================================================
 
 acc=    -7 wide=      1017
@@ -874,19 +747,19 @@ acc=    -7 wide=      1017
 acc=    -7 wide=      1017
 
 ======================================================================
-✅ | End: 14:51:17
+✅ | End: 15:51:24
 ======================================================================
 
 
 ======================================================================
 📁 type_mismatch | software simulation
-⏱️  14:51:17 | $ go run tests/stages/type_mismatch/main.go
+⏱️  15:51:24 | $ go run tests/stages/type_mismatch/main.go
 ======================================================================
 
 acc=-7 wide=1017
 
 ======================================================================
-✅ | End: 14:51:17
+✅ | End: 15:51:24
 ======================================================================
 
 

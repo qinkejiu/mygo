@@ -1497,9 +1497,10 @@ func (p *processPrinter) emitProcess(proc *ir.Process) {
 	if proc == nil {
 		return
 	}
+	hasPrintOps := processHasPrintOps(proc)
 	p.emitConstants()
 	p.emitSignals()
-	if processHasPhi(proc) || processHasChannelOps(proc) {
+	if processHasPhi(proc) || processHasChannelOps(proc) || processNeedsPrintControlFSM(proc) {
 		p.fsm = newFSMBuilder(p, proc)
 		if p.fsm != nil {
 			p.fsm.emitStateConstants()
@@ -1515,7 +1516,7 @@ func (p *processPrinter) emitProcess(proc *ir.Process) {
 		}
 	}
 	if p.fsm != nil {
-		if processHasPrintOps(proc) {
+		if hasPrintOps {
 			p.stdoutConstant()
 		}
 		p.fsm.emitChannelPortLogic()
@@ -1746,6 +1747,13 @@ func processHasPrintOps(proc *ir.Process) bool {
 		}
 	}
 	return false
+}
+
+func processNeedsPrintControlFSM(proc *ir.Process) bool {
+	// Non-FSM lowering emits each print operation directly, ignoring block
+	// terminators. For multi-block control flow this would execute prints from
+	// all branches, so route those processes through the FSM lowering.
+	return processHasPrintOps(proc) && len(proc.Blocks) > 1
 }
 
 func (p *processPrinter) assignConst(sig *ir.Signal) string {
