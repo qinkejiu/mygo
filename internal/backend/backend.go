@@ -1,18 +1,13 @@
 package backend
 
 import (
-	"bytes"
 	"fmt"
 	"io"
-	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"sort"
 	"strings"
-	"sync"
-	"text/template"
 
 	"mygo/internal/ir"
 	"mygo/internal/mlir"
@@ -21,12 +16,6 @@ import (
 var (
 	runPipeline = runCirctPipeline
 	runExport   = runCirctExportVerilog
-)
-
-var (
-	fifoWrapperTemplateOnce sync.Once
-	fifoWrapperTemplate     *template.Template
-	fifoWrapperTemplateErr  error
 )
 
 // Options configures how the CIRCT backend is invoked.
@@ -48,8 +37,7 @@ type Options struct {
 	// TempRoot, when non-empty, scopes backend temp dirs under the provided
 	// path instead of the system temp location.
 	TempRoot string
-	// FIFOSource points to a user-provided FIFO implementation that will be
-	// copied next to the emitted Verilog when channels are present.
+	// FIFOSource is deprecated. FIFO implementations are now generated inline.
 	FIFOSource string
 }
 
@@ -62,14 +50,12 @@ type Result struct {
 // EmitVerilog lowers the design to MLIR, runs circt-opt (optionally with a pass
 // pipeline) and invokes --export-verilog to produce SystemVerilog at
 // outputPath.
-// When FIFOs are present, auxiliary files are produced as well and returned via
-// Result.AuxPaths.
 func EmitVerilog(design *ir.Design, outputPath string, opts Options) (Result, error) {
 	if design == nil {
 		return Result{}, fmt.Errorf("backend: design is nil")
 	}
 	if outputPath == "" || outputPath == "-" {
-		return Result{}, fmt.Errorf("backend: verilog emission requires -o when auxiliary FIFO sources are generated")
+		return Result{}, fmt.Errorf("backend: verilog emission requires -o")
 	}
 
 	fifoInfos := collectFifoDescriptors(design)
@@ -115,18 +101,13 @@ func EmitVerilog(design *ir.Design, outputPath string, opts Options) (Result, er
 		}
 	}
 
-	auxPaths, err := stripAndWriteFifos(outputPath, fifoInfos, opts.FIFOSource)
-	if err != nil {
+	if err := inlineGeneratedFifos(outputPath, fifoInfos); err != nil {
 		return Result{}, err
 	}
 	if err := applySignedVerilog(design, outputPath); err != nil {
 		return Result{}, err
 	}
-	res := Result{MainPath: outputPath}
-	if len(auxPaths) > 0 {
-		res.AuxPaths = append(res.AuxPaths, auxPaths...)
-	}
-	return res, nil
+	return Result{MainPath: outputPath}, nil
 }
 
 func runCirctExportVerilog(binary, pipeline, loweringOptions, inputPath, mlirOutputPath, verilogOutputPath string) error {
@@ -185,9 +166,11 @@ func resolveBinary(explicit, fallback string) (string, error) {
 }
 
 type fifoDescriptor struct {
-	name  string
-	width int
-	depth int
+	name            string
+	width           int
+	depth           int
+	isAsyncReset    bool
+	almostFullLevel int
 }
 
 func collectFifoDescriptors(design *ir.Design) []fifoDescriptor {
@@ -214,9 +197,11 @@ func collectFifoDescriptors(design *ir.Design) []fifoDescriptor {
 				continue
 			}
 			seen[name] = fifoDescriptor{
-				name:  name,
-				width: width,
-				depth: depth,
+				name:            name,
+				width:           width,
+				depth:           depth,
+				isAsyncReset:    false,
+				almostFullLevel: defaultAlmostFullLevel(depth),
 			}
 		}
 	}
@@ -230,34 +215,40 @@ func collectFifoDescriptors(design *ir.Design) []fifoDescriptor {
 	return result
 }
 
-func stripAndWriteFifos(mainPath string, fifos []fifoDescriptor, fifoSource string) ([]string, error) {
+func inlineGeneratedFifos(mainPath string, fifos []fifoDescriptor) error {
 	if len(fifos) == 0 {
-		return nil, nil
-	}
-	if fifoSource == "" {
-		return nil, fmt.Errorf("backend: fifo source required when channels are present")
+		return nil
 	}
 	data, err := os.ReadFile(mainPath)
 	if err != nil {
-		return nil, fmt.Errorf("backend: read verilog output: %w", err)
+		return fmt.Errorf("backend: read verilog output: %w", err)
 	}
 	updated := string(data)
+	generated := make([]string, 0, len(fifos))
 	for _, fifo := range fifos {
 		var ok bool
 		updated, ok = removeModuleBlock(updated, fifo.name)
 		if !ok {
-			return nil, fmt.Errorf("backend: module %s not found in generated Verilog", fifo.name)
+			return fmt.Errorf("backend: module %s not found in generated Verilog", fifo.name)
 		}
+		generated = append(generated, GenerateFIFOVerilog(
+			fifo.name,
+			fifo.width,
+			fifo.depth,
+			fifo.isAsyncReset,
+			fifo.almostFullLevel,
+		))
+	}
+	if len(generated) > 0 {
+		if !strings.HasSuffix(updated, "\n") {
+			updated += "\n"
+		}
+		updated += "\n" + strings.Join(generated, "\n\n") + "\n"
 	}
 	if err := os.WriteFile(mainPath, []byte(updated), 0o644); err != nil {
-		return nil, fmt.Errorf("backend: update main verilog: %w", err)
+		return fmt.Errorf("backend: update main verilog: %w", err)
 	}
-
-	auxPaths, err := copyFifoSources(mainPath, fifos, fifoSource)
-	if err != nil {
-		return nil, err
-	}
-	return auxPaths, nil
+	return nil
 }
 
 func removeModuleBlock(content, moduleName string) (string, bool) {
@@ -285,67 +276,6 @@ func fifoModuleName(elemType string, depth int) string {
 	return fmt.Sprintf("mygo_fifo_%s_d%d", sanitize(elemType), depth)
 }
 
-func copyFifoSources(mainPath string, fifos []fifoDescriptor, fifoSource string) ([]string, error) {
-	info, err := os.Stat(fifoSource)
-	if err != nil {
-		return nil, fmt.Errorf("backend: fifo source info: %w", err)
-	}
-	base := strings.TrimSuffix(mainPath, filepath.Ext(mainPath))
-	if info.IsDir() {
-		destRoot := base + "_fifo_lib"
-		if err := os.MkdirAll(destRoot, 0o755); err != nil {
-			return nil, fmt.Errorf("backend: create fifo lib dir: %w", err)
-		}
-		var copied []string
-		err := filepath.WalkDir(fifoSource, func(path string, entry fs.DirEntry, walkErr error) error {
-			if walkErr != nil {
-				return walkErr
-			}
-			if entry.IsDir() {
-				if path == fifoSource {
-					return nil
-				}
-				rel, err := filepath.Rel(fifoSource, path)
-				if err != nil {
-					return err
-				}
-				return os.MkdirAll(filepath.Join(destRoot, rel), 0o755)
-			}
-			rel, err := filepath.Rel(fifoSource, path)
-			if err != nil {
-				return err
-			}
-			dest := filepath.Join(destRoot, rel)
-			if err := copyFile(path, dest); err != nil {
-				return err
-			}
-			copied = append(copied, dest)
-			return nil
-		})
-		if err != nil {
-			return nil, fmt.Errorf("backend: copy fifo directory: %w", err)
-		}
-		sort.Strings(copied)
-		return copied, nil
-	}
-	dest := base + "_fifos" + filepath.Ext(fifoSource)
-	if err := copyFile(fifoSource, dest); err != nil {
-		return nil, err
-	}
-	if len(fifos) > 0 {
-		needsWrappers, err := fifoTemplateNeedsWrappers(dest)
-		if err != nil {
-			return nil, err
-		}
-		if needsWrappers {
-			if err := appendFifoWrappers(dest, fifos); err != nil {
-				return nil, err
-			}
-		}
-	}
-	return []string{dest}, nil
-}
-
 func copyFile(src, dest string) error {
 	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
 		return fmt.Errorf("backend: create copy dest dir: %w", err)
@@ -366,54 +296,6 @@ func copyFile(src, dest string) error {
 	return nil
 }
 
-func fifoTemplateNeedsWrappers(path string) (bool, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return false, fmt.Errorf("backend: read fifo template: %w", err)
-	}
-	return bytes.Contains(data, []byte("mygo:fifo_template")), nil
-}
-
-func appendFifoWrappers(path string, fifos []fifoDescriptor) error {
-	if len(fifos) == 0 {
-		return nil
-	}
-	tmpl, err := loadFifoWrapperTemplate()
-	if err != nil {
-		return err
-	}
-	file, err := os.OpenFile(path, os.O_WRONLY|os.O_APPEND, 0)
-	if err != nil {
-		return fmt.Errorf("backend: open fifo aux file: %w", err)
-	}
-	defer file.Close()
-	if _, err := file.WriteString("\n"); err != nil {
-		return fmt.Errorf("backend: write fifo wrapper separator: %w", err)
-	}
-	for _, fifo := range fifos {
-		data := fifoWrapperData{
-			Name:      fifo.name,
-			Width:     fifo.width,
-			Depth:     fifo.depth,
-			DataRange: fifoDataRange(fifo.width),
-		}
-		if err := tmpl.Execute(file, data); err != nil {
-			return fmt.Errorf("backend: render fifo wrapper: %w", err)
-		}
-		if _, err := file.WriteString("\n"); err != nil {
-			return fmt.Errorf("backend: write fifo wrapper trailing newline: %w", err)
-		}
-	}
-	return nil
-}
-
-func fifoDataRange(width int) string {
-	if width <= 1 {
-		return ""
-	}
-	return fmt.Sprintf("[%d:0] ", width-1)
-}
-
 func signalWidth(t *ir.SignalType) int {
 	if t == nil || t.Width <= 0 {
 		return 1
@@ -423,6 +305,13 @@ func signalWidth(t *ir.SignalType) int {
 
 func signalTypeString(t *ir.SignalType) string {
 	return fmt.Sprintf("i%d", signalWidth(t))
+}
+
+func defaultAlmostFullLevel(depth int) int {
+	if depth <= 1 {
+		return 1
+	}
+	return depth - 1
 }
 
 func sanitize(name string) string {
@@ -438,27 +327,4 @@ func sanitize(name string) string {
 		}
 	}
 	return b.String()
-}
-
-type fifoWrapperData struct {
-	Name      string
-	Width     int
-	Depth     int
-	DataRange string
-}
-
-func loadFifoWrapperTemplate() (*template.Template, error) {
-	fifoWrapperTemplateOnce.Do(func() {
-		_, srcFile, _, ok := runtime.Caller(0)
-		if !ok {
-			fifoWrapperTemplateErr = fmt.Errorf("backend: determine fifo wrapper template path")
-			return
-		}
-		tmplPath := filepath.Join(filepath.Dir(srcFile), "templates", "fifo_wrapper.svtmpl")
-		fifoWrapperTemplate, fifoWrapperTemplateErr = template.ParseFiles(tmplPath)
-	})
-	if fifoWrapperTemplateErr != nil {
-		return nil, fifoWrapperTemplateErr
-	}
-	return fifoWrapperTemplate, nil
 }

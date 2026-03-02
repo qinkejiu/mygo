@@ -113,12 +113,16 @@ func (e *emitter) emitChannelWires(module *ir.Module) map[*ir.Channel]*channelWi
 		ch := module.Channels[name]
 		s := sanitize(ch.Name)
 		wireSet := &channelWireSet{
-			writeData:  fmt.Sprintf("%%chan_%s_wdata", s),
-			writeValid: fmt.Sprintf("%%chan_%s_wvalid", s),
-			writeReady: fmt.Sprintf("%%chan_%s_wready", s),
-			readData:   fmt.Sprintf("%%chan_%s_rdata", s),
-			readValid:  fmt.Sprintf("%%chan_%s_rvalid", s),
-			readReady:  fmt.Sprintf("%%chan_%s_rready", s),
+			writeData:   fmt.Sprintf("%%chan_%s_wdata", s),
+			writeValid:  fmt.Sprintf("%%chan_%s_wvalid", s),
+			writeReady:  fmt.Sprintf("%%chan_%s_wready", s),
+			readData:    fmt.Sprintf("%%chan_%s_rdata", s),
+			readValid:   fmt.Sprintf("%%chan_%s_rvalid", s),
+			readReady:   fmt.Sprintf("%%chan_%s_rready", s),
+			full:        fmt.Sprintf("%%chan_%s_full", s),
+			almostFull:  fmt.Sprintf("%%chan_%s_almost_full", s),
+			empty:       fmt.Sprintf("%%chan_%s_empty", s),
+			almostEmpty: fmt.Sprintf("%%chan_%s_almost_empty", s),
 		}
 		wires[ch] = wireSet
 		e.printIndent()
@@ -135,6 +139,14 @@ func (e *emitter) emitChannelWires(module *ir.Module) map[*ir.Channel]*channelWi
 		fmt.Fprintf(e.w, "%s = sv.wire : !hw.inout<i1>\n", wireSet.readValid)
 		e.printIndent()
 		fmt.Fprintf(e.w, "%s = sv.wire : !hw.inout<i1>\n", wireSet.readReady)
+		e.printIndent()
+		fmt.Fprintf(e.w, "%s = sv.wire : !hw.inout<i1>\n", wireSet.full)
+		e.printIndent()
+		fmt.Fprintf(e.w, "%s = sv.wire : !hw.inout<i1>\n", wireSet.almostFull)
+		e.printIndent()
+		fmt.Fprintf(e.w, "%s = sv.wire : !hw.inout<i1>\n", wireSet.empty)
+		e.printIndent()
+		fmt.Fprintf(e.w, "%s = sv.wire : !hw.inout<i1>\n", wireSet.almostEmpty)
 		e.emitChannelMetadata(ch)
 	}
 	return wires
@@ -153,23 +165,36 @@ func (e *emitter) emitChannelFifos(module *ir.Module, wires map[*ir.Channel]*cha
 		ch := module.Channels[name]
 		wireSet := wires[ch]
 		elemInout := inoutTypeString(ch.Type)
+		s := sanitize(ch.Name)
+		oneConst := fmt.Sprintf("%%chan_%s_one", s)
+		rstN := fmt.Sprintf("%%chan_%s_rst_n", s)
+		fullVal := fmt.Sprintf("%%chan_%s_full_val", s)
+		emptyVal := fmt.Sprintf("%%chan_%s_empty_val", s)
+		notFullVal := fmt.Sprintf("%%chan_%s_not_full", s)
+		notEmptyVal := fmt.Sprintf("%%chan_%s_not_empty", s)
+		e.printIndent()
+		fmt.Fprintf(e.w, "%s = hw.constant 1 : i1\n", oneConst)
+		e.printIndent()
+		fmt.Fprintf(e.w, "%s = comb.xor %%rst, %s : i1\n", rstN, oneConst)
 		moduleName := fifoModuleName(ch)
 		e.recordFifo(moduleName, ch)
 		e.printIndent()
-		fmt.Fprintf(e.w, "hw.instance \"%s_fifo\" @%s(", sanitize(ch.Name), moduleName)
+		fmt.Fprintf(e.w, "hw.instance \"%s_fifo\" @%s(", s, moduleName)
 		ports := []struct {
 			name  string
 			value string
 			typ   string
 		}{
 			{name: "clk", value: "%clk", typ: "i1"},
-			{name: "rst", value: "%rst", typ: "i1"},
-			{name: "in_data", value: wireSet.writeData, typ: elemInout},
-			{name: "in_valid", value: wireSet.writeValid, typ: "!hw.inout<i1>"},
-			{name: "in_ready", value: wireSet.writeReady, typ: "!hw.inout<i1>"},
-			{name: "out_data", value: wireSet.readData, typ: elemInout},
-			{name: "out_valid", value: wireSet.readValid, typ: "!hw.inout<i1>"},
-			{name: "out_ready", value: wireSet.readReady, typ: "!hw.inout<i1>"},
+			{name: "rst_n", value: rstN, typ: "i1"},
+			{name: "wr_en", value: wireSet.writeValid, typ: "!hw.inout<i1>"},
+			{name: "wr_data", value: wireSet.writeData, typ: elemInout},
+			{name: "full", value: wireSet.full, typ: "!hw.inout<i1>"},
+			{name: "almost_full", value: wireSet.almostFull, typ: "!hw.inout<i1>"},
+			{name: "rd_en", value: wireSet.readReady, typ: "!hw.inout<i1>"},
+			{name: "rd_data", value: wireSet.readData, typ: elemInout},
+			{name: "empty", value: wireSet.empty, typ: "!hw.inout<i1>"},
+			{name: "almost_empty", value: wireSet.almostEmpty, typ: "!hw.inout<i1>"},
 		}
 		for i, port := range ports {
 			if i > 0 {
@@ -178,6 +203,18 @@ func (e *emitter) emitChannelFifos(module *ir.Module, wires map[*ir.Channel]*cha
 			fmt.Fprintf(e.w, "%s: %s : %s", port.name, port.value, port.typ)
 		}
 		fmt.Fprintln(e.w, ") -> ()")
+		e.printIndent()
+		fmt.Fprintf(e.w, "%s = sv.read_inout %s : !hw.inout<i1>\n", fullVal, wireSet.full)
+		e.printIndent()
+		fmt.Fprintf(e.w, "%s = comb.xor %s, %s : i1\n", notFullVal, fullVal, oneConst)
+		e.printIndent()
+		fmt.Fprintf(e.w, "sv.assign %s, %s : i1\n", wireSet.writeReady, notFullVal)
+		e.printIndent()
+		fmt.Fprintf(e.w, "%s = sv.read_inout %s : !hw.inout<i1>\n", emptyVal, wireSet.empty)
+		e.printIndent()
+		fmt.Fprintf(e.w, "%s = comb.xor %s, %s : i1\n", notEmptyVal, emptyVal, oneConst)
+		e.printIndent()
+		fmt.Fprintf(e.w, "sv.assign %s, %s : i1\n", wireSet.readValid, notEmptyVal)
 	}
 }
 
@@ -368,12 +405,16 @@ type channelPortSet struct {
 }
 
 type channelWireSet struct {
-	writeData  string
-	writeValid string
-	writeReady string
-	readData   string
-	readValid  string
-	readReady  string
+	writeData   string
+	writeValid  string
+	writeReady  string
+	readData    string
+	readValid   string
+	readReady   string
+	full        string
+	almostFull  string
+	empty       string
+	almostEmpty string
 }
 
 type fifoInfo struct {
@@ -1412,7 +1453,7 @@ func (e *emitter) emitFifoExterns() {
 		info := e.fifoDecls[name]
 		elemType := typeString(info.elemType)
 		e.printIndent()
-		fmt.Fprintf(e.w, "hw.module @%s(in %%clk: i1, in %%rst: i1, inout %%in_data: %s, inout %%in_valid: i1, inout %%in_ready: i1, inout %%out_data: %s, inout %%out_valid: i1, inout %%out_ready: i1) {\n",
+		fmt.Fprintf(e.w, "hw.module @%s(in %%clk: i1, in %%rst_n: i1, inout %%wr_en: i1, inout %%wr_data: %s, inout %%full: i1, inout %%almost_full: i1, inout %%rd_en: i1, inout %%rd_data: %s, inout %%empty: i1, inout %%almost_empty: i1) {\n",
 			info.moduleName,
 			elemType,
 			elemType,

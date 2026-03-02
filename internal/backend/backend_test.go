@@ -142,7 +142,7 @@ func TestEmitVerilogMissingCirctOpt(t *testing.T) {
 	}
 }
 
-func TestEmitVerilogEmitsAuxiliaryFifoFile(t *testing.T) {
+func TestEmitVerilogInlinesGeneratedFIFO(t *testing.T) {
 	design := testDesignWithChannel()
 	tmp := t.TempDir()
 	opt := touchFakeBinary(t, tmp)
@@ -152,84 +152,34 @@ func TestEmitVerilogEmitsAuxiliaryFifoFile(t *testing.T) {
 		}
 		return os.WriteFile(verilogOutputPath, []byte(readBackendTestdata(t, "design_inline_fifo.sv")), 0o644)
 	})
-	fifoSrc := filepath.Join(tmp, "fifo_impl.sv")
-	fifoBody := readBackendTestdata(t, "fifo_impl_external_stub.sv")
-	if err := os.WriteFile(fifoSrc, []byte(fifoBody), 0o644); err != nil {
-		t.Fatalf("write fifo src: %v", err)
-	}
 	out := filepath.Join(tmp, "design.sv")
 	res, err := EmitVerilog(design, out, Options{
 		CIRCTOptPath: opt,
-		FIFOSource:   fifoSrc,
+		FIFOSource:   filepath.Join(tmp, "missing_external_fifo.sv"),
 	})
 	if err != nil {
 		t.Fatalf("EmitVerilog failed: %v", err)
 	}
-	if len(res.AuxPaths) != 1 {
-		t.Fatalf("expected one aux file, got %v", res.AuxPaths)
+	if len(res.AuxPaths) != 0 {
+		t.Fatalf("expected no aux files, got %v", res.AuxPaths)
 	}
-	mainData, err := os.ReadFile(out)
+	data, err := os.ReadFile(out)
 	if err != nil {
-		t.Fatalf("read main: %v", err)
-	}
-	if strings.Contains(string(mainData), "module mygo_fifo") {
-		t.Fatalf("expected fifo module to be stripped:\n%s", string(mainData))
-	}
-	auxData, err := os.ReadFile(res.AuxPaths[0])
-	if err != nil {
-		t.Fatalf("read aux: %v", err)
-	}
-	if got := string(auxData); got != fifoBody {
-		t.Fatalf("expected fifo implementation copy, got:\n%s", got)
-	}
-	expectedAux := strings.TrimSuffix(out, filepath.Ext(out)) + "_fifos.sv"
-	if res.AuxPaths[0] != expectedAux {
-		t.Fatalf("expected aux path %s, got %s", expectedAux, res.AuxPaths[0])
-	}
-	if _, err := os.Stat(expectedAux); err != nil {
-		t.Fatalf("expected aux file to exist: %v", err)
-	}
-}
-
-func TestEmitVerilogGeneratesFifoWrappers(t *testing.T) {
-	design := testDesignWithChannel()
-	tmp := t.TempDir()
-	opt := touchFakeBinary(t, tmp)
-	stubRunExport(t, func(binary, pipeline, loweringOptions, inputPath, mlirOutputPath, verilogOutputPath string) error {
-		if err := copyFile(inputPath, mlirOutputPath); err != nil {
-			return err
-		}
-		return os.WriteFile(verilogOutputPath, []byte(readBackendTestdata(t, "design_inline_fifo.sv")), 0o644)
-	})
-	fifoSrc := filepath.Join(tmp, "fifo_impl_template_parametric.sv")
-	if err := os.WriteFile(fifoSrc, []byte(readBackendTestdata(t, "fifo_impl_template_parametric.sv")), 0o644); err != nil {
-		t.Fatalf("write fifo template: %v", err)
-	}
-	out := filepath.Join(tmp, "design.sv")
-	res, err := EmitVerilog(design, out, Options{
-		CIRCTOptPath: opt,
-		FIFOSource:   fifoSrc,
-	})
-	if err != nil {
-		t.Fatalf("EmitVerilog failed: %v", err)
-	}
-	if len(res.AuxPaths) != 1 {
-		t.Fatalf("expected one aux file, got %v", res.AuxPaths)
-	}
-	data, err := os.ReadFile(res.AuxPaths[0])
-	if err != nil {
-		t.Fatalf("read aux: %v", err)
+		t.Fatalf("read output: %v", err)
 	}
 	text := string(data)
-	if !strings.Contains(text, "mygo:fifo_template") {
-		t.Fatalf("expected fifo template body to be copied:\n%s", text)
+	if !strings.Contains(text, "module mygo_fifo_i32_d1 (") {
+		t.Fatalf("expected generated fifo module to be inlined:\n%s", text)
 	}
-	if !strings.Contains(text, "module mygo_fifo_i32_d1") {
-		t.Fatalf("expected fifo wrapper to be generated:\n%s", text)
+	if strings.Contains(text, "module mygo_fifo_i32_d1();") {
+		t.Fatalf("expected fifo stub to be replaced:\n%s", text)
+	}
+	if !strings.Contains(text, "wr_en") || !strings.Contains(text, "almost_full") {
+		t.Fatalf("expected modern fifo ports in generated body:\n%s", text)
 	}
 }
 
-func TestEmitVerilogStripsAnnotatedFifoModules(t *testing.T) {
+func TestEmitVerilogReplacesAnnotatedFifoStubs(t *testing.T) {
 	design := testDesignWithChannel()
 	tmp := t.TempDir()
 	opt := touchFakeBinary(t, tmp)
@@ -239,14 +189,9 @@ func TestEmitVerilogStripsAnnotatedFifoModules(t *testing.T) {
 		}
 		return os.WriteFile(verilogOutputPath, []byte(readBackendTestdata(t, "design_fifo_with_attrs.sv")), 0o644)
 	})
-	fifoSrc := filepath.Join(tmp, "fifo_impl.sv")
-	if err := os.WriteFile(fifoSrc, []byte(readBackendTestdata(t, "fifo_impl_concrete.sv")), 0o644); err != nil {
-		t.Fatalf("write fifo impl: %v", err)
-	}
 	out := filepath.Join(tmp, "design.sv")
 	if _, err := EmitVerilog(design, out, Options{
 		CIRCTOptPath: opt,
-		FIFOSource:   fifoSrc,
 	}); err != nil {
 		t.Fatalf("EmitVerilog failed: %v", err)
 	}
@@ -255,74 +200,38 @@ func TestEmitVerilogStripsAnnotatedFifoModules(t *testing.T) {
 		t.Fatalf("read design: %v", err)
 	}
 	text := string(data)
-	if strings.Contains(text, "mygo_fifo_i32_d1") {
-		t.Fatalf("expected fifo module to be stripped:\n%s", text)
+	if strings.Contains(text, "endmodule : mygo_fifo_i32_d1") {
+		t.Fatalf("expected annotated fifo stub to be removed:\n%s", text)
 	}
-	if strings.Contains(text, ": mygo_fifo_i32_d1") || strings.Contains(text, "// mygo_fifo_i32_d1") {
-		t.Fatalf("expected fifo annotations to be removed:\n%s", text)
-	}
-}
-
-func TestEmitVerilogCopiesFifoDirectory(t *testing.T) {
-	design := testDesignWithChannel()
-	tmp := t.TempDir()
-	opt := touchFakeBinary(t, tmp)
-	stubRunExport(t, func(binary, pipeline, loweringOptions, inputPath, mlirOutputPath, verilogOutputPath string) error {
-		if err := copyFile(inputPath, mlirOutputPath); err != nil {
-			return err
-		}
-		return os.WriteFile(verilogOutputPath, []byte(readBackendTestdata(t, "design_inline_fifo.sv")), 0o644)
-	})
-	srcDir := filepath.Join(tmp, "fifo_lib")
-	if err := os.MkdirAll(srcDir, 0o755); err != nil {
-		t.Fatalf("mkdir fifo dir: %v", err)
-	}
-	fileA := filepath.Join(srcDir, "fifo_a.sv")
-	fileB := filepath.Join(srcDir, "helpers", "helper.sv")
-	if err := os.MkdirAll(filepath.Dir(fileB), 0o755); err != nil {
-		t.Fatalf("mkdir helper dir: %v", err)
-	}
-	if err := os.WriteFile(fileA, []byte("module mygo_fifo_i32_d1(); endmodule\n"), 0o644); err != nil {
-		t.Fatalf("write fifo a: %v", err)
-	}
-	if err := os.WriteFile(fileB, []byte("// helper content\n"), 0o644); err != nil {
-		t.Fatalf("write helper: %v", err)
-	}
-	out := filepath.Join(tmp, "design.sv")
-	res, err := EmitVerilog(design, out, Options{
-		CIRCTOptPath: opt,
-		FIFOSource:   srcDir,
-	})
-	if err != nil {
-		t.Fatalf("EmitVerilog failed: %v", err)
-	}
-	if len(res.AuxPaths) != 2 {
-		t.Fatalf("expected two aux files, got %v", res.AuxPaths)
-	}
-	for _, p := range res.AuxPaths {
-		if !strings.HasPrefix(p, strings.TrimSuffix(out, filepath.Ext(out))+"_fifo_lib") {
-			t.Fatalf("unexpected aux path %s", p)
-		}
-		if _, err := os.Stat(p); err != nil {
-			t.Fatalf("expected aux file %s to exist: %v", p, err)
-		}
+	if !strings.Contains(text, "module mygo_fifo_i32_d1 (") {
+		t.Fatalf("expected generated fifo module to be present:\n%s", text)
 	}
 }
 
-func TestEmitVerilogErrorsWithoutFifoSource(t *testing.T) {
-	design := testDesignWithChannel()
-	tmp := t.TempDir()
-	opt := touchFakeBinary(t, tmp)
-	stubRunExport(t, func(binary, pipeline, loweringOptions, inputPath, mlirOutputPath, verilogOutputPath string) error {
-		if err := copyFile(inputPath, mlirOutputPath); err != nil {
-			return err
-		}
-		return os.WriteFile(verilogOutputPath, []byte(readBackendTestdata(t, "design_inline_fifo.sv")), 0o644)
-	})
-	out := filepath.Join(tmp, "design.sv")
-	_, err := EmitVerilog(design, out, Options{CIRCTOptPath: opt})
-	if err == nil || !strings.Contains(err.Error(), "fifo source") {
-		t.Fatalf("expected fifo source error, got %v", err)
+func TestGenerateFIFOVerilogSelectsImplementationStyle(t *testing.T) {
+	shallow := GenerateFIFOVerilog("fifo_shallow", 32, 16, false, 0)
+	if !strings.Contains(shallow, "Register-based circular buffer") {
+		t.Fatalf("expected shallow fifo to use register-based style:\n%s", shallow)
+	}
+	if strings.Contains(shallow, "rd_data_reg") {
+		t.Fatalf("shallow fifo unexpectedly used deep fifo read register:\n%s", shallow)
+	}
+	if !strings.Contains(shallow, "localparam integer ALMOST_FULL_LEVEL = 15;") {
+		t.Fatalf("expected default almost-full level to clamp to depth-1:\n%s", shallow)
+	}
+
+	deep := GenerateFIFOVerilog("fifo_deep", 8, 256, true, 300)
+	if !strings.Contains(deep, "RAM-oriented style for deeper FIFOs.") {
+		t.Fatalf("expected deep fifo RAM-oriented style:\n%s", deep)
+	}
+	if !strings.Contains(deep, "rd_data_reg") {
+		t.Fatalf("expected deep fifo registered read datapath:\n%s", deep)
+	}
+	if !strings.Contains(deep, "always @(posedge clk or negedge rst_n)") {
+		t.Fatalf("expected async reset sensitivity list:\n%s", deep)
+	}
+	if !strings.Contains(deep, "localparam integer ALMOST_FULL_LEVEL = 256;") {
+		t.Fatalf("expected almost-full level to clamp to depth:\n%s", deep)
 	}
 }
 

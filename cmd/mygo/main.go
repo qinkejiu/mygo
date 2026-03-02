@@ -63,7 +63,7 @@ func runCompile(args []string) error {
 	circtPipeline := fs.String("circt-pipeline", "", "circt-opt --pass-pipeline string (optional)")
 	circtLowering := fs.String("circt-lowering-options", "", "comma-separated circt-opt --lowering-options string (optional)")
 	circtMLIR := fs.String("circt-mlir", "", "path to dump the MLIR handed to CIRCT (optional)")
-	fifoSrc := fs.String("fifo-src", "", "path to FIFO implementation source (required when channels are present)")
+	fifoSrc := fs.String("fifo-src", "", "deprecated: external FIFO source path (ignored; FIFOs are generated inline)")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -106,10 +106,7 @@ func runCompile(args []string) error {
 		return mlir.Emit(design, *output)
 	case "verilog":
 		if *output == "" || *output == "-" {
-			return fmt.Errorf("verilog emission requires -o when auxiliary FIFO sources are generated")
-		}
-		if hasChannels && *fifoSrc == "" {
-			return fmt.Errorf("verilog emission requires --fifo-src when design contains channels")
+			return fmt.Errorf("verilog emission requires -o")
 		}
 		opts := backend.Options{
 			CIRCTOptPath:    *circtOpt,
@@ -122,6 +119,9 @@ func runCompile(args []string) error {
 		res, err := emitVerilog(design, *output, opts)
 		if err != nil {
 			return err
+		}
+		if hasChannels && *fifoSrc != "" {
+			fmt.Fprintln(os.Stderr, "warning: --fifo-src is deprecated and ignored; FIFOs are generated inline")
 		}
 		if len(res.AuxPaths) > 0 {
 			fmt.Fprintf(os.Stderr, "additional sources written: %s\n", strings.Join(res.AuxPaths, ", "))
@@ -240,7 +240,7 @@ func runSim(args []string) error {
 	simulator := fs.String("simulator", "", "simulator executable to run (e.g. a Verilator wrapper script)")
 	simArgs := fs.String("sim-args", "", "additional simulator arguments (space-separated)")
 	expectPath := fs.String("expect", "", "path to file containing expected simulator stdout (optional)")
-	fifoSrc := fs.String("fifo-src", "", "path to FIFO implementation source (required when channels are present)")
+	fifoSrc := fs.String("fifo-src", "", "deprecated: external FIFO source path (ignored; FIFOs are generated inline)")
 	simMaxCycles := fs.Int("sim-max-cycles", 16, "maximum clock cycles to run when using the default Verilator simulator")
 	simResetCycles := fs.Int("sim-reset-cycles", 2, "number of initial cycles to hold reset asserted for the default simulator")
 	if err := fs.Parse(args); err != nil {
@@ -310,9 +310,8 @@ func runSim(args []string) error {
 		TempRoot:        tempRoot,
 		FIFOSource:      *fifoSrc,
 	}
-
-	if hasChannels && *fifoSrc == "" {
-		return fmt.Errorf("simulation requires --fifo-src when design contains channels")
+	if hasChannels && *fifoSrc != "" {
+		fmt.Fprintln(os.Stderr, "warning: --fifo-src is deprecated and ignored; FIFOs are generated inline")
 	}
 
 	res, err := emitVerilog(design, svPath, opts)

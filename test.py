@@ -5,7 +5,7 @@ from pathlib import Path
 from datetime import datetime
 
 BASE_DIR = Path("tests/stages")
-OUTPUT_FILE = Path("clean_simulation_results.txt")
+OUTPUT_FILE = Path("CHS_clean_simulation_results.txt")
 
 def should_filter_verilator(line: str) -> bool:
     """过滤 Verilator 编译过程日志，保留真正的错误信息"""
