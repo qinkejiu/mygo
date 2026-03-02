@@ -1,11 +1,11 @@
 CLEAN SIMULATION RESULTS (Verilator logs filtered)
-Generated: 2026-03-02 11:42:03
+Generated: 2026-03-02 13:01:12
 ======================================================================
 
 
 ======================================================================
 📁 comb_adder | hardware simulation
-⏱️  11:42:03 | $ go run ./cmd/mygo sim tests/stages/comb_adder/main.go
+⏱️  13:01:12 | $ go run ./cmd/mygo sim tests/stages/comb_adder/main.go
 ======================================================================
 
 partial=         13 widened=0x00001241
@@ -26,25 +26,25 @@ partial=         13 widened=0x00001241
 partial=         13 widened=0x00001241
 
 ======================================================================
-✅ | End: 11:42:08
+✅ | End: 13:01:19
 ======================================================================
 
 
 ======================================================================
 📁 comb_adder | software simulation
-⏱️  11:42:08 | $ go run tests/stages/comb_adder/main.go
+⏱️  13:01:19 | $ go run tests/stages/comb_adder/main.go
 ======================================================================
 
 partial=13 widened=0x1241
 
 ======================================================================
-✅ | End: 11:42:08
+✅ | End: 13:01:19
 ======================================================================
 
 
 ======================================================================
 📁 comb_bitwise | hardware simulation
-⏱️  11:42:08 | $ go run ./cmd/mygo sim tests/stages/comb_bitwise/main.go
+⏱️  13:01:19 | $ go run ./cmd/mygo sim tests/stages/comb_bitwise/main.go
 ======================================================================
 
 and=0x030c or=0x3fcf xor=0x3cc3
@@ -65,25 +65,25 @@ and=0x030c or=0x3fcf xor=0x3cc3
 and=0x030c or=0x3fcf xor=0x3cc3
 
 ======================================================================
-✅ | End: 11:42:12
+✅ | End: 13:01:24
 ======================================================================
 
 
 ======================================================================
 📁 comb_bitwise | software simulation
-⏱️  11:42:12 | $ go run tests/stages/comb_bitwise/main.go
+⏱️  13:01:24 | $ go run tests/stages/comb_bitwise/main.go
 ======================================================================
 
 and=0x30c or=0x3fcf xor=0x3cc3
 
 ======================================================================
-✅ | End: 11:42:12
+✅ | End: 13:01:24
 ======================================================================
 
 
 ======================================================================
 📁 comb_concat | hardware simulation
-⏱️  11:42:12 | $ go run ./cmd/mygo sim tests/stages/comb_concat/main.go
+⏱️  13:01:24 | $ go run ./cmd/mygo sim tests/stages/comb_concat/main.go
 ======================================================================
 
 word=0xabcd high=   10 low=0x00cd
@@ -104,25 +104,25 @@ word=0xabcd high=   10 low=0x00cd
 word=0xabcd high=   10 low=0x00cd
 
 ======================================================================
-✅ | End: 11:42:17
+✅ | End: 13:01:28
 ======================================================================
 
 
 ======================================================================
 📁 comb_concat | software simulation
-⏱️  11:42:17 | $ go run tests/stages/comb_concat/main.go
+⏱️  13:01:28 | $ go run tests/stages/comb_concat/main.go
 ======================================================================
 
 word=0xabcd high=10 low=0xcd
 
 ======================================================================
-✅ | End: 11:42:17
+✅ | End: 13:01:28
 ======================================================================
 
 
 ======================================================================
 📁 phi_loop | hardware simulation
-⏱️  11:42:17 | $ go run ./cmd/mygo sim tests/stages/phi_loop/main.go
+⏱️  13:01:28 | $ go run ./cmd/mygo sim tests/stages/phi_loop/main.go
 ======================================================================
 
 producer sent           0
@@ -175,13 +175,13 @@ phi loop final=          0
 consumer received           4 (running total           4)
 
 ======================================================================
-✅ | End: 11:42:21
+✅ | End: 13:01:32
 ======================================================================
 
 
 ======================================================================
 📁 phi_loop | software simulation
-⏱️  11:42:21 | $ go run tests/stages/phi_loop/main.go
+⏱️  13:01:32 | $ go run tests/stages/phi_loop/main.go
 ======================================================================
 
 producer sent 0
@@ -195,13 +195,13 @@ consumer received 3 (running total 6)
 phi loop final=6
 
 ======================================================================
-✅ | End: 11:42:21
+✅ | End: 13:01:32
 ======================================================================
 
 
 ======================================================================
 📁 pipeline1 | hardware simulation
-⏱️  11:42:21 | $ go run ./cmd/mygo sim tests/stages/pipeline1/main.go
+⏱️  13:01:32 | $ go run ./cmd/mygo sim tests/stages/pipeline1/main.go
 ======================================================================
 
 input: count          0 sent integer 0x00000000
@@ -254,13 +254,13 @@ finished is 1
 output: count          5 got integer 0x1970032d
 
 ======================================================================
-✅ | End: 11:42:25
+✅ | End: 13:01:36
 ======================================================================
 
 
 ======================================================================
 📁 pipeline1 | software simulation
-⏱️  11:42:25 | $ go run tests/stages/pipeline1/main.go
+⏱️  13:01:36 | $ go run tests/stages/pipeline1/main.go
 ======================================================================
 
 output: count 0 got integer 0x0
@@ -276,13 +276,13 @@ output: count 4 got integer 0x4
 finished is true
 
 ======================================================================
-✅ | End: 11:42:25
+✅ | End: 13:01:37
 ======================================================================
 
 
 ======================================================================
 📁 pipeline2 | hardware simulation
-⏱️  11:42:25 | $ go run ./cmd/mygo sim tests/stages/pipeline2/main.go
+⏱️  13:01:37 | $ go run ./cmd/mygo sim tests/stages/pipeline2/main.go
 ======================================================================
 
 stage 1: sent integer          4
@@ -304,7 +304,7 @@ stage 2: emitted 4 bytes for          4
 stage 1: sent integer          4
 stage 3: reconstructed integer          0
 finished is 0
-stage 2: emitted 4 bytes for          0
+stage 2: emitted 4 bytes for          6
 stage 1: sent integer          4
 stage 3: reconstructed integer          0
 finished is 1
@@ -312,7 +312,7 @@ stage 2: emitted 4 bytes for          6
 stage 1: sent integer          4
 stage 3: reconstructed integer          0
 finished is 0
-stage 2: emitted 4 bytes for          0
+stage 2: emitted 4 bytes for          4
 stage 1: sent integer          4
 stage 3: reconstructed integer          0
 finished is 1
@@ -320,7 +320,7 @@ stage 2: emitted 4 bytes for          4
 stage 1: sent integer          4
 stage 3: reconstructed integer          0
 finished is 0
-stage 2: emitted 4 bytes for          0
+stage 2: emitted 4 bytes for          6
 stage 1: sent integer          4
 stage 3: reconstructed integer          0
 finished is 1
@@ -328,7 +328,7 @@ stage 2: emitted 4 bytes for          6
 stage 1: sent integer          4
 stage 3: reconstructed integer          0
 finished is 0
-stage 2: emitted 4 bytes for          0
+stage 2: emitted 4 bytes for         12
 stage 1: sent integer          4
 stage 3: reconstructed integer          0
 finished is 1
@@ -336,7 +336,7 @@ stage 2: emitted 4 bytes for         12
 stage 1: sent integer          4
 stage 3: reconstructed integer          0
 finished is 0
-stage 2: emitted 4 bytes for          0
+stage 2: emitted 4 bytes for         12
 stage 1: sent integer          4
 stage 3: reconstructed integer          0
 finished is 1
@@ -344,44 +344,44 @@ stage 2: emitted 4 bytes for         12
 stage 1: sent integer          4
 stage 3: reconstructed integer          0
 finished is 0
-stage 2: emitted 4 bytes for          0
+stage 2: emitted 4 bytes for         12
 stage 1: sent integer          4
 stage 3: reconstructed integer          0
 finished is 1
 stage 2: emitted 4 bytes for         12
 
 ======================================================================
-✅ | End: 11:42:33
+✅ | End: 13:01:41
 ======================================================================
 
 
 ======================================================================
 📁 pipeline2 | software simulation
-⏱️  11:42:33 | $ go run tests/stages/pipeline2/main.go
+⏱️  13:01:41 | $ go run tests/stages/pipeline2/main.go
 ======================================================================
 
-stage 2: emitted 4 bytes for 0
-stage 3: reconstructed integer 0
 stage 1: sent integer 0
 stage 1: sent integer 2
-stage 1: sent integer 4
+stage 3: reconstructed integer 0
+stage 2: emitted 4 bytes for 0
 stage 2: emitted 4 bytes for 2
 stage 2: emitted 4 bytes for 4
-stage 1: sent integer 6
 stage 3: reconstructed integer 2
 stage 3: reconstructed integer 4
+stage 1: sent integer 4
+stage 1: sent integer 6
 stage 2: emitted 4 bytes for 6
 stage 3: reconstructed integer 6
 finished is true
 
 ======================================================================
-✅ | End: 11:42:33
+✅ | End: 13:01:41
 ======================================================================
 
 
 ======================================================================
 📁 router_csp | hardware simulation
-⏱️  11:42:33 | $ go run ./cmd/mygo sim tests/stages/router_csp/main.go
+⏱️  13:01:41 | $ go run ./cmd/mygo sim tests/stages/router_csp/main.go
 ======================================================================
 
 router complete packets=          4
@@ -434,13 +434,13 @@ producer          0 sent dest=         0 payload=         4
 consumer          0 got src=         0 dest=         0 payload=         0
 
 ======================================================================
-✅ | End: 11:42:37
+✅ | End: 13:01:45
 ======================================================================
 
 
 ======================================================================
 📁 router_csp | software simulation
-⏱️  11:42:37 | $ go run tests/stages/router_csp/main.go
+⏱️  13:01:45 | $ go run tests/stages/router_csp/main.go
 ======================================================================
 
 producer 1 sent dest=1 payload=10
@@ -462,13 +462,13 @@ consumer 1 got src=0 dest=1 payload=3
 router complete packets=4
 
 ======================================================================
-✅ | End: 11:42:37
+✅ | End: 13:01:45
 ======================================================================
 
 
 ======================================================================
 📁 simple | hardware simulation
-⏱️  11:42:37 | $ go run ./cmd/mygo sim tests/stages/simple/main.go
+⏱️  13:01:45 | $ go run ./cmd/mygo sim tests/stages/simple/main.go
 ======================================================================
 
 The result is small:                    3
@@ -489,25 +489,25 @@ The result is small:                    3
 The result is small:                    3
 
 ======================================================================
-✅ | End: 11:42:41
+✅ | End: 13:01:49
 ======================================================================
 
 
 ======================================================================
 📁 simple | software simulation
-⏱️  11:42:41 | $ go run tests/stages/simple/main.go
+⏱️  13:01:49 | $ go run tests/stages/simple/main.go
 ======================================================================
 
 The result is small: 3
 
 ======================================================================
-✅ | End: 11:42:41
+✅ | End: 13:01:49
 ======================================================================
 
 
 ======================================================================
 📁 simple_branch | hardware simulation
-⏱️  11:42:41 | $ go run ./cmd/mygo sim tests/stages/simple_branch/main.go
+⏱️  13:01:49 | $ go run ./cmd/mygo sim tests/stages/simple_branch/main.go
 ======================================================================
 
 branch y>=x delta=         -7 (x=         10 y=          3)
@@ -544,25 +544,25 @@ branch y>=x delta=         -7 (x=         10 y=          3)
 branch x>y delta=          7 (x=         10 y=          3)
 
 ======================================================================
-✅ | End: 11:42:46
+✅ | End: 13:01:55
 ======================================================================
 
 
 ======================================================================
 📁 simple_branch | software simulation
-⏱️  11:42:46 | $ go run tests/stages/simple_branch/main.go
+⏱️  13:01:55 | $ go run tests/stages/simple_branch/main.go
 ======================================================================
 
 branch x>y delta=7 (x=10 y=3)
 
 ======================================================================
-✅ | End: 11:42:46
+✅ | End: 13:01:55
 ======================================================================
 
 
 ======================================================================
 📁 simple_channel | hardware simulation
-⏱️  11:42:46 | $ go run ./cmd/mygo sim tests/stages/simple_channel/main.go
+⏱️  13:01:55 | $ go run ./cmd/mygo sim tests/stages/simple_channel/main.go
 ======================================================================
 
 main observed=          0
@@ -599,26 +599,26 @@ main observed=          6
 worker received=          5 produced=          6
 
 ======================================================================
-✅ | End: 11:42:50
+✅ | End: 13:01:59
 ======================================================================
 
 
 ======================================================================
 📁 simple_channel | software simulation
-⏱️  11:42:50 | $ go run tests/stages/simple_channel/main.go
+⏱️  13:01:59 | $ go run tests/stages/simple_channel/main.go
 ======================================================================
 
 worker received=5 produced=6
 main observed=6
 
 ======================================================================
-✅ | End: 11:42:50
+✅ | End: 13:01:59
 ======================================================================
 
 
 ======================================================================
 📁 simple_print | hardware simulation
-⏱️  11:42:50 | $ go run ./cmd/mygo sim tests/stages/simple_print/main.go
+⏱️  13:01:59 | $ go run ./cmd/mygo sim tests/stages/simple_print/main.go
 ======================================================================
 
 x=         42
@@ -639,25 +639,25 @@ x=         42
 x=         42
 
 ======================================================================
-✅ | End: 11:42:54
+✅ | End: 13:02:03
 ======================================================================
 
 
 ======================================================================
 📁 simple_print | software simulation
-⏱️  11:42:54 | $ go run tests/stages/simple_print/main.go
+⏱️  13:02:03 | $ go run tests/stages/simple_print/main.go
 ======================================================================
 
 x=42
 
 ======================================================================
-✅ | End: 11:42:54
+✅ | End: 13:02:03
 ======================================================================
 
 
 ======================================================================
 📁 type_mismatch | hardware simulation
-⏱️  11:42:54 | $ go run ./cmd/mygo sim tests/stages/type_mismatch/main.go
+⏱️  13:02:03 | $ go run ./cmd/mygo sim tests/stages/type_mismatch/main.go
 ======================================================================
 
 acc=    -7 wide=      1017
@@ -678,19 +678,19 @@ acc=    -7 wide=      1017
 acc=    -7 wide=      1017
 
 ======================================================================
-✅ | End: 11:42:59
+✅ | End: 13:02:07
 ======================================================================
 
 
 ======================================================================
 📁 type_mismatch | software simulation
-⏱️  11:42:59 | $ go run tests/stages/type_mismatch/main.go
+⏱️  13:02:07 | $ go run tests/stages/type_mismatch/main.go
 ======================================================================
 
 acc=-7 wide=1017
 
 ======================================================================
-✅ | End: 11:42:59
+✅ | End: 13:02:07
 ======================================================================
 
 

@@ -26,17 +26,21 @@ func BuildDesign(prog *ssa.Program, reporter *diag.Reporter) (*Design, error) {
 	}
 
 	builder := &builder{
-		reporter:      reporter,
-		signals:       make(map[ssa.Value]*Signal),
-		processes:     make(map[*ssa.Function]*Process),
-		channels:      make(map[ssa.Value]*Channel),
-		paramSignals:  make(map[*ssa.Parameter]*Signal),
-		paramChannels: make(map[*ssa.Parameter]*Channel),
-		channelUsage:  make(map[*Channel]int),
-		nextStage:     1,
+		reporter:             reporter,
+		signals:              make(map[ssa.Value]*Signal),
+		processes:            make(map[*ssa.Function]*Process),
+		channels:             make(map[ssa.Value]*Channel),
+		paramSignals:         make(map[*ssa.Parameter]*Signal),
+		paramChannels:        make(map[*ssa.Parameter]*Channel),
+		channelParamBindings: make(map[*ssa.Parameter]map[*Channel]struct{}),
+		channelUsage:         make(map[*Channel]int),
+		nextStage:            1,
 	}
 
 	module := builder.buildModule(mainFn)
+	builder.analyzeChannels(prog)
+	builder.finalizeProcessStages()
+	builder.finalizeChannelOccupancy()
 	if reporter.HasErrors() {
 		return nil, fmt.Errorf("failed to build module")
 	}
@@ -50,17 +54,18 @@ func BuildDesign(prog *ssa.Program, reporter *diag.Reporter) (*Design, error) {
 }
 
 type builder struct {
-	reporter      *diag.Reporter
-	module        *Module
-	signals       map[ssa.Value]*Signal
-	processes     map[*ssa.Function]*Process
-	channels      map[ssa.Value]*Channel
-	paramSignals  map[*ssa.Parameter]*Signal
-	paramChannels map[*ssa.Parameter]*Channel
-	channelUsage  map[*Channel]int
-	nextStage     int
-	blocks        map[*ssa.BasicBlock]*BasicBlock
-	tempID        int
+	reporter             *diag.Reporter
+	module               *Module
+	signals              map[ssa.Value]*Signal
+	processes            map[*ssa.Function]*Process
+	channels             map[ssa.Value]*Channel
+	paramSignals         map[*ssa.Parameter]*Signal
+	paramChannels        map[*ssa.Parameter]*Channel
+	channelParamBindings map[*ssa.Parameter]map[*Channel]struct{}
+	channelUsage         map[*Channel]int
+	nextStage            int
+	blocks               map[*ssa.BasicBlock]*BasicBlock
+	tempID               int
 }
 
 func (b *builder) buildModule(fn *ssa.Function) *Module {
@@ -76,9 +81,6 @@ func (b *builder) buildModule(fn *ssa.Function) *Module {
 	if entry != nil && entry.Stage < 0 {
 		entry.Stage = 0
 	}
-	b.finalizeProcessStages()
-	b.finalizeChannelOccupancy()
-
 	return mod
 }
 
@@ -562,10 +564,11 @@ func (b *builder) bindFunctionParams(fn *ssa.Function) {
 		}
 		if isChannelType(param.Type()) {
 			ch := &Channel{
-				Name:   b.uniqueName(param.Name()),
-				Type:   channelElemType(param.Type()),
-				Depth:  1,
-				Source: param.Pos(),
+				Name:          b.uniqueName(param.Name()),
+				Type:          channelElemType(param.Type()),
+				Depth:         1,
+				DeclaredDepth: 0,
+				Source:        param.Pos(),
 			}
 			b.module.Channels[ch.Name] = ch
 			b.channels[param] = ch
@@ -600,10 +603,11 @@ func (b *builder) handleMakeChan(mc *ssa.MakeChan) {
 		}
 	}
 	channel := &Channel{
-		Name:   name,
-		Type:   signalType(chType.Elem()),
-		Depth:  depth,
-		Source: mc.Pos(),
+		Name:          name,
+		Type:          signalType(chType.Elem()),
+		Depth:         depth,
+		DeclaredDepth: depth,
+		Source:        mc.Pos(),
 	}
 	b.module.Channels[channel.Name] = channel
 	b.channels[mc] = channel
@@ -691,6 +695,7 @@ func (b *builder) bindCallArguments(fn *ssa.Function, args []ssa.Value) {
 		paramType := param.Type()
 		if isChannelType(paramType) {
 			if ch := b.channelForValueSilent(arg); ch != nil {
+				b.addChannelParamBinding(param, ch)
 				if _, exists := b.paramChannels[param]; !exists {
 					b.paramChannels[param] = ch
 				}

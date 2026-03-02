@@ -48,19 +48,27 @@ type Signal struct {
 
 // Channel models a FIFO-style buffered channel between processes.
 type Channel struct {
-	Name      string
-	Type      *SignalType
-	Depth     int
-	Occupancy int
-	Source    token.Pos
-	Producers []*ChannelEndpoint
-	Consumers []*ChannelEndpoint
+	Name          string
+	Type          *SignalType
+	Depth         int
+	DeclaredDepth int
+	Occupancy     int
+	Source        token.Pos
+	Producers     []*ChannelEndpoint
+	Consumers     []*ChannelEndpoint
+	Dependencies  []ChannelDependency
 }
 
 // ChannelEndpoint records how a process interacts with a channel.
 type ChannelEndpoint struct {
 	Process   *Process
 	Direction ChannelDirection
+}
+
+// ChannelDependency records producer-consumer relationships observed on a channel.
+type ChannelDependency struct {
+	Producer *Process
+	Consumer *Process
 }
 
 // ChannelDirection distinguishes send vs. receive endpoints.
@@ -187,6 +195,20 @@ func maxInt(a, b int) int {
 func (c *Channel) AddEndpoint(proc *Process, dir ChannelDirection) {
 	if c == nil || proc == nil {
 		return
+	}
+	var endpoints []*ChannelEndpoint
+	switch dir {
+	case ChannelSend:
+		endpoints = c.Producers
+	case ChannelReceive:
+		endpoints = c.Consumers
+	default:
+		return
+	}
+	for _, endpoint := range endpoints {
+		if endpoint != nil && endpoint.Process == proc && endpoint.Direction == dir {
+			return
+		}
 	}
 	endpoint := &ChannelEndpoint{
 		Process:   proc,
