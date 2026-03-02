@@ -15,16 +15,25 @@ func stage1(out chan<- uint32) {
 
 func stage2(in <-chan uint32, out chan<- byte) {
 	_ = <-in
-	sendUint32(totalPairs, out)
+	out <- byte((totalPairs >> 24) & 0xFF)
+	out <- byte((totalPairs >> 16) & 0xFF)
+	out <- byte((totalPairs >> 8) & 0xFF)
+	out <- byte(totalPairs & 0xFF)
 	for count := uint32(0); count < totalPairs; count++ {
 		val := <-in
-		sendUint32(val, out)
+		out <- byte((val >> 24) & 0xFF)
+		out <- byte((val >> 16) & 0xFF)
+		out <- byte((val >> 8) & 0xFF)
+		out <- byte(val & 0xFF)
 		fmt.Printf("stage 2: emitted 4 bytes for %d\n", val)
 	}
 }
 
 func stage3(in <-chan byte, done chan<- bool) {
-	_ = readUint32(in)
+	_ = <-in
+	_ = <-in
+	_ = <-in
+	_ = <-in
 	for count := uint32(0); count < totalPairs; count++ {
 		b0 := uint32(<-in)
 		b1 := uint32(<-in)
@@ -34,21 +43,6 @@ func stage3(in <-chan byte, done chan<- bool) {
 		fmt.Printf("stage 3: reconstructed integer %d\n", value)
 	}
 	done <- true
-}
-
-func sendUint32(value uint32, out chan<- byte) {
-	out <- byte((value >> 24) & 0xFF)
-	out <- byte((value >> 16) & 0xFF)
-	out <- byte((value >> 8) & 0xFF)
-	out <- byte(value & 0xFF)
-}
-
-func readUint32(in <-chan byte) uint32 {
-	b0 := uint32(<-in)
-	b1 := uint32(<-in)
-	b2 := uint32(<-in)
-	b3 := uint32(<-in)
-	return (b0 << 24) | (b1 << 16) | (b2 << 8) | b3
 }
 
 func main() {

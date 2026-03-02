@@ -7,6 +7,15 @@ from datetime import datetime
 BASE_DIR = Path("tests/stages")
 OUTPUT_FILE = Path("CHS_clean_simulation_results.txt")
 
+# Keep per-case budgets in sync with handshake/FSM latency so hardware runs
+# long enough to produce terminal prints (e.g. finished/router complete).
+SIM_MAX_CYCLES = {
+    "simple_channel": 32,
+    "pipeline1": 64,
+    "pipeline2": 80,
+    "router_csp": 80,
+}
+
 def should_filter_verilator(line: str) -> bool:
     """过滤 Verilator 编译过程日志，保留真正的错误信息"""
     verilator_noise = [
@@ -116,7 +125,8 @@ def main():
             print(f"[{idx:2d}/{len(folders)}] {folder:20s}", end=" ", flush=True)
 
             # 命令1: mygo sim（硬件仿真）
-            cmd1 = f"go run ./cmd/mygo sim {main_go}"
+            max_cycles = SIM_MAX_CYCLES.get(folder, 64)
+            cmd1 = f"go run ./cmd/mygo sim --sim-max-cycles {max_cycles} {main_go}"
             ok1 = run_command(cmd1, folder, "hardware simulation", f)
             if ok1:
                 success1 += 1
