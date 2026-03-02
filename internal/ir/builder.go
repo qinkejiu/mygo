@@ -90,6 +90,7 @@ func (b *builder) buildProcess(fn *ssa.Function) *Process {
 	}
 	proc := &Process{
 		Name:        fn.Name(),
+		Source:      fn.Pos(),
 		Sensitivity: Sequential,
 		Stage:       -1,
 	}
@@ -217,6 +218,7 @@ func (b *builder) assignChildStage(parent, child *Process) {
 	if child == nil {
 		return
 	}
+	child.Spawned = true
 	parentStage := b.ensureProcessStage(parent)
 	desired := parentStage + 1
 	if desired < b.nextStage {
@@ -566,8 +568,11 @@ func (b *builder) bindFunctionParams(fn *ssa.Function) {
 			ch := &Channel{
 				Name:          b.uniqueName(param.Name()),
 				Type:          channelElemType(param.Type()),
-				Depth:         1,
+				Depth:         0,
 				DeclaredDepth: 0,
+				InferredDepth: 0,
+				DepthReason:   "",
+				IsParameter:   true,
 				Source:        param.Pos(),
 			}
 			b.module.Channels[ch.Name] = ch
@@ -607,6 +612,8 @@ func (b *builder) handleMakeChan(mc *ssa.MakeChan) {
 		Type:          signalType(chType.Elem()),
 		Depth:         depth,
 		DeclaredDepth: depth,
+		InferredDepth: 0,
+		DepthReason:   "",
 		Source:        mc.Pos(),
 	}
 	b.module.Channels[channel.Name] = channel

@@ -52,6 +52,9 @@ type Channel struct {
 	Type          *SignalType
 	Depth         int
 	DeclaredDepth int
+	InferredDepth int
+	DepthReason   string
+	IsParameter   bool
 	Occupancy     int
 	Source        token.Pos
 	Producers     []*ChannelEndpoint
@@ -234,6 +237,8 @@ const (
 // Process groups a sequence of operations under a specific clocking scheme.
 type Process struct {
 	Name        string
+	Source      token.Pos
+	Spawned     bool
 	Sensitivity Sensitivity
 	Blocks      []*BasicBlock
 	Stage       int

@@ -1,6 +1,7 @@
 package ir
 
 import (
+	"fmt"
 	"go/token"
 
 	"golang.org/x/tools/go/callgraph/cha"
@@ -250,58 +251,81 @@ func (b *builder) inferChannelDepths() {
 	if b == nil || b.module == nil {
 		return
 	}
-	spawned := b.spawnedProcesses()
 	for _, ch := range b.module.Channels {
 		if ch == nil {
 			continue
 		}
 		producers := uniqueChannelProcesses(ch.Producers)
 		consumers := uniqueChannelProcesses(ch.Consumers)
-		if len(producers) == 1 && len(consumers) == 1 {
+		producerCount := len(producers)
+		consumerCount := len(consumers)
+
+		inferred := 0
+		reason := ""
+		switch {
+		case producerCount == 1 && consumerCount == 1:
 			producer := producers[0]
 			consumer := consumers[0]
-			if ch.DeclaredDepth == 1 && producer != consumer && isSpawnedProcess(spawned, producer) && isSpawnedProcess(spawned, consumer) {
-				ch.Depth = 2
-				continue
-			}
-		}
-		if ch.DeclaredDepth > 0 {
-			ch.Depth = ch.DeclaredDepth
-		}
-	}
-}
-
-func (b *builder) spawnedProcesses() map[*Process]struct{} {
-	result := make(map[*Process]struct{})
-	if b == nil || b.module == nil {
-		return result
-	}
-	for _, proc := range b.module.Processes {
-		if proc == nil {
-			continue
-		}
-		for _, block := range proc.Blocks {
-			if block == nil {
-				continue
-			}
-			for _, op := range block.Ops {
-				spawn, ok := op.(*SpawnOperation)
-				if !ok || spawn.Callee == nil {
-					continue
+			if isCrossGoroutine(producer, consumer) {
+				if ch.DeclaredDepth <= 1 {
+					inferred = 2
+					reason = "SPSC cross-goroutine: increased to 2 to avoid potential deadlock"
+				} else {
+					inferred = ch.DeclaredDepth
+					reason = "SPSC cross-goroutine: declared depth is sufficient"
 				}
-				result[spawn.Callee] = struct{}{}
+			} else {
+				inferred = ch.DeclaredDepth
+				reason = "SPSC same goroutine: keeping declared depth"
+			}
+		case producerCount > 1 || consumerCount > 1:
+			inferred = maxInt(ch.DeclaredDepth, 2)
+			reason = "Multi-producer or multi-consumer: conservative minimum depth 2"
+		default:
+			inferred = ch.DeclaredDepth
+			switch {
+			case producerCount == 0 && consumerCount == 0:
+				reason = "Warning: channel has no producers and no consumers"
+			case producerCount == 0:
+				reason = "Warning: channel has no producers"
+			default:
+				reason = "Warning: channel has no consumers"
 			}
 		}
+
+		ch.InferredDepth = inferred
+		ch.DepthReason = reason
+		ch.Depth = maxInt(ch.DeclaredDepth, ch.InferredDepth)
+
+		if b.reporter != nil && ch.InferredDepth != ch.DeclaredDepth {
+			b.reporter.Info(ch.Source, fmt.Sprintf(
+				"channel %q depth inference: declared=%d inferred=%d effective=%d (%s)",
+				ch.Name,
+				ch.DeclaredDepth,
+				ch.InferredDepth,
+				ch.Depth,
+				ch.DepthReason,
+			))
+		}
 	}
-	return result
 }
 
-func isSpawnedProcess(spawned map[*Process]struct{}, proc *Process) bool {
-	if proc == nil {
+func isCrossGoroutine(p1, p2 *Process) bool {
+	if p1 == nil || p2 == nil || p1 == p2 {
 		return false
 	}
-	_, ok := spawned[proc]
-	return ok
+	// Spawned processes originate from `go` statements and are always concurrent.
+	if p1.Spawned || p2.Spawned {
+		return true
+	}
+	// Stage/position checks are conservative fallbacks for partially annotated IR.
+	if p1.Stage >= 0 && p2.Stage >= 0 && p1.Stage != p2.Stage {
+		return true
+	}
+	if p1.Source != token.NoPos && p2.Source != token.NoPos && p1.Source != p2.Source {
+		return true
+	}
+	return false
 }
 
 func (b *builder) addChannelParamBinding(param *ssa.Parameter, ch *Channel) {
