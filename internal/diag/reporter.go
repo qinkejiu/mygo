@@ -23,6 +23,7 @@ type Reporter struct {
 	format   string
 	fset     *token.FileSet
 	errCount int
+	minSev   Severity
 }
 
 // NewReporter creates a reporter that writes to out using the given format.
@@ -37,7 +38,13 @@ func NewReporter(out io.Writer, format string) *Reporter {
 		out:    out,
 		format: format,
 		fset:   token.NewFileSet(),
+		minSev: Info,
 	}
+}
+
+// SetMinSeverity filters out diagnostics below sev.
+func (r *Reporter) SetMinSeverity(sev Severity) {
+	r.minSev = sev
 }
 
 // SetFileSet configures the file set used to turn token.Pos values into
@@ -75,6 +82,9 @@ func (r *Reporter) HasErrors() bool {
 }
 
 func (r *Reporter) report(sev Severity, pos token.Pos, msg string) {
+	if sev < r.minSev {
+		return
+	}
 	if r.format != "text" {
 		// Only text output is implemented for now.
 	}

@@ -241,7 +241,7 @@ func runSim(args []string) error {
 	simArgs := fs.String("sim-args", "", "additional simulator arguments (space-separated)")
 	expectPath := fs.String("expect", "", "path to file containing expected simulator stdout (optional)")
 	fifoSrc := fs.String("fifo-src", "", "deprecated: external FIFO source path (ignored; FIFOs are generated inline)")
-	simMaxCycles := fs.Int("sim-max-cycles", 16, "maximum clock cycles to run when using the default Verilator simulator")
+	simMaxCycles := fs.Int("sim-max-cycles", 64, "maximum clock cycles to run when using the default Verilator simulator")
 	simResetCycles := fs.Int("sim-reset-cycles", 2, "number of initial cycles to hold reset asserted for the default simulator")
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -265,6 +265,8 @@ func runSim(args []string) error {
 	if err != nil {
 		return err
 	}
+	// Keep simulation output focused on runtime behavior; hide informational diagnostics.
+	result.reporter.SetMinSeverity(diag.Warning)
 
 	if err := validateProgram(result); err != nil {
 		return err

@@ -616,20 +616,59 @@ type phiRegInfo struct {
 	typeStr   string
 }
 
+type recvRegInfo struct {
+	op        *ir.RecvOperation
+	regName   string
+	valueName string
+	typeStr   string
+}
+
+type statePhase int
+
+const (
+	phaseNone statePhase = iota
+	phaseSendReq
+	phaseSendWait
+	phaseRecvReq
+	phaseRecvWait
+)
+
+type fsmState struct {
+	id     int
+	block  *ir.BasicBlock
+	phase  statePhase
+	sendOp *ir.SendOperation
+	recvOp *ir.RecvOperation
+	nextID int
+}
+
 type fsmBuilder struct {
-	printer       *processPrinter
-	proc          *ir.Process
-	blockOrder    []*ir.BasicBlock
-	blockIDs      map[*ir.BasicBlock]int
-	doneID        int
-	stateWidth    int
-	stateType     string
-	stateConsts   map[int]string
-	stateRegInout string
-	stateValue    string
-	phiInfos      map[*ir.PhiOperation]*phiRegInfo
-	phiOrder      []*ir.PhiOperation
-	phiUpdates    map[edgeKey][]phiUpdate
+	printer            *processPrinter
+	proc               *ir.Process
+	blockOrder         []*ir.BasicBlock
+	blockEntryStateIDs map[*ir.BasicBlock]int
+	doneID             int
+	stateWidth         int
+	stateType          string
+	stateConsts        map[int]string
+	stateRegInout      string
+	stateValue         string
+	stateOrder         []*fsmState
+	stateByID          map[int]*fsmState
+	statePredicates    map[int]string
+	phiInfos           map[*ir.PhiOperation]*phiRegInfo
+	phiOrder           []*ir.PhiOperation
+	phiUpdates         map[edgeKey][]phiUpdate
+	sendWaitStateIDs   map[*ir.SendOperation]int
+	recvWaitStateIDs   map[*ir.RecvOperation]int
+	sendPredicates     map[*ir.SendOperation]string
+	recvPredicates     map[*ir.RecvOperation]string
+	sendReadySignals   map[*ir.SendOperation]string
+	recvValidSignals   map[*ir.RecvOperation]string
+	recvDataSignals    map[*ir.RecvOperation]string
+	recvInfos          map[*ir.RecvOperation]*recvRegInfo
+	deadlockWarnings   []string
+	deadlockWarningSet map[string]struct{}
 }
 
 func newFSMBuilder(printer *processPrinter, proc *ir.Process) *fsmBuilder {
@@ -637,31 +676,136 @@ func newFSMBuilder(printer *processPrinter, proc *ir.Process) *fsmBuilder {
 		return nil
 	}
 	builder := &fsmBuilder{
-		printer:     printer,
-		proc:        proc,
-		blockIDs:    make(map[*ir.BasicBlock]int),
-		stateConsts: make(map[int]string),
-		phiInfos:    make(map[*ir.PhiOperation]*phiRegInfo),
-		phiUpdates:  make(map[edgeKey][]phiUpdate),
+		printer:            printer,
+		proc:               proc,
+		blockEntryStateIDs: make(map[*ir.BasicBlock]int),
+		stateConsts:        make(map[int]string),
+		stateByID:          make(map[int]*fsmState),
+		statePredicates:    make(map[int]string),
+		phiInfos:           make(map[*ir.PhiOperation]*phiRegInfo),
+		phiUpdates:         make(map[edgeKey][]phiUpdate),
+		sendWaitStateIDs:   make(map[*ir.SendOperation]int),
+		recvWaitStateIDs:   make(map[*ir.RecvOperation]int),
+		sendPredicates:     make(map[*ir.SendOperation]string),
+		recvPredicates:     make(map[*ir.RecvOperation]string),
+		sendReadySignals:   make(map[*ir.SendOperation]string),
+		recvValidSignals:   make(map[*ir.RecvOperation]string),
+		recvDataSignals:    make(map[*ir.RecvOperation]string),
+		recvInfos:          make(map[*ir.RecvOperation]*recvRegInfo),
+		deadlockWarningSet: make(map[string]struct{}),
 	}
-	for _, block := range proc.Blocks {
+	builder.buildStates()
+	return builder
+}
+
+func (f *fsmBuilder) buildStates() {
+	if f == nil || f.proc == nil {
+		return
+	}
+	nextID := 0
+	for _, block := range f.proc.Blocks {
 		if block == nil {
 			continue
 		}
-		builder.blockOrder = append(builder.blockOrder, block)
-		builder.blockIDs[block] = len(builder.blockOrder) - 1
+		f.blockOrder = append(f.blockOrder, block)
+		var firstStateID int = -1
+		var prevWait *fsmState
+		for _, op := range block.Ops {
+			switch o := op.(type) {
+			case *ir.SendOperation:
+				req := &fsmState{
+					id:     nextID,
+					block:  block,
+					phase:  phaseSendReq,
+					sendOp: o,
+					nextID: nextID + 1,
+				}
+				nextID++
+				wait := &fsmState{
+					id:     nextID,
+					block:  block,
+					phase:  phaseSendWait,
+					sendOp: o,
+					nextID: -1,
+				}
+				nextID++
+				if firstStateID < 0 {
+					firstStateID = req.id
+				}
+				if prevWait != nil {
+					prevWait.nextID = req.id
+				}
+				f.addState(req)
+				f.addState(wait)
+				prevWait = wait
+				f.sendWaitStateIDs[o] = wait.id
+			case *ir.RecvOperation:
+				req := &fsmState{
+					id:     nextID,
+					block:  block,
+					phase:  phaseRecvReq,
+					recvOp: o,
+					nextID: nextID + 1,
+				}
+				nextID++
+				wait := &fsmState{
+					id:     nextID,
+					block:  block,
+					phase:  phaseRecvWait,
+					recvOp: o,
+					nextID: -1,
+				}
+				nextID++
+				if firstStateID < 0 {
+					firstStateID = req.id
+				}
+				if prevWait != nil {
+					prevWait.nextID = req.id
+				}
+				f.addState(req)
+				f.addState(wait)
+				prevWait = wait
+				f.recvWaitStateIDs[o] = wait.id
+			}
+		}
+		noneState := &fsmState{
+			id:    nextID,
+			block: block,
+			phase: phaseNone,
+		}
+		nextID++
+		if firstStateID < 0 {
+			firstStateID = noneState.id
+		}
+		if prevWait != nil {
+			prevWait.nextID = noneState.id
+		}
+		f.addState(noneState)
+		f.blockEntryStateIDs[block] = firstStateID
 	}
-	builder.doneID = len(builder.blockOrder)
-	stateCount := builder.doneID + 1
+	f.doneID = nextID
+	f.addState(&fsmState{
+		id:    f.doneID,
+		block: nil,
+		phase: phaseNone,
+	})
+	stateCount := f.doneID + 1
 	if stateCount <= 0 {
 		stateCount = 1
 	}
-	builder.stateWidth = bitWidth(stateCount)
-	if builder.stateWidth <= 0 {
-		builder.stateWidth = 1
+	f.stateWidth = bitWidth(stateCount)
+	if f.stateWidth <= 0 {
+		f.stateWidth = 1
 	}
-	builder.stateType = fmt.Sprintf("i%d", builder.stateWidth)
-	return builder
+	f.stateType = fmt.Sprintf("i%d", f.stateWidth)
+}
+
+func (f *fsmBuilder) addState(state *fsmState) {
+	if f == nil || state == nil {
+		return
+	}
+	f.stateOrder = append(f.stateOrder, state)
+	f.stateByID[state.id] = state
 }
 
 func bitWidth(count int) int {
@@ -675,10 +819,9 @@ func (f *fsmBuilder) emitStateConstants() {
 	if f == nil {
 		return
 	}
-	for _, block := range f.blockOrder {
-		f.ensureStateConst(f.blockIDs[block])
+	for _, state := range f.stateOrder {
+		f.ensureStateConst(state.id)
 	}
-	f.ensureStateConst(f.doneID)
 }
 
 func (f *fsmBuilder) ensureStateConst(id int) string {
@@ -703,10 +846,16 @@ func (f *fsmBuilder) literalForID(id int) string {
 }
 
 func (f *fsmBuilder) emitStateRegister() {
-	if f == nil || len(f.blockOrder) == 0 || f.printer == nil {
+	if f == nil || f.printer == nil {
 		return
 	}
-	entryConst := f.ensureStateConst(0)
+	entryID := f.doneID
+	if len(f.blockOrder) > 0 {
+		if id, ok := f.blockEntryStateIDs[f.blockOrder[0]]; ok {
+			entryID = id
+		}
+	}
+	entryConst := f.ensureStateConst(entryID)
 	f.stateRegInout = f.printer.freshValueName("state_reg")
 	f.printer.printIndent()
 	fmt.Fprintf(f.printer.w, "%s = sv.reg : !hw.inout<%s>\n", f.stateRegInout, f.stateType)
@@ -723,6 +872,36 @@ func (f *fsmBuilder) emitStateRegister() {
 	f.stateValue = f.printer.freshValueName("state")
 	f.printer.printIndent()
 	fmt.Fprintf(f.printer.w, "%s = sv.read_inout %s : !hw.inout<%s>\n", f.stateValue, f.stateRegInout, f.stateType)
+}
+
+func (f *fsmBuilder) emitRecvRegisters() {
+	if f == nil || f.printer == nil {
+		return
+	}
+	for _, block := range f.blockOrder {
+		for _, op := range block.Ops {
+			recvOp, ok := op.(*ir.RecvOperation)
+			if !ok || recvOp == nil || recvOp.Dest == nil {
+				continue
+			}
+			if _, exists := f.recvInfos[recvOp]; exists {
+				continue
+			}
+			typeStr := typeString(recvOp.Dest.Type)
+			regName := f.printer.freshValueName("recv_reg")
+			f.printer.printIndent()
+			fmt.Fprintf(f.printer.w, "%s = sv.reg : !hw.inout<%s>\n", regName, typeStr)
+			destName := f.printer.bindSSA(recvOp.Dest)
+			f.printer.printIndent()
+			fmt.Fprintf(f.printer.w, "%s = sv.read_inout %s : !hw.inout<%s>\n", destName, regName, typeStr)
+			f.recvInfos[recvOp] = &recvRegInfo{
+				op:        recvOp,
+				regName:   regName,
+				valueName: destName,
+				typeStr:   typeStr,
+			}
+		}
+	}
 }
 
 func (f *fsmBuilder) registerPhi(block *ir.BasicBlock, phi *ir.PhiOperation) {
@@ -759,50 +938,277 @@ func (f *fsmBuilder) registerPhi(block *ir.BasicBlock, phi *ir.PhiOperation) {
 	}
 }
 
+func (f *fsmBuilder) emitStatePredicate(stateID int) string {
+	if f == nil || f.printer == nil {
+		return "%unknown"
+	}
+	if name, ok := f.statePredicates[stateID]; ok {
+		return name
+	}
+	stateConst := f.ensureStateConst(stateID)
+	if stateConst == "" {
+		return "%unknown"
+	}
+	name := f.printer.freshValueName("state_is")
+	f.printer.printIndent()
+	fmt.Fprintf(f.printer.w, "%s = comb.icmp eq %s, %s : %s\n", name, f.stateValue, stateConst, f.stateType)
+	f.statePredicates[stateID] = name
+	return name
+}
+
+func (f *fsmBuilder) orderedChannelOps() ([]*ir.SendOperation, []*ir.RecvOperation) {
+	if f == nil {
+		return nil, nil
+	}
+	sends := make([]*ir.SendOperation, 0)
+	recvs := make([]*ir.RecvOperation, 0)
+	for _, block := range f.blockOrder {
+		for _, op := range block.Ops {
+			switch o := op.(type) {
+			case *ir.SendOperation:
+				sends = append(sends, o)
+			case *ir.RecvOperation:
+				recvs = append(recvs, o)
+			}
+		}
+	}
+	return sends, recvs
+}
+
+func (f *fsmBuilder) emitChannelPortLogic() {
+	if f == nil || f.printer == nil || f.stateValue == "" {
+		return
+	}
+	sendOps, recvOps := f.orderedChannelOps()
+	sendByChannel := make(map[*ir.Channel][]*ir.SendOperation)
+	sendChannels := make([]*ir.Channel, 0)
+	recvByChannel := make(map[*ir.Channel][]*ir.RecvOperation)
+	recvChannels := make([]*ir.Channel, 0)
+
+	for _, sendOp := range sendOps {
+		waitID, ok := f.sendWaitStateIDs[sendOp]
+		if ok {
+			f.sendPredicates[sendOp] = f.emitStatePredicate(waitID)
+		} else {
+			f.sendPredicates[sendOp] = "%unknown"
+		}
+		f.sendReadySignals[sendOp] = "%unknown"
+		if sendOp == nil || sendOp.Channel == nil {
+			continue
+		}
+		if _, ok := sendByChannel[sendOp.Channel]; !ok {
+			sendChannels = append(sendChannels, sendOp.Channel)
+		}
+		sendByChannel[sendOp.Channel] = append(sendByChannel[sendOp.Channel], sendOp)
+	}
+
+	for _, recvOp := range recvOps {
+		waitID, ok := f.recvWaitStateIDs[recvOp]
+		if ok {
+			f.recvPredicates[recvOp] = f.emitStatePredicate(waitID)
+		} else {
+			f.recvPredicates[recvOp] = "%unknown"
+		}
+		f.recvValidSignals[recvOp] = "%unknown"
+		f.recvDataSignals[recvOp] = "%unknown"
+		if recvOp == nil || recvOp.Channel == nil {
+			continue
+		}
+		if _, ok := recvByChannel[recvOp.Channel]; !ok {
+			recvChannels = append(recvChannels, recvOp.Channel)
+		}
+		recvByChannel[recvOp.Channel] = append(recvByChannel[recvOp.Channel], recvOp)
+	}
+
+	sort.SliceStable(sendChannels, func(i, j int) bool {
+		return sanitize(sendChannels[i].Name) < sanitize(sendChannels[j].Name)
+	})
+	for _, ch := range sendChannels {
+		ports := f.printer.channelPorts[ch]
+		ops := sendByChannel[ch]
+		if ports == nil || ports.sendData == "" || ports.sendValid == "" || ports.sendReady == "" {
+			f.printer.printIndent()
+			fmt.Fprintf(f.printer.w, "// missing channel send ports for %s\n", sanitize(ch.Name))
+			continue
+		}
+		preds := make([]string, 0, len(ops))
+		values := make([]string, 0, len(ops))
+		for _, op := range ops {
+			preds = append(preds, f.sendPredicates[op])
+			values = append(values, f.printer.valueRef(op.Value))
+		}
+		valid := f.printer.orSignals(preds)
+		f.printer.printIndent()
+		fmt.Fprintf(f.printer.w, "sv.assign %s, %s : i1\n", ports.sendValid, valid)
+		data := f.printer.muxByPredicates(preds, values, ch.Type)
+		f.printer.printIndent()
+		fmt.Fprintf(f.printer.w, "sv.assign %s, %s : %s\n", ports.sendData, data, typeString(ch.Type))
+		readyVal := f.printer.freshValueName("send_ready")
+		f.printer.printIndent()
+		fmt.Fprintf(f.printer.w, "%s = sv.read_inout %s : !hw.inout<i1>\n", readyVal, ports.sendReady)
+		for _, op := range ops {
+			f.sendReadySignals[op] = readyVal
+		}
+	}
+
+	sort.SliceStable(recvChannels, func(i, j int) bool {
+		return sanitize(recvChannels[i].Name) < sanitize(recvChannels[j].Name)
+	})
+	for _, ch := range recvChannels {
+		ports := f.printer.channelPorts[ch]
+		ops := recvByChannel[ch]
+		if ports == nil || ports.recvData == "" || ports.recvValid == "" || ports.recvReady == "" {
+			f.printer.printIndent()
+			fmt.Fprintf(f.printer.w, "// missing channel recv ports for %s\n", sanitize(ch.Name))
+			continue
+		}
+		preds := make([]string, 0, len(ops))
+		for _, op := range ops {
+			preds = append(preds, f.recvPredicates[op])
+		}
+		ready := f.printer.orSignals(preds)
+		f.printer.printIndent()
+		fmt.Fprintf(f.printer.w, "sv.assign %s, %s : i1\n", ports.recvReady, ready)
+		validVal := f.printer.freshValueName("recv_valid")
+		f.printer.printIndent()
+		fmt.Fprintf(f.printer.w, "%s = sv.read_inout %s : !hw.inout<i1>\n", validVal, ports.recvValid)
+		dataVal := f.printer.freshValueName("recv_data")
+		f.printer.printIndent()
+		fmt.Fprintf(f.printer.w, "%s = sv.read_inout %s : %s\n", dataVal, ports.recvData, inoutTypeString(ch.Type))
+		for _, op := range ops {
+			f.recvValidSignals[op] = validVal
+			f.recvDataSignals[op] = dataVal
+		}
+	}
+}
+
+func (f *fsmBuilder) recordDeadlockWarning(msg string) {
+	if f == nil || strings.TrimSpace(msg) == "" {
+		return
+	}
+	if _, exists := f.deadlockWarningSet[msg]; exists {
+		return
+	}
+	f.deadlockWarningSet[msg] = struct{}{}
+	f.deadlockWarnings = append(f.deadlockWarnings, msg)
+}
+
 func (f *fsmBuilder) emitControlLogic() {
 	if f == nil || f.printer == nil || f.stateRegInout == "" || f.stateValue == "" {
 		return
+	}
+	for _, warning := range f.deadlockWarnings {
+		f.printer.printIndent()
+		fmt.Fprintf(f.printer.w, "// deadlock warning: %s\n", warning)
 	}
 	clk := f.printer.portRef("clk")
 	f.printer.printIndent()
 	fmt.Fprintf(f.printer.w, "sv.always posedge %s {\n", clk)
 	f.printer.indent++
-	if len(f.blockOrder) > 0 {
+	f.printer.printIndent()
+	fmt.Fprintf(f.printer.w, "sv.case %s : %s\n", f.stateValue, f.stateType)
+	for _, state := range f.stateOrder {
 		f.printer.printIndent()
-		fmt.Fprintf(f.printer.w, "sv.case %s : %s\n", f.stateValue, f.stateType)
-		for _, block := range f.blockOrder {
-			id := f.blockIDs[block]
-			f.printer.printIndent()
-			fmt.Fprintf(f.printer.w, "case %s: {\n", f.literalForID(id))
-			f.printer.indent++
-			f.emitBlockCase(block)
-			f.printer.indent--
-			f.printer.printIndent()
-			fmt.Fprintln(f.printer.w, "}")
-		}
-		f.printer.printIndent()
-		fmt.Fprintf(f.printer.w, "case %s: {\n", f.literalForID(f.doneID))
+		fmt.Fprintf(f.printer.w, "case %s: {\n", f.literalForID(state.id))
 		f.printer.indent++
-		f.printer.printIndent()
-		fmt.Fprintf(f.printer.w, "sv.passign %s, %s : %s\n", f.stateRegInout, f.stateValue, f.stateType)
-		f.printer.indent--
-		f.printer.printIndent()
-		fmt.Fprintln(f.printer.w, "}")
-		f.printer.printIndent()
-		fmt.Fprintln(f.printer.w, "default: {")
-		f.printer.indent++
-		f.printer.printIndent()
-		fmt.Fprintf(f.printer.w, "sv.passign %s, %s : %s\n", f.stateRegInout, f.stateValue, f.stateType)
+		f.emitStateCase(state)
 		f.printer.indent--
 		f.printer.printIndent()
 		fmt.Fprintln(f.printer.w, "}")
 	}
+	f.printer.printIndent()
+	fmt.Fprintln(f.printer.w, "default: {")
+	f.printer.indent++
+	f.emitHoldState()
+	f.printer.indent--
+	f.printer.printIndent()
+	fmt.Fprintln(f.printer.w, "}")
 	f.printer.indent--
 	f.printer.printIndent()
 	fmt.Fprintln(f.printer.w, "}")
 }
 
-func (f *fsmBuilder) emitBlockCase(block *ir.BasicBlock) {
+func (f *fsmBuilder) emitStateCase(state *fsmState) {
+	if state == nil {
+		return
+	}
+	switch state.phase {
+	case phaseSendReq:
+		f.emitStateAdvance(state.nextID)
+	case phaseSendWait:
+		cond := f.sendReadySignals[state.sendOp]
+		context := "send wait state"
+		if state.sendOp != nil && state.sendOp.Channel != nil {
+			context = fmt.Sprintf("send wait on channel %s", sanitize(state.sendOp.Channel.Name))
+		}
+		f.emitWaitState([]string{cond}, context, func() {
+			f.emitStateAdvance(state.nextID)
+		})
+	case phaseRecvReq:
+		f.emitStateAdvance(state.nextID)
+	case phaseRecvWait:
+		cond := f.recvValidSignals[state.recvOp]
+		context := "recv wait state"
+		if state.recvOp != nil && state.recvOp.Channel != nil {
+			context = fmt.Sprintf("recv wait on channel %s", sanitize(state.recvOp.Channel.Name))
+		}
+		f.emitWaitState([]string{cond}, context, func() {
+			info := f.recvInfos[state.recvOp]
+			data := f.recvDataSignals[state.recvOp]
+			if info != nil && data != "" && data != "%unknown" {
+				f.printer.printIndent()
+				fmt.Fprintf(f.printer.w, "sv.passign %s, %s : %s\n", info.regName, data, info.typeStr)
+			}
+			f.emitStateAdvance(state.nextID)
+		})
+	case phaseNone:
+		if state.block == nil {
+			f.emitHoldState()
+			return
+		}
+		f.emitBlockSideEffects(state.block)
+		f.emitBlockTerminator(state.block)
+	default:
+		f.emitHoldState()
+	}
+}
+
+func (f *fsmBuilder) emitBlockSideEffects(block *ir.BasicBlock) {
+	if f == nil || f.printer == nil || block == nil {
+		return
+	}
+	for _, op := range block.Ops {
+		printOp, ok := op.(*ir.PrintOperation)
+		if !ok {
+			continue
+		}
+		f.emitInlinePrint(printOp)
+	}
+}
+
+func (f *fsmBuilder) emitInlinePrint(op *ir.PrintOperation) {
+	if f == nil || f.printer == nil || op == nil {
+		return
+	}
+	fd := f.printer.stdoutFD
+	if fd == "" {
+		fd = f.printer.stdoutConstant()
+	}
+	format, operands, operandTypes := f.printer.buildPrintfFormat(op)
+	f.printer.printIndent()
+	if len(operands) == 0 {
+		fmt.Fprintf(f.printer.w, "sv.fwrite %s, %s\n", fd, strconv.Quote(format))
+		return
+	}
+	fmt.Fprintf(f.printer.w, "sv.fwrite %s, %s(%s) : %s\n",
+		fd,
+		strconv.Quote(format),
+		strings.Join(operands, ", "),
+		strings.Join(operandTypes, ", "),
+	)
+}
+
+func (f *fsmBuilder) emitBlockTerminator(block *ir.BasicBlock) {
 	if block == nil {
 		return
 	}
@@ -829,8 +1235,74 @@ func (f *fsmBuilder) emitBlockCase(block *ir.BasicBlock) {
 	case *ir.ReturnTerminator:
 		f.emitTransition(block, nil)
 	default:
-		// No explicit control transfer; hold previous assignments.
+		f.emitHoldState()
 	}
+}
+
+func (f *fsmBuilder) emitStateAdvance(targetID int) {
+	if targetID < 0 {
+		f.emitHoldState()
+		return
+	}
+	targetConst := f.ensureStateConst(targetID)
+	f.printer.printIndent()
+	fmt.Fprintf(f.printer.w, "sv.passign %s, %s : %s\n", f.stateRegInout, targetConst, f.stateType)
+}
+
+func (f *fsmBuilder) emitHoldState() {
+	f.printer.printIndent()
+	fmt.Fprintf(f.printer.w, "sv.passign %s, %s : %s\n", f.stateRegInout, f.stateValue, f.stateType)
+}
+
+func (f *fsmBuilder) emitWaitState(condSignals []string, context string, onSuccess func()) {
+	unknown := false
+	conds := make([]string, 0, len(condSignals))
+	for _, cond := range condSignals {
+		if cond == "" || cond == "%unknown" {
+			unknown = true
+			continue
+		}
+		conds = append(conds, cond)
+	}
+	if len(condSignals) == 0 || unknown {
+		if context == "" {
+			context = "unknown wait state"
+		}
+		f.recordDeadlockWarning(context)
+	}
+	if len(conds) == 0 {
+		f.emitHoldState()
+		return
+	}
+	f.emitWaitStateChain(conds, 0, onSuccess)
+}
+
+func (f *fsmBuilder) emitWaitStateChain(conds []string, index int, onSuccess func()) {
+	if index >= len(conds) {
+		f.emitHoldState()
+		return
+	}
+	cond := conds[index]
+	f.printer.printIndent()
+	fmt.Fprintf(f.printer.w, "sv.if %s {\n", cond)
+	f.printer.indent++
+	if onSuccess != nil {
+		onSuccess()
+	} else {
+		f.emitHoldState()
+	}
+	f.printer.indent--
+	f.printer.printIndent()
+	fmt.Fprintln(f.printer.w, "} else {")
+	f.printer.indent++
+	if index+1 < len(conds) {
+		f.emitWaitStateChain(conds, index+1, onSuccess)
+	} else {
+		f.emitHoldState()
+	}
+	f.printer.indent--
+	f.printer.printIndent()
+	fmt.Fprintln(f.printer.w, "}")
 }
 
 func (f *fsmBuilder) emitTransition(pred, succ *ir.BasicBlock) {
@@ -839,13 +1311,11 @@ func (f *fsmBuilder) emitTransition(pred, succ *ir.BasicBlock) {
 	}
 	targetID := f.doneID
 	if succ != nil {
-		if id, ok := f.blockIDs[succ]; ok {
+		if id, ok := f.blockEntryStateIDs[succ]; ok {
 			targetID = id
 		}
 	}
-	targetConst := f.ensureStateConst(targetID)
-	f.printer.printIndent()
-	fmt.Fprintf(f.printer.w, "sv.passign %s, %s : %s\n", f.stateRegInout, targetConst, f.stateType)
+	f.emitStateAdvance(targetID)
 	if succ == nil {
 		return
 	}
@@ -907,11 +1377,13 @@ func (p *processPrinter) emitProcess(proc *ir.Process) {
 		return
 	}
 	p.emitConstants()
-	if processHasPhi(proc) {
+	p.emitSignals()
+	if processHasPhi(proc) || processHasChannelOps(proc) {
 		p.fsm = newFSMBuilder(p, proc)
 		if p.fsm != nil {
 			p.fsm.emitStateConstants()
 			p.fsm.emitStateRegister()
+			p.fsm.emitRecvRegisters()
 		}
 	} else {
 		p.fsm = nil
@@ -922,9 +1394,17 @@ func (p *processPrinter) emitProcess(proc *ir.Process) {
 		}
 	}
 	if p.fsm != nil {
+		if processHasPrintOps(proc) {
+			p.stdoutConstant()
+		}
+		p.fsm.emitChannelPortLogic()
 		p.fsm.emitControlLogic()
 	}
 	p.fsm = nil
+}
+
+func (p *processPrinter) emitSignals() {
+	// Signal declarations are emitted on demand by operation emission.
 }
 
 func (p *processPrinter) emitConstants() {
@@ -982,11 +1462,18 @@ func (p *processPrinter) emitOperation(block *ir.BasicBlock, op ir.Operation, pr
 		p.printIndent()
 		fmt.Fprintf(p.w, "%s = seq.compreg %s, %s : %s\n", dest, src, clk, typeString(o.Dest.Type))
 	case *ir.SendOperation:
+		if p.fsm != nil {
+			return
+		}
 		value := p.valueRef(o.Value)
 		ports := p.channelPorts[o.Channel]
 		if ports == nil || ports.sendData == "" {
 			p.printIndent()
-			fmt.Fprintf(p.w, "// missing channel send ports for %s\n", sanitize(o.Channel.Name))
+			name := "unknown_channel"
+			if o.Channel != nil {
+				name = sanitize(o.Channel.Name)
+			}
+			fmt.Fprintf(p.w, "// missing channel send ports for %s\n", name)
 			return
 		}
 		p.printIndent()
@@ -1002,11 +1489,18 @@ func (p *processPrinter) emitOperation(block *ir.BasicBlock, op ir.Operation, pr
 			validConst,
 		)
 	case *ir.RecvOperation:
+		if p.fsm != nil {
+			return
+		}
 		dest := p.bindSSA(o.Dest)
 		ports := p.channelPorts[o.Channel]
 		if ports == nil || ports.recvData == "" {
 			p.printIndent()
-			fmt.Fprintf(p.w, "// missing channel recv ports for %s\n", sanitize(o.Channel.Name))
+			name := "unknown_channel"
+			if o.Channel != nil {
+				name = sanitize(o.Channel.Name)
+			}
+			fmt.Fprintf(p.w, "// missing channel recv ports for %s\n", name)
 			return
 		}
 		p.printIndent()
@@ -1069,6 +1563,9 @@ func (p *processPrinter) emitOperation(block *ir.BasicBlock, op ir.Operation, pr
 			fmt.Fprintf(p.w, "// phi %s has %d incoming values\n", sanitize(o.Dest.Name), len(o.Incomings))
 		}
 	case *ir.PrintOperation:
+		if p.fsm != nil {
+			return
+		}
 		p.emitPrintOperation(o)
 	default:
 		// skip unknown operations
@@ -1094,6 +1591,35 @@ func processHasPhi(proc *ir.Process) bool {
 	for _, block := range proc.Blocks {
 		for _, op := range block.Ops {
 			if _, ok := op.(*ir.PhiOperation); ok {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func processHasChannelOps(proc *ir.Process) bool {
+	if proc == nil {
+		return false
+	}
+	for _, block := range proc.Blocks {
+		for _, op := range block.Ops {
+			switch op.(type) {
+			case *ir.SendOperation, *ir.RecvOperation:
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func processHasPrintOps(proc *ir.Process) bool {
+	if proc == nil {
+		return false
+	}
+	for _, block := range proc.Blocks {
+		for _, op := range block.Ops {
+			if _, ok := op.(*ir.PrintOperation); ok {
 				return true
 			}
 		}
@@ -1165,6 +1691,65 @@ func (p *processPrinter) boolConst(val bool) string {
 	}
 	fmt.Fprintf(p.w, "%s = hw.constant %d : i1\n", name, intVal)
 	return name
+}
+
+func (p *processPrinter) typedZeroConst(t *ir.SignalType) string {
+	name := p.freshValueName("c_zero")
+	p.printIndent()
+	fmt.Fprintf(p.w, "%s = hw.constant 0 : %s\n", name, typeString(t))
+	return name
+}
+
+func (p *processPrinter) orSignals(signals []string) string {
+	filtered := make([]string, 0, len(signals))
+	for _, sig := range signals {
+		if sig == "" || sig == "%unknown" {
+			continue
+		}
+		filtered = append(filtered, sig)
+	}
+	if len(filtered) == 0 {
+		return p.boolConst(false)
+	}
+	if len(filtered) == 1 {
+		return filtered[0]
+	}
+	result := filtered[0]
+	for _, sig := range filtered[1:] {
+		name := p.freshValueName("or")
+		p.printIndent()
+		fmt.Fprintf(p.w, "%s = comb.or %s, %s : i1\n", name, result, sig)
+		result = name
+	}
+	return result
+}
+
+func (p *processPrinter) muxByPredicates(predicates []string, values []string, t *ir.SignalType) string {
+	if len(predicates) == 0 || len(values) == 0 {
+		return p.typedZeroConst(t)
+	}
+	count := len(predicates)
+	if len(values) < count {
+		count = len(values)
+	}
+	defaultValue := p.typedZeroConst(t)
+	result := defaultValue
+	typeStr := typeString(t)
+	for i := count - 1; i >= 0; i-- {
+		pred := predicates[i]
+		if pred == "" || pred == "%unknown" {
+			continue
+		}
+		val := values[i]
+		if val == "" || val == "%unknown" {
+			val = defaultValue
+		}
+		name := p.freshValueName("mux")
+		p.printIndent()
+		fmt.Fprintf(p.w, "%s = comb.mux %s, %s, %s : %s\n", name, pred, val, result, typeStr)
+		result = name
+	}
+	return result
 }
 
 func (p *processPrinter) freshValueName(prefix string) string {
