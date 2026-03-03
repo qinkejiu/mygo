@@ -1,765 +1,591 @@
-CLEAN SIMULATION RESULTS (Verilator logs filtered)
-Generated: 2026-03-02 15:50:29
-======================================================================
-
-
-======================================================================
-📁 comb_adder | hardware simulation
-⏱️  15:50:29 | $ go run ./cmd/mygo sim --sim-max-cycles 64 tests/stages/comb_adder/main.go
-======================================================================
-
-partial=         13 widened=0x00001241
-partial=         13 widened=0x00001241
-partial=         13 widened=0x00001241
-partial=         13 widened=0x00001241
-partial=         13 widened=0x00001241
-partial=         13 widened=0x00001241
-partial=         13 widened=0x00001241
-partial=         13 widened=0x00001241
-partial=         13 widened=0x00001241
-partial=         13 widened=0x00001241
-partial=         13 widened=0x00001241
-partial=         13 widened=0x00001241
-partial=         13 widened=0x00001241
-partial=         13 widened=0x00001241
-partial=         13 widened=0x00001241
-partial=         13 widened=0x00001241
-partial=         13 widened=0x00001241
-partial=         13 widened=0x00001241
-partial=         13 widened=0x00001241
-partial=         13 widened=0x00001241
-partial=         13 widened=0x00001241
-partial=         13 widened=0x00001241
-partial=         13 widened=0x00001241
-partial=         13 widened=0x00001241
-partial=         13 widened=0x00001241
-partial=         13 widened=0x00001241
-partial=         13 widened=0x00001241
-partial=         13 widened=0x00001241
-partial=         13 widened=0x00001241
-partial=         13 widened=0x00001241
-partial=         13 widened=0x00001241
-partial=         13 widened=0x00001241
-partial=         13 widened=0x00001241
-partial=         13 widened=0x00001241
-partial=         13 widened=0x00001241
-partial=         13 widened=0x00001241
-partial=         13 widened=0x00001241
-partial=         13 widened=0x00001241
-partial=         13 widened=0x00001241
-partial=         13 widened=0x00001241
-partial=         13 widened=0x00001241
-partial=         13 widened=0x00001241
-partial=         13 widened=0x00001241
-partial=         13 widened=0x00001241
-partial=         13 widened=0x00001241
-partial=         13 widened=0x00001241
-partial=         13 widened=0x00001241
-partial=         13 widened=0x00001241
-partial=         13 widened=0x00001241
-partial=         13 widened=0x00001241
-partial=         13 widened=0x00001241
-partial=         13 widened=0x00001241
-partial=         13 widened=0x00001241
-partial=         13 widened=0x00001241
-partial=         13 widened=0x00001241
-partial=         13 widened=0x00001241
-partial=         13 widened=0x00001241
-partial=         13 widened=0x00001241
-partial=         13 widened=0x00001241
-partial=         13 widened=0x00001241
-partial=         13 widened=0x00001241
-partial=         13 widened=0x00001241
-partial=         13 widened=0x00001241
-partial=         13 widened=0x00001241
-
-======================================================================
-✅ | End: 15:50:36
-======================================================================
-
-
-======================================================================
-📁 comb_adder | software simulation
-⏱️  15:50:36 | $ go run tests/stages/comb_adder/main.go
-======================================================================
-
-partial=13 widened=0x1241
-
-======================================================================
-✅ | End: 15:50:36
-======================================================================
-
-
-======================================================================
-📁 comb_bitwise | hardware simulation
-⏱️  15:50:36 | $ go run ./cmd/mygo sim --sim-max-cycles 64 tests/stages/comb_bitwise/main.go
-======================================================================
-
-and=0x030c or=0x3fcf xor=0x3cc3
-and=0x030c or=0x3fcf xor=0x3cc3
-and=0x030c or=0x3fcf xor=0x3cc3
-and=0x030c or=0x3fcf xor=0x3cc3
-and=0x030c or=0x3fcf xor=0x3cc3
-and=0x030c or=0x3fcf xor=0x3cc3
-and=0x030c or=0x3fcf xor=0x3cc3
-and=0x030c or=0x3fcf xor=0x3cc3
-and=0x030c or=0x3fcf xor=0x3cc3
-and=0x030c or=0x3fcf xor=0x3cc3
-and=0x030c or=0x3fcf xor=0x3cc3
-and=0x030c or=0x3fcf xor=0x3cc3
-and=0x030c or=0x3fcf xor=0x3cc3
-and=0x030c or=0x3fcf xor=0x3cc3
-and=0x030c or=0x3fcf xor=0x3cc3
-and=0x030c or=0x3fcf xor=0x3cc3
-and=0x030c or=0x3fcf xor=0x3cc3
-and=0x030c or=0x3fcf xor=0x3cc3
-and=0x030c or=0x3fcf xor=0x3cc3
-and=0x030c or=0x3fcf xor=0x3cc3
-and=0x030c or=0x3fcf xor=0x3cc3
-and=0x030c or=0x3fcf xor=0x3cc3
-and=0x030c or=0x3fcf xor=0x3cc3
-and=0x030c or=0x3fcf xor=0x3cc3
-and=0x030c or=0x3fcf xor=0x3cc3
-and=0x030c or=0x3fcf xor=0x3cc3
-and=0x030c or=0x3fcf xor=0x3cc3
-and=0x030c or=0x3fcf xor=0x3cc3
-and=0x030c or=0x3fcf xor=0x3cc3
-and=0x030c or=0x3fcf xor=0x3cc3
-and=0x030c or=0x3fcf xor=0x3cc3
-and=0x030c or=0x3fcf xor=0x3cc3
-and=0x030c or=0x3fcf xor=0x3cc3
-and=0x030c or=0x3fcf xor=0x3cc3
-and=0x030c or=0x3fcf xor=0x3cc3
-and=0x030c or=0x3fcf xor=0x3cc3
-and=0x030c or=0x3fcf xor=0x3cc3
-and=0x030c or=0x3fcf xor=0x3cc3
-and=0x030c or=0x3fcf xor=0x3cc3
-and=0x030c or=0x3fcf xor=0x3cc3
-and=0x030c or=0x3fcf xor=0x3cc3
-and=0x030c or=0x3fcf xor=0x3cc3
-and=0x030c or=0x3fcf xor=0x3cc3
-and=0x030c or=0x3fcf xor=0x3cc3
-and=0x030c or=0x3fcf xor=0x3cc3
-and=0x030c or=0x3fcf xor=0x3cc3
-and=0x030c or=0x3fcf xor=0x3cc3
-and=0x030c or=0x3fcf xor=0x3cc3
-and=0x030c or=0x3fcf xor=0x3cc3
-and=0x030c or=0x3fcf xor=0x3cc3
-and=0x030c or=0x3fcf xor=0x3cc3
-and=0x030c or=0x3fcf xor=0x3cc3
-and=0x030c or=0x3fcf xor=0x3cc3
-and=0x030c or=0x3fcf xor=0x3cc3
-and=0x030c or=0x3fcf xor=0x3cc3
-and=0x030c or=0x3fcf xor=0x3cc3
-and=0x030c or=0x3fcf xor=0x3cc3
-and=0x030c or=0x3fcf xor=0x3cc3
-and=0x030c or=0x3fcf xor=0x3cc3
-and=0x030c or=0x3fcf xor=0x3cc3
-and=0x030c or=0x3fcf xor=0x3cc3
-and=0x030c or=0x3fcf xor=0x3cc3
-and=0x030c or=0x3fcf xor=0x3cc3
-and=0x030c or=0x3fcf xor=0x3cc3
-
-======================================================================
-✅ | End: 15:50:40
-======================================================================
-
-
-======================================================================
-📁 comb_bitwise | software simulation
-⏱️  15:50:40 | $ go run tests/stages/comb_bitwise/main.go
-======================================================================
-
-and=0x30c or=0x3fcf xor=0x3cc3
-
-======================================================================
-✅ | End: 15:50:40
-======================================================================
-
-
-======================================================================
-📁 comb_concat | hardware simulation
-⏱️  15:50:40 | $ go run ./cmd/mygo sim --sim-max-cycles 64 tests/stages/comb_concat/main.go
-======================================================================
-
-word=0xabcd high=   10 low=0x00cd
-word=0xabcd high=   10 low=0x00cd
-word=0xabcd high=   10 low=0x00cd
-word=0xabcd high=   10 low=0x00cd
-word=0xabcd high=   10 low=0x00cd
-word=0xabcd high=   10 low=0x00cd
-word=0xabcd high=   10 low=0x00cd
-word=0xabcd high=   10 low=0x00cd
-word=0xabcd high=   10 low=0x00cd
-word=0xabcd high=   10 low=0x00cd
-word=0xabcd high=   10 low=0x00cd
-word=0xabcd high=   10 low=0x00cd
-word=0xabcd high=   10 low=0x00cd
-word=0xabcd high=   10 low=0x00cd
-word=0xabcd high=   10 low=0x00cd
-word=0xabcd high=   10 low=0x00cd
-word=0xabcd high=   10 low=0x00cd
-word=0xabcd high=   10 low=0x00cd
-word=0xabcd high=   10 low=0x00cd
-word=0xabcd high=   10 low=0x00cd
-word=0xabcd high=   10 low=0x00cd
-word=0xabcd high=   10 low=0x00cd
-word=0xabcd high=   10 low=0x00cd
-word=0xabcd high=   10 low=0x00cd
-word=0xabcd high=   10 low=0x00cd
-word=0xabcd high=   10 low=0x00cd
-word=0xabcd high=   10 low=0x00cd
-word=0xabcd high=   10 low=0x00cd
-word=0xabcd high=   10 low=0x00cd
-word=0xabcd high=   10 low=0x00cd
-word=0xabcd high=   10 low=0x00cd
-word=0xabcd high=   10 low=0x00cd
-word=0xabcd high=   10 low=0x00cd
-word=0xabcd high=   10 low=0x00cd
-word=0xabcd high=   10 low=0x00cd
-word=0xabcd high=   10 low=0x00cd
-word=0xabcd high=   10 low=0x00cd
-word=0xabcd high=   10 low=0x00cd
-word=0xabcd high=   10 low=0x00cd
-word=0xabcd high=   10 low=0x00cd
-word=0xabcd high=   10 low=0x00cd
-word=0xabcd high=   10 low=0x00cd
-word=0xabcd high=   10 low=0x00cd
-word=0xabcd high=   10 low=0x00cd
-word=0xabcd high=   10 low=0x00cd
-word=0xabcd high=   10 low=0x00cd
-word=0xabcd high=   10 low=0x00cd
-word=0xabcd high=   10 low=0x00cd
-word=0xabcd high=   10 low=0x00cd
-word=0xabcd high=   10 low=0x00cd
-word=0xabcd high=   10 low=0x00cd
-word=0xabcd high=   10 low=0x00cd
-word=0xabcd high=   10 low=0x00cd
-word=0xabcd high=   10 low=0x00cd
-word=0xabcd high=   10 low=0x00cd
-word=0xabcd high=   10 low=0x00cd
-word=0xabcd high=   10 low=0x00cd
-word=0xabcd high=   10 low=0x00cd
-word=0xabcd high=   10 low=0x00cd
-word=0xabcd high=   10 low=0x00cd
-word=0xabcd high=   10 low=0x00cd
-word=0xabcd high=   10 low=0x00cd
-word=0xabcd high=   10 low=0x00cd
-word=0xabcd high=   10 low=0x00cd
-
-======================================================================
-✅ | End: 15:50:44
-======================================================================
-
-
-======================================================================
-📁 comb_concat | software simulation
-⏱️  15:50:44 | $ go run tests/stages/comb_concat/main.go
-======================================================================
-
-word=0xabcd high=10 low=0xcd
-
-======================================================================
-✅ | End: 15:50:44
-======================================================================
-
-
-======================================================================
-📁 phi_loop | hardware simulation
-⏱️  15:50:44 | $ go run ./cmd/mygo sim --sim-max-cycles 64 tests/stages/phi_loop/main.go
-======================================================================
-
-producer sent           0
-consumer received           0 (running total           0)
-producer sent           1
-consumer received           1 (running total           1)
-producer sent           2
-consumer received           2 (running total           3)
-producer sent           3
-consumer received           3 (running total           6)
-phi loop final=          6
+CHSTONE SIMULATION RESULTS (behavioral check enabled)
+Hardware pass requires mygo sim stdout to match software stdout exactly.
+Generated: 2026-03-03 17:31:55
+======================================================================
+
+
+======================================================================
+📁 adpcm | software simulation
+⏱️  17:31:55 | $ go run tests/CHStone/adpcm/main.go
+======================================================================
+
+0
+
+======================================================================
+✅ | End: 17:31:55
+======================================================================
+
+
+======================================================================
+📁 adpcm | hardware simulation
+⏱️  17:31:55 | $ go run ./cmd/mygo sim --sim-max-cycles 40000 --expect /tmp/tmph73ybwx_ tests/CHStone/adpcm/main.go
+======================================================================
+
+          0
+
+[ERROR]
+go: downloading golang.org/x/tools v0.39.0
+go: downloading golang.org/x/sync v0.18.0
+go: downloading golang.org/x/mod v0.30.0
+
+======================================================================
+✅ | End: 17:32:03
+======================================================================
+
+
+======================================================================
+📁 aes | software simulation
+⏱️  17:32:03 | $ go run tests/CHStone/aes/main.go
+======================================================================
+
+encrypted message 	3925841d02dc09fbdc118597196a0b32
+decrypto message	3243f6a8885a308d313198a2e0370734
+
+0
+
+======================================================================
+✅ | End: 17:32:03
+======================================================================
+
+
+======================================================================
+📁 aes | hardware simulation
+⏱️  17:32:03 | $ go run ./cmd/mygo sim --sim-max-cycles 120000 --expect /tmp/tmpjs3vo3vu tests/CHStone/aes/main.go
+======================================================================
+
+(no output)
+
+[ERROR]
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:295:2: error: for loops must have compile-time constant init, condition, and step
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:349:2: error: for loops must have compile-time constant init, condition, and step
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:363:2: error: for loops must have compile-time constant init, condition, and step
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:370:2: error: for loops must have compile-time constant init, condition, and step
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:437:2: error: for loops must have compile-time constant init, condition, and step
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:459:2: error: for loops must have compile-time constant init, condition, and step
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:515:2: error: for loops must have compile-time constant init, condition, and step
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:522:2: error: for loops must have compile-time constant init, condition, and step
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:583:2: error: for loops must have compile-time constant init, condition, and step
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:592:2: error: for loops must have compile-time constant init, condition, and step
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:643:2: error: for loops must have compile-time constant init, condition, and step
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:651:2: error: for loops must have compile-time constant init, condition, and step
+validation failed with 12 issue(s)
+exit status 1
+
+======================================================================
+❌ code=1 | End: 17:32:04
+======================================================================
+
+
+======================================================================
+📁 blowfish | software simulation
+⏱️  17:32:04 | $ go run tests/CHStone/blowfish/main.go
+======================================================================
+
+3378
 
 ======================================================================
-✅ | End: 15:50:48
+✅ | End: 17:32:05
 ======================================================================
 
 
 ======================================================================
-📁 phi_loop | software simulation
-⏱️  15:50:48 | $ go run tests/stages/phi_loop/main.go
-======================================================================
-
-producer sent 0
-producer sent 1
-consumer received 0 (running total 0)
-consumer received 1 (running total 1)
-consumer received 2 (running total 3)
-producer sent 2
-producer sent 3
-consumer received 3 (running total 6)
-phi loop final=6
+📁 blowfish | hardware simulation
+⏱️  17:32:05 | $ go run ./cmd/mygo sim --sim-max-cycles 120000 --expect /tmp/tmpyi9hry5l tests/CHStone/blowfish/main.go
+======================================================================
+
+(no output)
+
+[ERROR]
+/home/qinkejiu/mygo/tests/CHStone/blowfish/main.go:351:2: error: for loops must have compile-time constant init, condition, and step
+/home/qinkejiu/mygo/tests/CHStone/blowfish/main.go:427:3: error: for loops must have compile-time constant init, condition, and step
+/home/qinkejiu/mygo/tests/CHStone/blowfish/main.go:463:3: error: for loops must have compile-time constant init, condition, and step
+/home/qinkejiu/mygo/tests/CHStone/blowfish/main.go:1443:2: error: for loops must have compile-time constant init, condition, and step
+/home/qinkejiu/mygo/tests/CHStone/blowfish/main.go:1444:3: error: for loops must have compile-time constant init, condition, and step
+/home/qinkejiu/mygo/tests/CHStone/blowfish/main.go:1452:3: error: for loops must have compile-time constant init, condition, and step
+validation failed with 6 issue(s)
+exit status 1
+
+======================================================================
+❌ code=1 | End: 17:32:05
+======================================================================
+
+
+======================================================================
+📁 common | software simulation
+⏱️  17:32:05 | $ go run tests/CHStone/common/main.go
+======================================================================
+
+(no output)
+
+======================================================================
+✅ | End: 17:32:06
+======================================================================
+
+
+======================================================================
+📁 common | hardware simulation
+⏱️  17:32:06 | $ go run ./cmd/mygo sim --sim-max-cycles 1024 --expect /tmp/tmpln_wlq00 tests/CHStone/common/main.go
+======================================================================
+
+(no output)
+
+======================================================================
+✅ | End: 17:32:10
+======================================================================
+
+
+======================================================================
+📁 dfadd | software simulation
+⏱️  17:32:10 | $ go run tests/CHStone/dfadd/main.go
+======================================================================
+
+a_input=7ff8000000000000 b_input=3ff0000000000000 expected=7ff8000000000000 output=7ff8000000000000 (NaN)
+a_input=7ff0000000000000 b_input=3ff0000000000000 expected=7ff0000000000000 output=7ff0000000000000 (+Inf)
+a_input=4000000000000000 b_input=0000000000000000 expected=4000000000000000 output=4000000000000000 (2.000000)
+a_input=4000000000000000 b_input=3ff8000000000000 expected=400c000000000000 output=400c000000000000 (3.500000)
+a_input=3ff0000000000000 b_input=7ff8000000000000 expected=7ff8000000000000 output=7ff8000000000000 (NaN)
+a_input=3ff0000000000000 b_input=7ff0000000000000 expected=7ff0000000000000 output=7ff0000000000000 (+Inf)
+a_input=0000000000000000 b_input=4000000000000000 expected=4000000000000000 output=4000000000000000 (2.000000)
+a_input=3ff8000000000000 b_input=4000000000000000 expected=400c000000000000 output=400c000000000000 (3.500000)
+a_input=7ff8000000000000 b_input=7ff0000000000000 expected=7ff8000000000000 output=7ff8000000000000 (NaN)
+a_input=7ff0000000000000 b_input=7ff0000000000000 expected=7ff0000000000000 output=7ff0000000000000 (+Inf)
+a_input=0000000000000000 b_input=0000000000000000 expected=0000000000000000 output=0000000000000000 (0.000000)
+a_input=3ff8000000000000 b_input=3ff0000000000000 expected=4004000000000000 output=4004000000000000 (2.500000)
+a_input=fff8000000000000 b_input=bff0000000000000 expected=fff8000000000000 output=fff8000000000000 (NaN)
+a_input=fff0000000000000 b_input=bff0000000000000 expected=fff0000000000000 output=fff0000000000000 (-Inf)
+a_input=c000000000000000 b_input=8000000000000000 expected=c000000000000000 output=c000000000000000 (-2.000000)
+a_input=c000000000000000 b_input=bff8000000000000 expected=c00c000000000000 output=c00c000000000000 (-3.500000)
+a_input=bff0000000000000 b_input=fff8000000000000 expected=fff8000000000000 output=fff8000000000000 (NaN)
+a_input=bff0000000000000 b_input=fff0000000000000 expected=fff0000000000000 output=fff0000000000000 (-Inf)
+a_input=8000000000000000 b_input=c000000000000000 expected=c000000000000000 output=c000000000000000 (-2.000000)
+a_input=bff8000000000000 b_input=c000000000000000 expected=c00c000000000000 output=c00c000000000000 (-3.500000)
+a_input=fff8000000000000 b_input=fff0000000000000 expected=fff8000000000000 output=fff8000000000000 (NaN)
+a_input=fff0000000000000 b_input=fff0000000000000 expected=fff0000000000000 output=fff0000000000000 (-Inf)
+a_input=8000000000000000 b_input=8000000000000000 expected=8000000000000000 output=8000000000000000 (-0.000000)
+a_input=bff8000000000000 b_input=bff0000000000000 expected=c004000000000000 output=c004000000000000 (-2.500000)
+a_input=7ff8000000000000 b_input=fff0000000000000 expected=7ff8000000000000 output=7ff8000000000000 (NaN)
+a_input=7ff0000000000000 b_input=fff0000000000000 expected=7fffffffffffffff output=7fffffffffffffff (NaN)
+a_input=3ff0000000000000 b_input=bff0000000000000 expected=0000000000000000 output=0000000000000000 (0.000000)
+a_input=3ff0000000000000 b_input=fff8000000000000 expected=fff8000000000000 output=fff8000000000000 (NaN)
+a_input=3ff0000000000000 b_input=fff0000000000000 expected=fff0000000000000 output=fff0000000000000 (-Inf)
+a_input=0000000000000000 b_input=bff0000000000000 expected=bff0000000000000 output=bff0000000000000 (-1.000000)
+a_input=3ff8000000000000 b_input=c000000000000000 expected=bfe0000000000000 output=bfe0000000000000 (-0.500000)
+a_input=7ff8000000000000 b_input=bff0000000000000 expected=7ff8000000000000 output=7ff8000000000000 (NaN)
+a_input=7ff0000000000000 b_input=bff0000000000000 expected=7ff0000000000000 output=7ff0000000000000 (+Inf)
+a_input=3ff0000000000000 b_input=8000000000000000 expected=3ff0000000000000 output=3ff0000000000000 (1.000000)
+a_input=4000000000000000 b_input=bff8000000000000 expected=3fe0000000000000 output=3fe0000000000000 (0.500000)
+a_input=fff0000000000000 b_input=7ff8000000000000 expected=7ff8000000000000 output=7ff8000000000000 (NaN)
+a_input=fff0000000000000 b_input=7ff0000000000000 expected=7fffffffffffffff output=7fffffffffffffff (NaN)
+a_input=bff0000000000000 b_input=3ff0000000000000 expected=0000000000000000 output=0000000000000000 (0.000000)
+a_input=bff0000000000000 b_input=7ff8000000000000 expected=7ff8000000000000 output=7ff8000000000000 (NaN)
+a_input=bff0000000000000 b_input=7ff0000000000000 expected=7ff0000000000000 output=7ff0000000000000 (+Inf)
+a_input=8000000000000000 b_input=3ff0000000000000 expected=3ff0000000000000 output=3ff0000000000000 (1.000000)
+a_input=bff8000000000000 b_input=4000000000000000 expected=3fe0000000000000 output=3fe0000000000000 (0.500000)
+a_input=fff8000000000000 b_input=3ff0000000000000 expected=fff8000000000000 output=fff8000000000000 (NaN)
+a_input=fff0000000000000 b_input=3ff0000000000000 expected=fff0000000000000 output=fff0000000000000 (-Inf)
+a_input=bff0000000000000 b_input=0000000000000000 expected=bff0000000000000 output=bff0000000000000 (-1.000000)
+a_input=c000000000000000 b_input=3ff8000000000000 expected=bfe0000000000000 output=bfe0000000000000 (-0.500000)
+
+Errors: 0
+All tests passed!
+
+======================================================================
+✅ | End: 17:32:10
+======================================================================
+
+
+======================================================================
+📁 dfadd | hardware simulation
+⏱️  17:32:10 | $ go run ./cmd/mygo sim --sim-max-cycles 20000 --expect /tmp/tmpe252ik20 tests/CHStone/dfadd/main.go
+======================================================================
+
+
+Errors:           0
+All tests passed!
+
+[ERROR]
+/home/qinkejiu/mygo/tests/CHStone/dfadd/main.go:468:13: warning: binary op != has unresolved operand; using zero value fallback
+/home/qinkejiu/mygo/tests/CHStone/dfadd/main.go:472:13: warning: fmt.Printf: unsupported verb %0
+simulator output mismatch
+expected:
+a_input=7ff8000000000000 b_input=3ff0000000000000 expected=7ff8000000000000 output=7ff8000000000000 (NaN)
+a_input=7ff0000000000000 b_input=3ff0000000000000 expected=7ff0000000000000 output=7ff0000000000000 (+Inf)
+a_input=4000000000000000 b_input=0000000000000000 expected=4000000000000000 output=4000000000000000 (2.000000)
+a_input=4000000000000000 b_input=3ff8000000000000 expected=400c000000000000 output=400c000000000000 (3.500000)
+a_input=3ff0000000000000 b_input=7ff8000000000000 expected=7ff8000000000000 output=7ff8000000000000 (NaN)
+a_input=3ff0000000000000 b_input=7ff0000000000000 expected=7ff0000000000000 output=7ff0000000000000 (+Inf)
+a_input=0000000000000000 b_input=4000000000000000 expected=4000000000000000 output=4000000000000000 (2.000000)
+a_input=3ff8000000000000 b_input=4000000000000000 expected=400c000000000000 output=400c000000000000 (3.500000)
+a_input=7ff8000000000000 b_input=7ff0000000000000 expected=7ff8000000000000 output=7ff8000000000000 (NaN)
+a_input=7ff0000000000000 b_input=7ff0000000000000 expected=7ff0000000000000 output=7ff0000000000000 (+Inf)
+a_input=0000000000000000 b_input=0000000000000000 expected=0000000000000000 output=0000000000000000 (0.000000)
+a_input=3ff8000000000000 b_input=3ff0000000000000 expected=4004000000000000 output=4004000000000000 (2.500000)
+a_input=fff8000000000000 b_input=bff0000000000000 expected=fff8000000000000 output=fff8000000000000 (NaN)
+a_input=fff0000000000000 b_input=bff0000000000000 expected=fff0000000000000 output=fff0000000000000 (-Inf)
+a_input=c000000000000000 b_input=8000000000000000 expected=c000000000000000 output=c000000000000000 (-2.000000)
+a_input=c000000000000000 b_input=bff8000000000000 expected=c00c000000000000 output=c00c000000000000 (-3.500000)
+a_input=bff0000000000000 b_input=fff8000000000000 expected=fff8000000000000 output=fff8000000000000 (NaN)
+a_input=bff0000000000000 b_input=fff0000000000000 expected=fff0000000000000 output=fff0000000000000 (-Inf)
+a_input=8000000000000000 b_input=c000000000000000 expected=c000000000000000 output=c000000000000000 (-2.000000)
+a_input=bff8000000000000 b_input=c000000000000000 expected=c00c000000000000 output=c00c000000000000 (-3.500000)
+a_input=fff8000000000000 b_input=fff0000000000000 expected=fff8000000000000 output=fff8000000000000 (NaN)
+a_input=fff0000000000000 b_input=fff0000000000000 expected=fff0000000000000 output=fff0000000000000 (-Inf)
+a_input=8000000000000000 b_input=8000000000000000 expected=8000000000000000 output=8000000000000000 (-0.000000)
+a_input=bff8000000000000 b_input=bff0000000000000 expected=c004000000000000 output=c004000000000000 (-2.500000)
+a_input=7ff8000000000000 b_input=fff0000000000000 expected=7ff8000000000000 output=7ff8000000000000 (NaN)
+a_input=7ff0000000000000 b_input=fff0000000000000 expected=7fffffffffffffff output=7fffffffffffffff (NaN)
+a_input=3ff0000000000000 b_input=bff0000000000000 expected=0000000000000000 output=0000000000000000 (0.000000)
+a_input=3ff0000000000000 b_input=fff8000000000000 expected=fff8000000000000 output=fff8000000000000 (NaN)
+a_input=3ff0000000000000 b_input=fff0000000000000 expected=fff0000000000000 output=fff0000000000000 (-Inf)
+a_input=0000000000000000 b_input=bff0000000000000 expected=bff0000000000000 output=bff0000000000000 (-1.000000)
+a_input=3ff8000000000000 b_input=c000000000000000 expected=bfe0000000000000 output=bfe0000000000000 (-0.500000)
+a_input=7ff8000000000000 b_input=bff0000000000000 expected=7ff8000000000000 output=7ff8000000000000 (NaN)
+a_input=7ff0000000000000 b_input=bff0000000000000 expected=7ff0000000000000 output=7ff0000000000000 (+Inf)
+a_input=3ff0000000000000 b_input=8000000000000000 expected=3ff0000000000000 output=3ff0000000000000 (1.000000)
+a_input=4000000000000000 b_input=bff8000000000000 expected=3fe0000000000000 output=3fe0000000000000 (0.500000)
+a_input=fff0000000000000 b_input=7ff8000000000000 expected=7ff8000000000000 output=7ff8000000000000 (NaN)
+a_input=fff0000000000000 b_input=7ff0000000000000 expected=7fffffffffffffff output=7fffffffffffffff (NaN)
+a_input=bff0000000000000 b_input=3ff0000000000000 expected=0000000000000000 output=0000000000000000 (0.000000)
+a_input=bff0000000000000 b_input=7ff8000000000000 expected=7ff8000000000000 output=7ff8000000000000 (NaN)
+a_input=bff0000000000000 b_input=7ff0000000000000 expected=7ff0000000000000 output=7ff0000000000000 (+Inf)
+a_input=8000000000000000 b_input=3ff0000000000000 expected=3ff0000000000000 output=3ff0000000000000 (1.000000)
+a_input=bff8000000000000 b_input=4000000000000000 expected=3fe0000000000000 output=3fe0000000000000 (0.500000)
+a_input=fff8000000000000 b_input=3ff0000000000000 expected=fff8000000000000 output=fff8000000000000 (NaN)
+a_input=fff0000000000000 b_input=3ff0000000000000 expected=fff0000000000000 output=fff0000000000000 (-Inf)
+a_input=bff0000000000000 b_input=0000000000000000 expected=bff0000000000000 output=bff0000000000000 (-1.000000)
+a_input=c000000000000000 b_input=3ff8000000000000 expected=bfe0000000000000 output=bfe0000000000000 (-0.500000)
+
+Errors: 0
+All tests passed!
+
+actual:
 
+Errors:           0
+All tests passed!
+
+exit status 1
+
 ======================================================================
-✅ | End: 15:50:49
+❌ code=1 | End: 17:32:14
 ======================================================================
 
 
 ======================================================================
-📁 pipeline1 | hardware simulation
-⏱️  15:50:49 | $ go run ./cmd/mygo sim --sim-max-cycles 64 tests/stages/pipeline1/main.go
+📁 dfdiv | software simulation
+⏱️  17:32:14 | $ go run tests/CHStone/dfdiv/main.go
 ======================================================================
 
-input: count          0 sent integer 0x00000000
-input: count          1 sent integer 0x19700328
-output: count          0 got integer 0x00000000
-input: count          2 sent integer 0x19700101
-output: count          1 got integer 0x20050823
-input: count          3 sent integer 0x00000003
-output: count          2 got integer 0x20071224
-input: count          4 sent integer 0x00000004
-output: count          3 got integer 0x00000003
-output: count          4 got integer 0x00000004
-finished is 1
+a_input=7fff000000000000 b_input=3ff0000000000000 expected=7fff000000000000 output=7fff000000000000 (NaN)
+a_input=7ff0000000000000 b_input=7ff8000000000000 expected=7ff8000000000000 output=7ff8000000000000 (NaN)
+a_input=7ff0000000000000 b_input=7ff0000000000000 expected=7fffffffffffffff output=7fffffffffffffff (NaN)
+a_input=7ff0000000000000 b_input=3ff0000000000000 expected=7ff0000000000000 output=7ff0000000000000 (+Inf)
+a_input=3ff0000000000000 b_input=7ff8000000000000 expected=7ff8000000000000 output=7ff8000000000000 (NaN)
+a_input=3ff0000000000000 b_input=7ff0000000000000 expected=0000000000000000 output=0000000000000000 (0.000000)
+a_input=0000000000000000 b_input=0000000000000000 expected=7fffffffffffffff output=7fffffffffffffff (NaN)
+a_input=3ff0000000000000 b_input=0000000000000000 expected=7ff0000000000000 output=7ff0000000000000 (+Inf)
+a_input=0000000000000000 b_input=3ff0000000000000 expected=0000000000000000 output=0000000000000000 (0.000000)
+a_input=8000000000000000 b_input=3ff0000000000000 expected=8000000000000000 output=8000000000000000 (-0.000000)
+a_input=4008000000000000 b_input=4000000000000000 expected=3ff8000000000000 output=3ff8000000000000 (1.500000)
+a_input=c008000000000000 b_input=4000000000000000 expected=bff8000000000000 output=bff8000000000000 (-1.500000)
+a_input=4008000000000000 b_input=c000000000000000 expected=bff8000000000000 output=bff8000000000000 (-1.500000)
+a_input=c008000000000000 b_input=c000000000000000 expected=3ff8000000000000 output=3ff8000000000000 (1.500000)
+a_input=4000000000000000 b_input=4010000000000000 expected=3fe0000000000000 output=3fe0000000000000 (0.500000)
+a_input=c000000000000000 b_input=4010000000000000 expected=bfe0000000000000 output=bfe0000000000000 (-0.500000)
+a_input=4000000000000000 b_input=c010000000000000 expected=bfe0000000000000 output=bfe0000000000000 (-0.500000)
+a_input=c000000000000000 b_input=c010000000000000 expected=3fe0000000000000 output=3fe0000000000000 (0.500000)
+a_input=3ff0000000000000 b_input=3ff8000000000000 expected=3fe5555555555555 output=3fe5555555555555 (0.666667)
+a_input=bff0000000000000 b_input=3ff8000000000000 expected=bfe5555555555555 output=bfe5555555555555 (-0.666667)
+a_input=3ff0000000000000 b_input=bff8000000000000 expected=bfe5555555555555 output=bfe5555555555555 (-0.666667)
+a_input=bff0000000000000 b_input=bff8000000000000 expected=3fe5555555555555 output=3fe5555555555555 (0.666667)
+0
 
 ======================================================================
-✅ | End: 15:50:53
+✅ | End: 17:32:14
 ======================================================================
 
 
 ======================================================================
-📁 pipeline1 | software simulation
-⏱️  15:50:53 | $ go run tests/stages/pipeline1/main.go
+📁 dfdiv | hardware simulation
+⏱️  17:32:14 | $ go run ./cmd/mygo sim --sim-max-cycles 20000 --expect /tmp/tmp4uqwumru tests/CHStone/dfdiv/main.go
 ======================================================================
 
-output: count 0 got integer 0x0
-input: count 0 sent integer 0x0
-input: count 1 sent integer 0x19700328
-input: count 2 sent integer 0x19700101
-input: count 3 sent integer 0x3
-input: count 4 sent integer 0x4
-output: count 1 got integer 0x20050823
-output: count 2 got integer 0x20071224
-output: count 3 got integer 0x3
-output: count 4 got integer 0x4
-finished is true
+(no output)
 
+[ERROR]
+/home/qinkejiu/mygo/tests/CHStone/dfdiv/main.go:143:2: error: for loops must have compile-time constant init, condition, and step
+/home/qinkejiu/mygo/tests/CHStone/dfdiv/main.go:403:3: error: for loops must have compile-time constant init, condition, and step
+validation failed with 2 issue(s)
+exit status 1
+
 ======================================================================
-✅ | End: 15:50:53
+❌ code=1 | End: 17:32:15
 ======================================================================
 
 
 ======================================================================
-📁 pipeline2 | hardware simulation
-⏱️  15:50:53 | $ go run ./cmd/mygo sim --sim-max-cycles 80 tests/stages/pipeline2/main.go
+📁 dfmul | software simulation
+⏱️  17:32:15 | $ go run tests/CHStone/dfmul/main.go
 ======================================================================
 
-stage 1: sent integer          0
-stage 1: sent integer          2
-stage 1: sent integer          4
-stage 2: emitted 4 bytes for          0
-stage 3: reconstructed integer          0
-stage 1: sent integer          6
-stage 2: emitted 4 bytes for          2
-stage 3: reconstructed integer          2
-stage 2: emitted 4 bytes for          4
-stage 3: reconstructed integer          4
-stage 2: emitted 4 bytes for          6
-stage 3: reconstructed integer          6
-finished is 1
+a_input=7ff0000000000000 b_input=ffffffffffffffff expected=ffffffffffffffff output=ffffffffffffffff (NaN)
+a_input=7fff000000000000 b_input=fff0000000000000 expected=7fff000000000000 output=7fff000000000000 (NaN)
+a_input=7ff0000000000000 b_input=0000000000000000 expected=7fffffffffffffff output=7fffffffffffffff (NaN)
+a_input=7ff0000000000000 b_input=3ff0000000000000 expected=7ff0000000000000 output=7ff0000000000000 (+Inf)
+a_input=3ff0000000000000 b_input=ffff000000000000 expected=ffff000000000000 output=ffff000000000000 (NaN)
+a_input=0000000000000000 b_input=7ff0000000000000 expected=7fffffffffffffff output=7fffffffffffffff (NaN)
+a_input=3ff0000000000000 b_input=7ff0000000000000 expected=7ff0000000000000 output=7ff0000000000000 (+Inf)
+a_input=0000000000000000 b_input=3ff0000000000000 expected=0000000000000000 output=0000000000000000 (0.000000)
+a_input=8000000000000000 b_input=3ff0000000000000 expected=8000000000000000 output=8000000000000000 (-0.000000)
+a_input=3ff0000000000000 b_input=0000000000000000 expected=0000000000000000 output=0000000000000000 (0.000000)
+a_input=3ff0000000000000 b_input=8000000000000000 expected=8000000000000000 output=8000000000000000 (-0.000000)
+a_input=4000000000000000 b_input=3fd0000000000000 expected=3fe0000000000000 output=3fe0000000000000 (0.500000)
+a_input=3fd0000000000000 b_input=4000000000000000 expected=3fe0000000000000 output=3fe0000000000000 (0.500000)
+a_input=c000000000000000 b_input=bfd0000000000000 expected=3fe0000000000000 output=3fe0000000000000 (0.500000)
+a_input=bfd0000000000000 b_input=c000000000000000 expected=3fe0000000000000 output=3fe0000000000000 (0.500000)
+a_input=4000000000000000 b_input=bfd0000000000000 expected=bfe0000000000000 output=bfe0000000000000 (-0.500000)
+a_input=bfd0000000000000 b_input=4000000000000000 expected=bfe0000000000000 output=bfe0000000000000 (-0.500000)
+a_input=c000000000000000 b_input=3fd0000000000000 expected=bfe0000000000000 output=bfe0000000000000 (-0.500000)
+a_input=3fd0000000000000 b_input=c000000000000000 expected=bfe0000000000000 output=bfe0000000000000 (-0.500000)
+a_input=0000000000000000 b_input=0000000000000000 expected=0000000000000000 output=0000000000000000 (0.000000)
+Errors: 0
 
 ======================================================================
-✅ | End: 15:50:57
+✅ | End: 17:32:15
 ======================================================================
 
 
 ======================================================================
-📁 pipeline2 | software simulation
-⏱️  15:50:57 | $ go run tests/stages/pipeline2/main.go
+📁 dfmul | hardware simulation
+⏱️  17:32:15 | $ go run ./cmd/mygo sim --sim-max-cycles 20000 --expect /tmp/tmpzw0558gl tests/CHStone/dfmul/main.go
 ======================================================================
+
+Errors:           0
+
+[ERROR]
+/home/qinkejiu/mygo/tests/CHStone/dfmul/main.go:422:13: warning: binary op != has unresolved operand; using zero value fallback
+/home/qinkejiu/mygo/tests/CHStone/dfmul/main.go:426:13: warning: fmt.Printf: unsupported verb %0
+simulator output mismatch
+expected:
+a_input=7ff0000000000000 b_input=ffffffffffffffff expected=ffffffffffffffff output=ffffffffffffffff (NaN)
+a_input=7fff000000000000 b_input=fff0000000000000 expected=7fff000000000000 output=7fff000000000000 (NaN)
+a_input=7ff0000000000000 b_input=0000000000000000 expected=7fffffffffffffff output=7fffffffffffffff (NaN)
+a_input=7ff0000000000000 b_input=3ff0000000000000 expected=7ff0000000000000 output=7ff0000000000000 (+Inf)
+a_input=3ff0000000000000 b_input=ffff000000000000 expected=ffff000000000000 output=ffff000000000000 (NaN)
+a_input=0000000000000000 b_input=7ff0000000000000 expected=7fffffffffffffff output=7fffffffffffffff (NaN)
+a_input=3ff0000000000000 b_input=7ff0000000000000 expected=7ff0000000000000 output=7ff0000000000000 (+Inf)
+a_input=0000000000000000 b_input=3ff0000000000000 expected=0000000000000000 output=0000000000000000 (0.000000)
+a_input=8000000000000000 b_input=3ff0000000000000 expected=8000000000000000 output=8000000000000000 (-0.000000)
+a_input=3ff0000000000000 b_input=0000000000000000 expected=0000000000000000 output=0000000000000000 (0.000000)
+a_input=3ff0000000000000 b_input=8000000000000000 expected=8000000000000000 output=8000000000000000 (-0.000000)
+a_input=4000000000000000 b_input=3fd0000000000000 expected=3fe0000000000000 output=3fe0000000000000 (0.500000)
+a_input=3fd0000000000000 b_input=4000000000000000 expected=3fe0000000000000 output=3fe0000000000000 (0.500000)
+a_input=c000000000000000 b_input=bfd0000000000000 expected=3fe0000000000000 output=3fe0000000000000 (0.500000)
+a_input=bfd0000000000000 b_input=c000000000000000 expected=3fe0000000000000 output=3fe0000000000000 (0.500000)
+a_input=4000000000000000 b_input=bfd0000000000000 expected=bfe0000000000000 output=bfe0000000000000 (-0.500000)
+a_input=bfd0000000000000 b_input=4000000000000000 expected=bfe0000000000000 output=bfe0000000000000 (-0.500000)
+a_input=c000000000000000 b_input=3fd0000000000000 expected=bfe0000000000000 output=bfe0000000000000 (-0.500000)
+a_input=3fd0000000000000 b_input=c000000000000000 expected=bfe0000000000000 output=bfe0000000000000 (-0.500000)
+a_input=0000000000000000 b_input=0000000000000000 expected=0000000000000000 output=0000000000000000 (0.000000)
+Errors: 0
 
-stage 2: emitted 4 bytes for 0
-stage 3: reconstructed integer 0
-stage 1: sent integer 0
-stage 1: sent integer 2
-stage 1: sent integer 4
-stage 2: emitted 4 bytes for 2
-stage 2: emitted 4 bytes for 4
-stage 1: sent integer 6
-stage 3: reconstructed integer 2
-stage 3: reconstructed integer 4
-stage 2: emitted 4 bytes for 6
-stage 3: reconstructed integer 6
-finished is true
-
-======================================================================
-✅ | End: 15:50:57
-======================================================================
-
-
-======================================================================
-📁 router_csp | hardware simulation
-⏱️  15:50:57 | $ go run ./cmd/mygo sim --sim-max-cycles 80 tests/stages/router_csp/main.go
-======================================================================
-
-producer          0 sent dest=         0 payload=         0
-producer          1 sent dest=         1 payload=        10
-producer          0 sent dest=         1 payload=         1
-producer          1 sent dest=         0 payload=        11
-consumer          0 got src=         0 dest=         0 payload=         0
-producer          0 sent dest=         0 payload=         2
-producer          1 sent dest=         1 payload=        12
-consumer          1 got src=         1 dest=         1 payload=        10
-producer          0 sent dest=         1 payload=         3
-consumer          1 got src=         0 dest=         1 payload=         1
-producer          1 sent dest=         0 payload=        13
-consumer          0 got src=         1 dest=         0 payload=        11
-consumer          0 got src=         0 dest=         0 payload=         2
-consumer          1 got src=         1 dest=         1 payload=        12
-consumer          1 got src=         0 dest=         1 payload=         3
-consumer          0 got src=         1 dest=         0 payload=        13
-router complete packets=          4
-
-======================================================================
-✅ | End: 15:51:01
-======================================================================
-
-
-======================================================================
-📁 router_csp | software simulation
-⏱️  15:51:01 | $ go run tests/stages/router_csp/main.go
-======================================================================
-
-producer 1 sent dest=1 payload=10
-producer 0 sent dest=0 payload=0
-producer 0 sent dest=1 payload=1
-producer 0 sent dest=0 payload=2
-producer 0 sent dest=1 payload=3
-consumer 0 got src=0 dest=0 payload=0
-consumer 0 got src=1 dest=0 payload=11
-consumer 0 got src=0 dest=0 payload=2
-producer 1 sent dest=0 payload=11
-producer 1 sent dest=1 payload=12
-producer 1 sent dest=0 payload=13
-consumer 1 got src=1 dest=1 payload=10
-consumer 1 got src=0 dest=1 payload=1
-consumer 1 got src=1 dest=1 payload=12
-consumer 0 got src=1 dest=0 payload=13
-consumer 1 got src=0 dest=1 payload=3
-router complete packets=4
+actual:
+Errors:           0
 
+exit status 1
+
 ======================================================================
-✅ | End: 15:51:02
+❌ code=1 | End: 17:32:19
 ======================================================================
 
 
 ======================================================================
-📁 simple | hardware simulation
-⏱️  15:51:02 | $ go run ./cmd/mygo sim --sim-max-cycles 64 tests/stages/simple/main.go
+📁 dfsin | software simulation
+⏱️  17:32:19 | $ go run tests/CHStone/dfsin/main.go
 ======================================================================
 
-The result is small:                    3
-The result is small:                    3
-The result is small:                    3
-The result is small:                    3
-The result is small:                    3
-The result is small:                    3
-The result is small:                    3
-The result is small:                    3
-The result is small:                    3
-The result is small:                    3
-The result is small:                    3
-The result is small:                    3
-The result is small:                    3
-The result is small:                    3
-The result is small:                    3
-The result is small:                    3
-The result is small:                    3
-The result is small:                    3
-The result is small:                    3
-The result is small:                    3
-The result is small:                    3
-The result is small:                    3
-The result is small:                    3
-The result is small:                    3
-The result is small:                    3
-The result is small:                    3
-The result is small:                    3
-The result is small:                    3
-The result is small:                    3
-The result is small:                    3
-The result is small:                    3
-The result is small:                    3
-The result is small:                    3
-The result is small:                    3
-The result is small:                    3
-The result is small:                    3
-The result is small:                    3
-The result is small:                    3
-The result is small:                    3
-The result is small:                    3
-The result is small:                    3
-The result is small:                    3
-The result is small:                    3
-The result is small:                    3
-The result is small:                    3
-The result is small:                    3
-The result is small:                    3
-The result is small:                    3
-The result is small:                    3
-The result is small:                    3
-The result is small:                    3
-The result is small:                    3
-The result is small:                    3
-The result is small:                    3
-The result is small:                    3
-The result is small:                    3
-The result is small:                    3
-The result is small:                    3
-The result is small:                    3
-The result is small:                    3
-The result is small:                    3
-The result is small:                    3
-The result is small:                    3
-The result is small:                    3
+input=0000000000000000 expected=0000000000000000 output=0000000000000000 (0.000000)
+input=3fc65717fced55c1 expected=3fc63a1a335aadcd output=3fc63a1a335aadcd (0.173648)
+input=3fd65717fced55c1 expected=3fd5e3a82b09bf3e output=3fd5e3a82b09bf3e (0.342020)
+input=3fe0c151fdb20051 expected=3fdfffff91f9aa91 output=3fdfffff91f9aa91 (0.500000)
+input=3fe65717fced55c1 expected=3fe491b716c242e3 output=3fe491b716c242e3 (0.642787)
+input=3febecddfc28ab31 expected=3fe8836f672614a6 output=3fe8836f672614a6 (0.766044)
+input=3ff0c151fdb20051 expected=3febb67ac40b2bed output=3febb67ac40b2bed (0.866025)
+input=3ff38c34fd4fab09 expected=3fee11f6127e28ad output=3fee11f6127e28ad (0.939693)
+input=3ff65717fced55c1 expected=3fef838b6adffac0 output=3fef838b6adffac0 (0.984808)
+input=3ff921fafc8b0079 expected=3fefffffe1cbd7aa output=3fefffffe1cbd7aa (1.000000)
+input=3ffbecddfc28ab31 expected=3fef838bb0147989 output=3fef838bb0147989 (0.984808)
+input=3ffeb7c0fbc655e9 expected=3fee11f692d962b4 output=3fee11f692d962b4 (0.939693)
+input=4000c151fdb20051 expected=3febb67b77c0142d output=3febb67b77c0142d (0.866026)
+input=400226c37d80d5ad expected=3fe883709d4ea869 output=3fe883709d4ea869 (0.766045)
+input=40038c34fd4fab09 expected=3fe491b81d72d8e8 output=3fe491b81d72d8e8 (0.642788)
+input=4004f1a67d1e8065 expected=3fe00000ea5f43c8 output=3fe00000ea5f43c8 (0.500000)
+input=40065717fced55c1 expected=3fd5e3aa4e0590c5 output=3fd5e3aa4e0590c5 (0.342021)
+input=4007bc897cbc2b1d expected=3fc63a1d2189552c output=3fc63a1d2189552c (0.173648)
+input=400921fafc8b0079 expected=3ea6aedffc454b91 output=3ea6aedffc454b91 (0.000001)
+input=400a876c7c59d5d5 expected=bfc63a1444ddb37c output=bfc63a1444ddb37c (-0.173647)
+input=400becddfc28ab31 expected=bfd5e3a4e68f8f3e output=bfd5e3a4e68f8f3e (-0.342019)
+input=400d524f7bf7808d expected=bfdffffd494cf96b output=bfdffffd494cf96b (-0.499999)
+input=400eb7c0fbc655e9 expected=bfe491b61cb9a3d3 output=bfe491b61cb9a3d3 (-0.642787)
+input=40100e993dca95a3 expected=bfe8836eb2dcf815 output=bfe8836eb2dcf815 (-0.766044)
+input=4010c151fdb20051 expected=bfebb67a740aae32 output=bfebb67a740aae32 (-0.866025)
+input=4011740abd996aff expected=bfee11f5912d2157 output=bfee11f5912d2157 (-0.939692)
+input=401226c37d80d5ad expected=bfef838b1ac64afc output=bfef838b1ac64afc (-0.984808)
+input=4012d97c3d68405b expected=bfefffffc2e5dc8f output=bfefffffc2e5dc8f (-1.000000)
+input=40138c34fd4fab09 expected=bfef838b5ea2e7ea output=bfef838b5ea2e7ea (-0.984808)
+input=40143eedbd3715b7 expected=bfee11f7112dae27 output=bfee11f7112dae27 (-0.939693)
+input=4014f1a67d1e8065 expected=bfebb67c2c31cb4a output=bfebb67c2c31cb4a (-0.866026)
+input=4015a45f3d05eb13 expected=bfe883716e6fd781 output=bfe883716e6fd781 (-0.766045)
+input=40165717fced55c1 expected=bfe491b9cd1b5d56 output=bfe491b9cd1b5d56 (-0.642789)
+input=401709d0bcd4c06f expected=bfe000021d0ca30d output=bfe000021d0ca30d (-0.500001)
+input=4017bc897cbc2b1d expected=bfd5e3ad0a69caf7 output=bfd5e3ad0a69caf7 (-0.342021)
+input=40186f423ca395cb expected=bfc63a23c48863dd output=bfc63a23c48863dd (-0.173649)
+0
 
 ======================================================================
-✅ | End: 15:51:07
+✅ | End: 17:32:20
 ======================================================================
 
 
 ======================================================================
-📁 simple | software simulation
-⏱️  15:51:07 | $ go run tests/stages/simple/main.go
+📁 dfsin | hardware simulation
+⏱️  17:32:20 | $ go run ./cmd/mygo sim --sim-max-cycles 40000 --expect /tmp/tmpmmyptf2_ tests/CHStone/dfsin/main.go
 ======================================================================
 
-The result is small: 3
+(no output)
 
+[ERROR]
+/home/qinkejiu/mygo/tests/CHStone/dfsin/main.go:152:2: error: for loops must have compile-time constant init, condition, and step
+/home/qinkejiu/mygo/tests/CHStone/dfsin/main.go:640:3: error: for loops must have compile-time constant init, condition, and step
+/home/qinkejiu/mygo/tests/CHStone/dfsin/main.go:689:2: error: for loops must have compile-time constant init, condition, and step
+validation failed with 3 issue(s)
+exit status 1
+
 ======================================================================
-✅ | End: 15:51:08
+❌ code=1 | End: 17:32:20
 ======================================================================
 
 
 ======================================================================
-📁 simple_branch | hardware simulation
-⏱️  15:51:08 | $ go run ./cmd/mygo sim --sim-max-cycles 64 tests/stages/simple_branch/main.go
+📁 gsm | software simulation
+⏱️  17:32:20 | $ go run tests/CHStone/gsm/main.go
 ======================================================================
 
-branch x>y delta=          7 (x=         10 y=          3)
+0
 
 ======================================================================
-✅ | End: 15:51:12
+✅ | End: 17:32:21
 ======================================================================
 
 
 ======================================================================
-📁 simple_branch | software simulation
-⏱️  15:51:12 | $ go run tests/stages/simple_branch/main.go
+📁 gsm | hardware simulation
+⏱️  17:32:21 | $ go run ./cmd/mygo sim --sim-max-cycles 60000 --expect /tmp/tmprh5ajru0 tests/CHStone/gsm/main.go
 ======================================================================
+
+(no output)
 
-branch x>y delta=7 (x=10 y=3)
+[ERROR]
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:292:4: error: for loops must have compile-time constant init, condition, and step
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:312:3: error: for loops must have compile-time constant init, condition, and step
+validation failed with 2 issue(s)
+exit status 1
 
 ======================================================================
-✅ | End: 15:51:12
+❌ code=1 | End: 17:32:21
 ======================================================================
 
 
 ======================================================================
-📁 simple_channel | hardware simulation
-⏱️  15:51:12 | $ go run ./cmd/mygo sim --sim-max-cycles 32 tests/stages/simple_channel/main.go
+📁 mips | software simulation
+⏱️  17:32:21 | $ go run tests/CHStone/mips/main.go
 ======================================================================
 
-worker received=          5 produced=          6
-main observed=          6
+0
 
 ======================================================================
-✅ | End: 15:51:16
+✅ | End: 17:32:22
 ======================================================================
 
 
 ======================================================================
-📁 simple_channel | software simulation
-⏱️  15:51:16 | $ go run tests/stages/simple_channel/main.go
+📁 mips | hardware simulation
+⏱️  17:32:22 | $ go run ./cmd/mygo sim --sim-max-cycles 120000 --expect /tmp/tmpcpw7n31j tests/CHStone/mips/main.go
 ======================================================================
 
-worker received=5 produced=6
-main observed=6
+(no output)
 
+[ERROR]
+/home/qinkejiu/mygo/tests/CHStone/mips/main.go:148:2: error: for loops must have compile-time constant init, condition, and step
+/home/qinkejiu/mygo/tests/CHStone/mips/main.go:174:3: error: for loops must have compile-time constant init, condition, and step
+validation failed with 2 issue(s)
+exit status 1
+
 ======================================================================
-✅ | End: 15:51:16
+❌ code=1 | End: 17:32:22
 ======================================================================
 
 
 ======================================================================
-📁 simple_print | hardware simulation
-⏱️  15:51:16 | $ go run ./cmd/mygo sim --sim-max-cycles 64 tests/stages/simple_print/main.go
+📁 motion | software simulation
+⏱️  17:32:22 | $ go run tests/CHStone/motion/main.go
 ======================================================================
 
-x=         42
-x=         42
-x=         42
-x=         42
-x=         42
-x=         42
-x=         42
-x=         42
-x=         42
-x=         42
-x=         42
-x=         42
-x=         42
-x=         42
-x=         42
-x=         42
-x=         42
-x=         42
-x=         42
-x=         42
-x=         42
-x=         42
-x=         42
-x=         42
-x=         42
-x=         42
-x=         42
-x=         42
-x=         42
-x=         42
-x=         42
-x=         42
-x=         42
-x=         42
-x=         42
-x=         42
-x=         42
-x=         42
-x=         42
-x=         42
-x=         42
-x=         42
-x=         42
-x=         42
-x=         42
-x=         42
-x=         42
-x=         42
-x=         42
-x=         42
-x=         42
-x=         42
-x=         42
-x=         42
-x=         42
-x=         42
-x=         42
-x=         42
-x=         42
-x=         42
-x=         42
-x=         42
-x=         42
-x=         42
+0
 
 ======================================================================
-✅ | End: 15:51:20
+✅ | End: 17:32:23
 ======================================================================
 
 
 ======================================================================
-📁 simple_print | software simulation
-⏱️  15:51:20 | $ go run tests/stages/simple_print/main.go
+📁 motion | hardware simulation
+⏱️  17:32:23 | $ go run ./cmd/mygo sim --sim-max-cycles 60000 --expect /tmp/tmp_9fgzd9_ tests/CHStone/motion/main.go
 ======================================================================
 
-x=42
+(no output)
 
+[ERROR]
+/home/qinkejiu/mygo/tests/CHStone/motion/main.go:90:3: error: for loops must have compile-time constant init, condition, and step
+/home/qinkejiu/mygo/tests/CHStone/motion/main.go:97:3: error: for loops must have compile-time constant init, condition, and step
+/home/qinkejiu/mygo/tests/CHStone/motion/main.go:131:3: error: for loops must have compile-time constant init, condition, and step
+validation failed with 3 issue(s)
+exit status 1
+
 ======================================================================
-✅ | End: 15:51:20
+❌ code=1 | End: 17:32:23
 ======================================================================
 
 
 ======================================================================
-📁 type_mismatch | hardware simulation
-⏱️  15:51:20 | $ go run ./cmd/mygo sim --sim-max-cycles 64 tests/stages/type_mismatch/main.go
+📁 sha | software simulation
+⏱️  17:32:23 | $ go run tests/CHStone/sha/main.go
 ======================================================================
 
-acc=    -7 wide=      1017
-acc=    -7 wide=      1017
-acc=    -7 wide=      1017
-acc=    -7 wide=      1017
-acc=    -7 wide=      1017
-acc=    -7 wide=      1017
-acc=    -7 wide=      1017
-acc=    -7 wide=      1017
-acc=    -7 wide=      1017
-acc=    -7 wide=      1017
-acc=    -7 wide=      1017
-acc=    -7 wide=      1017
-acc=    -7 wide=      1017
-acc=    -7 wide=      1017
-acc=    -7 wide=      1017
-acc=    -7 wide=      1017
-acc=    -7 wide=      1017
-acc=    -7 wide=      1017
-acc=    -7 wide=      1017
-acc=    -7 wide=      1017
-acc=    -7 wide=      1017
-acc=    -7 wide=      1017
-acc=    -7 wide=      1017
-acc=    -7 wide=      1017
-acc=    -7 wide=      1017
-acc=    -7 wide=      1017
-acc=    -7 wide=      1017
-acc=    -7 wide=      1017
-acc=    -7 wide=      1017
-acc=    -7 wide=      1017
-acc=    -7 wide=      1017
-acc=    -7 wide=      1017
-acc=    -7 wide=      1017
-acc=    -7 wide=      1017
-acc=    -7 wide=      1017
-acc=    -7 wide=      1017
-acc=    -7 wide=      1017
-acc=    -7 wide=      1017
-acc=    -7 wide=      1017
-acc=    -7 wide=      1017
-acc=    -7 wide=      1017
-acc=    -7 wide=      1017
-acc=    -7 wide=      1017
-acc=    -7 wide=      1017
-acc=    -7 wide=      1017
-acc=    -7 wide=      1017
-acc=    -7 wide=      1017
-acc=    -7 wide=      1017
-acc=    -7 wide=      1017
-acc=    -7 wide=      1017
-acc=    -7 wide=      1017
-acc=    -7 wide=      1017
-acc=    -7 wide=      1017
-acc=    -7 wide=      1017
-acc=    -7 wide=      1017
-acc=    -7 wide=      1017
-acc=    -7 wide=      1017
-acc=    -7 wide=      1017
-acc=    -7 wide=      1017
-acc=    -7 wide=      1017
-acc=    -7 wide=      1017
-acc=    -7 wide=      1017
-acc=    -7 wide=      1017
-acc=    -7 wide=      1017
+0
 
 ======================================================================
-✅ | End: 15:51:24
+✅ | End: 17:32:27
 ======================================================================
 
 
 ======================================================================
-📁 type_mismatch | software simulation
-⏱️  15:51:24 | $ go run tests/stages/type_mismatch/main.go
+📁 sha | hardware simulation
+⏱️  17:32:27 | $ go run ./cmd/mygo sim --sim-max-cycles 80000 --expect /tmp/tmp_0xkw0dz tests/CHStone/sha/main.go
 ======================================================================
+
+(no output)
 
-acc=-7 wide=1017
+[ERROR]
+/home/qinkejiu/mygo/tests/CHStone/sha/main.go:1141:2: error: for loops must have compile-time constant init, condition, and step
+/home/qinkejiu/mygo/tests/CHStone/sha/main.go:1153:2: error: for loops must have compile-time constant init, condition, and step
+/home/qinkejiu/mygo/tests/CHStone/sha/main.go:1225:2: error: for loops must have compile-time constant init, condition, and step
+/home/qinkejiu/mygo/tests/CHStone/sha/main.go:1254:3: error: for loops must have compile-time constant init, condition, and step
+/home/qinkejiu/mygo/tests/CHStone/sha/main.go:1268:3: error: for loops must have compile-time constant init, condition, and step
+validation failed with 5 issue(s)
+exit status 1
 
 ======================================================================
-✅ | End: 15:51:24
+❌ code=1 | End: 17:32:28
 ======================================================================
 
 
@@ -767,6 +593,7 @@ acc=-7 wide=1017
 SUMMARY
 ======================================================================
 Total folders: 12
-Hardware simulation (mygo sim) success: 12/12
-Software simulation (direct run) success: 12/12
+Software simulation success: 12/12
+Hardware simulation command success: 2/12
+Behavioral match success (HW==SW): 2/12
 ======================================================================

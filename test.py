@@ -1,23 +1,43 @@
 #!/usr/bin/env python3
-import sys
+import os
+import shlex
 import subprocess
-from pathlib import Path
+import sys
+import tempfile
 from datetime import datetime
+from pathlib import Path
 
-BASE_DIR = Path("tests/stages")
+BASE_DIR = Path("tests/CHStone")
 OUTPUT_FILE = Path("CHS_clean_simulation_results.txt")
+COMMAND_TIMEOUT_SEC = 600
+DEFAULT_SIM_MAX_CYCLES = 20000
 
-# Keep per-case budgets in sync with handshake/FSM latency so hardware runs
-# long enough to produce terminal prints (e.g. finished/router complete).
+# Heavier CHStone workloads often need many more cycles than stage tests.
 SIM_MAX_CYCLES = {
-    "simple_channel": 32,
-    "pipeline1": 64,
-    "pipeline2": 80,
-    "router_csp": 80,
+    "common": 1024,
+    "dfadd": 20000,
+    "dfdiv": 20000,
+    "dfmul": 20000,
+    "dfsin": 40000,
+    "adpcm": 40000,
+    "gsm": 60000,
+    "motion": 60000,
+    "aes": 120000,
+    "blowfish": 120000,
+    "sha": 80000,
+    "mips": 120000,
 }
 
+HARDWARE_UNSUPPORTED_MARKERS = (
+    "unresolved dereference",
+    "no signal mapping for value",
+    "unsupported argument",
+    "unsupported unary op",
+    "has unresolved operand; using zero value fallback",
+)
+
+
 def should_filter_verilator(line: str) -> bool:
-    """过滤 Verilator 编译过程日志，保留真正的错误信息"""
     verilator_noise = [
         "make: Entering directory",
         "make: Leaving directory",
@@ -40,12 +60,19 @@ def should_filter_verilator(line: str) -> bool:
         ".mygo-verilator-",
         ".mygo-tmp",
     ]
-    # 保留真正的编译错误（如 error: / fatal error:）
     if "error:" in line.lower() or "fatal error" in line.lower() or "undefined reference" in line.lower():
         return False
     return any(noise in line for noise in verilator_noise)
 
-def run_command(cmd: str, folder_name: str, cmd_label: str, output_fh) -> bool:
+
+def command_env() -> dict[str, str]:
+    env = os.environ.copy()
+    env["GOCACHE"] = "/tmp/go-build"
+    env["GOPATH"] = "/tmp/go"
+    return env
+
+
+def run_command(cmd: str, folder_name: str, cmd_label: str, output_fh):
     timestamp = datetime.now().strftime("%H:%M:%S")
     separator = "=" * 70
     output_fh.write(f"\n{separator}\n")
@@ -60,21 +87,16 @@ def run_command(cmd: str, folder_name: str, cmd_label: str, output_fh) -> bool:
             shell=True,
             capture_output=True,
             text=True,
-            timeout=60
+            timeout=COMMAND_TIMEOUT_SEC,
+            env=command_env(),
         )
 
-        # 清理 STDOUT：保留所有（仿真结果）
         clean_stdout = result.stdout
-        output_fh.write(clean_stdout)
-        if not clean_stdout.strip():
-            output_fh.write("(no output)\n")
+        output_fh.write(clean_stdout if clean_stdout.strip() else "(no output)\n")
 
-        # 清理 STDERR：过滤 Verilator 编译日志，仅保留真实错误
         clean_stderr = "\n".join(
-            line for line in result.stderr.splitlines()
-            if not should_filter_verilator(line)
+            line for line in result.stderr.splitlines() if not should_filter_verilator(line)
         ).strip()
-
         if clean_stderr:
             output_fh.write("\n[ERROR]\n")
             output_fh.write(clean_stderr + "\n")
@@ -86,26 +108,23 @@ def run_command(cmd: str, folder_name: str, cmd_label: str, output_fh) -> bool:
         output_fh.write(f"{separator}\n\n")
         output_fh.flush()
 
-        return result.returncode == 0
+        return result.returncode == 0, clean_stdout, clean_stderr, result.returncode
     except subprocess.TimeoutExpired:
-        output_fh.write("❌ TIMEOUT (60s)\n\n")
+        output_fh.write(f"❌ TIMEOUT ({COMMAND_TIMEOUT_SEC}s)\n\n")
         output_fh.flush()
-        return False
-    except Exception as e:
-        output_fh.write(f"❌ EXCEPTION: {e}\n\n")
+        return False, "", f"TIMEOUT ({COMMAND_TIMEOUT_SEC}s)", 124
+    except Exception as exc:
+        output_fh.write(f"❌ EXCEPTION: {exc}\n\n")
         output_fh.flush()
-        return False
+        return False, "", str(exc), 1
+
 
 def main():
     if not BASE_DIR.exists():
         print(f"❌ Error: '{BASE_DIR}' not found", file=sys.stderr)
         sys.exit(1)
 
-    folders = sorted([
-        d.name for d in BASE_DIR.iterdir()
-        if d.is_dir() and (d / "main.go").exists()
-    ])
-
+    folders = sorted(d.name for d in BASE_DIR.iterdir() if d.is_dir() and (d / "main.go").exists())
     if not folders:
         print(f"⚠️  No valid folders with main.go found in {BASE_DIR}", file=sys.stderr)
         sys.exit(1)
@@ -113,44 +132,83 @@ def main():
     print(f"🔍 Found {len(folders)} folders with main.go")
     print(f"📝 Output will be saved to: {OUTPUT_FILE.resolve()}\n")
 
-    success1 = success2 = 0
+    hw_success = 0
+    sw_success = 0
+    match_success = 0
 
-    with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
-        f.write(f"CLEAN SIMULATION RESULTS (Verilator logs filtered)\n")
-        f.write(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-        f.write(f"{'='*70}\n\n")
+    with open(OUTPUT_FILE, "w", encoding="utf-8") as fh:
+        fh.write("CHSTONE SIMULATION RESULTS (behavioral check enabled)\n")
+        fh.write("Hardware pass requires mygo sim stdout to match software stdout exactly.\n")
+        fh.write(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+        fh.write(f"{'='*70}\n\n")
 
         for idx, folder in enumerate(folders, 1):
-            main_go = f"tests/stages/{folder}/main.go"
+            main_go = f"tests/CHStone/{folder}/main.go"
             print(f"[{idx:2d}/{len(folders)}] {folder:20s}", end=" ", flush=True)
 
-            # 命令1: mygo sim（硬件仿真）
-            max_cycles = SIM_MAX_CYCLES.get(folder, 64)
-            cmd1 = f"go run ./cmd/mygo sim --sim-max-cycles {max_cycles} {main_go}"
-            ok1 = run_command(cmd1, folder, "hardware simulation", f)
-            if ok1:
-                success1 += 1
+            sw_cmd = f"go run {shlex.quote(main_go)}"
+            sw_ok, sw_stdout, _, _ = run_command(sw_cmd, folder, "software simulation", fh)
+            if sw_ok:
+                sw_success += 1
 
-            # 命令2: direct go run（软件仿真）
-            cmd2 = f"go run {main_go}"
-            ok2 = run_command(cmd2, folder, "software simulation", f)
-            if ok2:
-                success2 += 1
+            expect_path = None
+            try:
+                if sw_ok:
+                    with tempfile.NamedTemporaryFile("w", delete=False, encoding="utf-8") as tmp:
+                        tmp.write(sw_stdout)
+                        expect_path = tmp.name
 
-            status = "✅" if (ok1 or ok2) else "⚠️"
-            print(f"{status} (hw:{'✓' if ok1 else '✗'} sw:{'✓' if ok2 else '✗'})")
+                max_cycles = SIM_MAX_CYCLES.get(folder, DEFAULT_SIM_MAX_CYCLES)
+                if expect_path:
+                    hw_cmd = (
+                        "go run ./cmd/mygo sim "
+                        f"--sim-max-cycles {max_cycles} "
+                        f"--expect {shlex.quote(expect_path)} "
+                        f"{shlex.quote(main_go)}"
+                    )
+                else:
+                    hw_cmd = f"go run ./cmd/mygo sim --sim-max-cycles {max_cycles} {shlex.quote(main_go)}"
 
-        # 汇总
-        f.write(f"\n{'='*70}\n")
-        f.write("SUMMARY\n")
-        f.write(f"{'='*70}\n")
-        f.write(f"Total folders: {len(folders)}\n")
-        f.write(f"Hardware simulation (mygo sim) success: {success1}/{len(folders)}\n")
-        f.write(f"Software simulation (direct run) success: {success2}/{len(folders)}\n")
-        f.write(f"{'='*70}\n")
+                hw_ok, _, hw_stderr, _ = run_command(hw_cmd, folder, "hardware simulation", fh)
+                if hw_ok:
+                    lowered = hw_stderr.lower()
+                    if any(marker in lowered for marker in HARDWARE_UNSUPPORTED_MARKERS):
+                        hw_ok = False
+                        fh.write("[CHECK]\n")
+                        fh.write("Hardware run exited 0 but hit unsupported lowering markers; counting as FAIL.\n\n")
+            finally:
+                if expect_path:
+                    try:
+                        os.unlink(expect_path)
+                    except OSError:
+                        pass
+
+            if hw_ok:
+                hw_success += 1
+            if hw_ok and sw_ok:
+                match_success += 1
+
+            status = "✅" if (hw_ok and sw_ok) else "⚠️"
+            print(
+                f"{status} (match:{'✓' if (hw_ok and sw_ok) else '✗'} "
+                f"hw:{'✓' if hw_ok else '✗'} sw:{'✓' if sw_ok else '✗'})"
+            )
+
+        fh.write(f"\n{'='*70}\n")
+        fh.write("SUMMARY\n")
+        fh.write(f"{'='*70}\n")
+        fh.write(f"Total folders: {len(folders)}\n")
+        fh.write(f"Software simulation success: {sw_success}/{len(folders)}\n")
+        fh.write(f"Hardware simulation command success: {hw_success}/{len(folders)}\n")
+        fh.write(f"Behavioral match success (HW==SW): {match_success}/{len(folders)}\n")
+        fh.write(f"{'='*70}\n")
 
     print(f"\n✅ Done. Clean results saved to:\n   {OUTPUT_FILE.resolve()}")
-    print(f"\n📊 Summary: HW={success1}/{len(folders)} | SW={success2}/{len(folders)}")
+    print(
+        f"\n📊 Summary: MATCH={match_success}/{len(folders)} | "
+        f"HW={hw_success}/{len(folders)} | SW={sw_success}/{len(folders)}"
+    )
+
 
 if __name__ == "__main__":
     main()

@@ -28,6 +28,7 @@ func BuildDesign(prog *ssa.Program, reporter *diag.Reporter) (*Design, error) {
 	builder := &builder{
 		reporter:             reporter,
 		signals:              make(map[ssa.Value]*Signal),
+		indexedBases:         make(map[ssa.Value]*indexedBaseState),
 		processes:            make(map[*ssa.Function]*Process),
 		channels:             make(map[ssa.Value]*Channel),
 		paramSignals:         make(map[*ssa.Parameter]*Signal),
@@ -57,6 +58,7 @@ type builder struct {
 	reporter             *diag.Reporter
 	module               *Module
 	signals              map[ssa.Value]*Signal
+	indexedBases         map[ssa.Value]*indexedBaseState
 	processes            map[*ssa.Function]*Process
 	channels             map[ssa.Value]*Channel
 	paramSignals         map[*ssa.Parameter]*Signal
@@ -66,6 +68,12 @@ type builder struct {
 	nextStage            int
 	blocks               map[*ssa.BasicBlock]*BasicBlock
 	tempID               int
+}
+
+type indexedBaseState struct {
+	elemType *SignalType
+	length   int
+	elements map[int]*Signal
 }
 
 func (b *builder) buildModule(fn *ssa.Function) *Module {
@@ -349,6 +357,13 @@ func (b *builder) handleBinOp(bb *BasicBlock, op *ssa.BinOp) {
 	left := b.signalForValue(op.X)
 	right := b.signalForValue(op.Y)
 	if left == nil || right == nil {
+		typ := signalType(op.Type())
+		if typ == nil {
+			typ = &SignalType{Width: 1, Signed: false}
+		}
+		zero := b.newConstSignal(0, typ, op.Pos())
+		b.bindResolvedValue(bb, op, zero)
+		b.reporter.Warning(op.Pos(), fmt.Sprintf("binary op %s has unresolved operand; using zero value fallback", op.Op.String()))
 		return
 	}
 	if pred, ok := translateCompareOp(op.Op, isSignedType(op.X.Type())); ok {
@@ -400,15 +415,33 @@ func (b *builder) handleUnOp(proc *Process, bb *BasicBlock, op *ssa.UnOp) {
 	}
 	switch op.Op {
 	case token.MUL:
+		if idxAddr, ok := op.X.(*ssa.IndexAddr); ok {
+			if b.lowerIndexedLoad(bb, op, idxAddr) {
+				return
+			}
+		}
 		ptr := b.signalForValue(op.X)
 		if ptr != nil {
-			b.signals[op] = ptr
+			b.bindResolvedValue(bb, op, ptr)
+			return
 		}
+		// Fallback for dereference loads whose address form we do not yet lower
+		// (e.g. array/slice index addresses). Keep IR structurally valid by
+		// materializing a typed zero value instead of leaving the SSA value
+		// unmapped.
+		typ := signalType(op.Type())
+		zero := b.newConstSignal(0, typ, op.Pos())
+		b.bindResolvedValue(bb, op, zero)
+		b.reporter.Warning(op.Pos(), fmt.Sprintf("unresolved dereference %T; using zero value fallback", op.X))
 	case token.ARROW:
 		b.handleRecv(proc, bb, op)
-	case token.NOT:
+	case token.NOT, token.XOR:
 		value := b.signalForValue(op.X)
 		if value == nil {
+			typ := signalType(op.Type())
+			zero := b.newConstSignal(0, typ, op.Pos())
+			b.bindResolvedValue(bb, op, zero)
+			b.reporter.Warning(op.Pos(), fmt.Sprintf("unary op %s has unresolved operand %T; using zero value fallback", op.Op.String(), op.X))
 			return
 		}
 		dest := b.ensureValueSignal(op)
@@ -417,9 +450,59 @@ func (b *builder) handleUnOp(proc *Process, bb *BasicBlock, op *ssa.UnOp) {
 			Dest:  dest,
 			Value: value,
 		})
+	case token.SUB:
+		value := b.signalForValue(op.X)
+		if value == nil {
+			typ := signalType(op.Type())
+			zero := b.newConstSignal(0, typ, op.Pos())
+			b.bindResolvedValue(bb, op, zero)
+			b.reporter.Warning(op.Pos(), fmt.Sprintf("unary op %s has unresolved operand %T; using zero value fallback", op.Op.String(), op.X))
+			return
+		}
+		dest := b.ensureValueSignal(op)
+		dest.Type = signalType(op.Type())
+		zero := b.newConstSignal(0, dest.Type, op.Pos())
+		bb.Ops = append(bb.Ops, &BinOperation{
+			Op:    Sub,
+			Dest:  dest,
+			Left:  zero,
+			Right: value,
+		})
+	case token.ADD:
+		if value := b.signalForValue(op.X); value != nil {
+			b.bindResolvedValue(bb, op, value)
+			return
+		}
+		typ := signalType(op.Type())
+		zero := b.newConstSignal(0, typ, op.Pos())
+		b.bindResolvedValue(bb, op, zero)
+		b.reporter.Warning(op.Pos(), fmt.Sprintf("unary op %s has unresolved operand %T; using zero value fallback", op.Op.String(), op.X))
 	default:
-		// TODO: support unary negation and bitwise complement as needed.
+		typ := signalType(op.Type())
+		zero := b.newConstSignal(0, typ, op.Pos())
+		b.bindResolvedValue(bb, op, zero)
+		b.reporter.Warning(op.Pos(), fmt.Sprintf("unsupported unary op: %s; using zero value fallback", op.Op.String()))
 	}
+}
+
+func (b *builder) bindResolvedValue(bb *BasicBlock, value ssa.Value, resolved *Signal) *Signal {
+	if value == nil || resolved == nil {
+		return nil
+	}
+	if current, ok := b.signals[value]; ok && current != nil {
+		if current == resolved {
+			return current
+		}
+		if bb != nil {
+			bb.Ops = append(bb.Ops, &AssignOperation{
+				Dest:  current,
+				Value: resolved,
+			})
+			return current
+		}
+	}
+	b.signals[value] = resolved
+	return resolved
 }
 
 func (b *builder) tryLowerPhiToMux(block *ssa.BasicBlock, incomings []PhiIncoming, dest *Signal) *MuxOperation {
@@ -478,6 +561,9 @@ func (b *builder) translateInstr(proc *Process, bb *BasicBlock, instr ssa.Instru
 	case *ssa.Alloc:
 		b.handleAlloc(v)
 	case *ssa.Store:
+		if b.lowerIndexedStore(bb, v) {
+			return
+		}
 		dest := b.signalForValue(v.Addr)
 		val := b.signalForValue(v.Val)
 		if dest == nil || val == nil {
@@ -489,21 +575,9 @@ func (b *builder) translateInstr(proc *Process, bb *BasicBlock, instr ssa.Instru
 	case *ssa.UnOp:
 		b.handleUnOp(proc, bb, v)
 	case *ssa.Convert:
-		source := b.signalForValue(v.X)
-		if source == nil {
-			return
-		}
-		dest := b.ensureValueSignal(v)
-		dest.Type = signalType(v.Type())
-		bb.Ops = append(bb.Ops, &ConvertOperation{
-			Dest:  dest,
-			Value: source,
-		})
+		b.lowerTypeChange(bb, v, v.X, v.Type())
 	case *ssa.ChangeType:
-		source := b.signalForValue(v.X)
-		if source != nil {
-			b.signals[v] = source
-		}
+		b.lowerTypeChange(bb, v, v.X, v.Type())
 	case *ssa.MakeChan:
 		b.handleMakeChan(v)
 	case *ssa.Send:
@@ -728,7 +802,231 @@ func (b *builder) buildConstSignal(c *ssa.Const) *Signal {
 	return sig
 }
 
+func (b *builder) signalForIndexAddr(addr *ssa.IndexAddr) *Signal {
+	if addr == nil {
+		return nil
+	}
+	state := b.indexedStateForBase(addr.X, addr.Pos())
+	if state == nil {
+		return nil
+	}
+	idx, ok := constIndexValue(addr.Index)
+	if !ok {
+		return nil
+	}
+	return b.indexedElementSignal(state, idx, addr.Pos())
+}
+
+func (b *builder) lowerIndexedLoad(bb *BasicBlock, load *ssa.UnOp, addr *ssa.IndexAddr) bool {
+	if bb == nil || load == nil || addr == nil {
+		return false
+	}
+	state := b.indexedStateForBase(addr.X, load.Pos())
+	if state == nil {
+		return false
+	}
+	if idx, ok := constIndexValue(addr.Index); ok {
+		elem := b.indexedElementSignal(state, idx, load.Pos())
+		if elem == nil {
+			return false
+		}
+		b.signals[load] = elem
+		return true
+	}
+	index := b.signalForValue(addr.Index)
+	if index == nil || state.length <= 0 {
+		return false
+	}
+	selected := b.selectIndexedElement(bb, state, index, load.Pos())
+	if selected == nil {
+		return false
+	}
+	b.signals[load] = selected
+	return true
+}
+
+func (b *builder) lowerIndexedStore(bb *BasicBlock, store *ssa.Store) bool {
+	if bb == nil || store == nil {
+		return false
+	}
+	addr, ok := store.Addr.(*ssa.IndexAddr)
+	if !ok {
+		return false
+	}
+	state := b.indexedStateForBase(addr.X, store.Pos())
+	if state == nil {
+		return false
+	}
+	value := b.signalForValue(store.Val)
+	if value == nil {
+		return false
+	}
+	if idx, ok := constIndexValue(addr.Index); ok {
+		dest := b.indexedElementSignal(state, idx, store.Pos())
+		if dest == nil {
+			return false
+		}
+		state.elements[idx] = value
+		return true
+	}
+	index := b.signalForValue(addr.Index)
+	if index == nil || state.length <= 0 {
+		return false
+	}
+	indexType := index.Type
+	if indexType == nil {
+		indexType = signalType(addr.Index.Type())
+	}
+	for i := 0; i < state.length; i++ {
+		element := b.indexedElementSignal(state, i, store.Pos())
+		if element == nil {
+			continue
+		}
+		cond := b.newAnonymousSignal("idxeq", &SignalType{Width: 1, Signed: false}, store.Pos())
+		bb.Ops = append(bb.Ops, &CompareOperation{
+			Predicate: CompareEQ,
+			Dest:      cond,
+			Left:      index,
+			Right:     b.newConstSignal(int64(i), indexType, store.Pos()),
+		})
+		next := b.newAnonymousSignal("idxstore", element.Type, store.Pos())
+		bb.Ops = append(bb.Ops, &MuxOperation{
+			Dest:       next,
+			Cond:       cond,
+			TrueValue:  value,
+			FalseValue: element,
+		})
+		state.elements[i] = next
+	}
+	return true
+}
+
+func (b *builder) selectIndexedElement(bb *BasicBlock, state *indexedBaseState, index *Signal, pos token.Pos) *Signal {
+	if bb == nil || state == nil || index == nil || state.length <= 0 {
+		return nil
+	}
+	selected := b.indexedElementSignal(state, 0, pos)
+	if selected == nil {
+		return nil
+	}
+	indexType := index.Type
+	if indexType == nil {
+		indexType = &SignalType{Width: 32, Signed: true}
+	}
+	for i := 1; i < state.length; i++ {
+		elem := b.indexedElementSignal(state, i, pos)
+		if elem == nil {
+			continue
+		}
+		cond := b.newAnonymousSignal("idxeq", &SignalType{Width: 1, Signed: false}, pos)
+		bb.Ops = append(bb.Ops, &CompareOperation{
+			Predicate: CompareEQ,
+			Dest:      cond,
+			Left:      index,
+			Right:     b.newConstSignal(int64(i), indexType, pos),
+		})
+		next := b.newAnonymousSignal("idxload", state.elemType, pos)
+		bb.Ops = append(bb.Ops, &MuxOperation{
+			Dest:       next,
+			Cond:       cond,
+			TrueValue:  elem,
+			FalseValue: selected,
+		})
+		selected = next
+	}
+	return selected
+}
+
+func (b *builder) indexedStateForBase(base ssa.Value, pos token.Pos) *indexedBaseState {
+	base = unwrapIndexedBase(base)
+	if base == nil {
+		return nil
+	}
+	if state, ok := b.indexedBases[base]; ok {
+		return state
+	}
+	elemType, length, ok := indexedElementInfo(base.Type())
+	if !ok {
+		return nil
+	}
+	state := &indexedBaseState{
+		elemType: signalType(elemType),
+		length:   length,
+		elements: make(map[int]*Signal),
+	}
+	if state.elemType == nil {
+		state.elemType = &SignalType{Width: 32, Signed: true}
+	}
+	_ = pos
+	b.indexedBases[base] = state
+	return state
+}
+
+func (b *builder) indexedElementSignal(state *indexedBaseState, idx int, pos token.Pos) *Signal {
+	if state == nil || idx < 0 {
+		return nil
+	}
+	if state.length >= 0 && idx >= state.length {
+		return nil
+	}
+	if sig, ok := state.elements[idx]; ok {
+		return sig
+	}
+	sig := b.newConstSignal(0, state.elemType, pos)
+	state.elements[idx] = sig
+	return sig
+}
+
+func unwrapIndexedBase(v ssa.Value) ssa.Value {
+	for v != nil {
+		switch val := v.(type) {
+		case *ssa.ChangeType:
+			v = val.X
+		case *ssa.Convert:
+			v = val.X
+		default:
+			return v
+		}
+	}
+	return nil
+}
+
+func indexedElementInfo(t types.Type) (types.Type, int, bool) {
+	if t == nil {
+		return nil, 0, false
+	}
+	switch tt := t.Underlying().(type) {
+	case *types.Pointer:
+		switch elem := tt.Elem().Underlying().(type) {
+		case *types.Array:
+			return elem.Elem(), int(elem.Len()), true
+		case *types.Slice:
+			return elem.Elem(), -1, true
+		}
+	case *types.Array:
+		return tt.Elem(), int(tt.Len()), true
+	case *types.Slice:
+		return tt.Elem(), -1, true
+	}
+	return nil, 0, false
+}
+
+func constIndexValue(v ssa.Value) (int, bool) {
+	c, ok := v.(*ssa.Const)
+	if !ok || c == nil || c.Value == nil {
+		return 0, false
+	}
+	raw, ok := constant.Int64Val(c.Value)
+	if !ok || raw < 0 {
+		return 0, false
+	}
+	return int(raw), true
+}
+
 func (b *builder) signalForValue(v ssa.Value) *Signal {
+	if v == nil {
+		return nil
+	}
 	if sig, ok := b.signals[v]; ok {
 		return sig
 	}
@@ -739,20 +1037,44 @@ func (b *builder) signalForValue(v ssa.Value) *Signal {
 		return sig
 	case *ssa.BinOp:
 		return b.ensureValueSignal(val)
+	case *ssa.UnOp:
+		return b.ensureValueSignal(val)
+	case *ssa.Convert:
+		return b.ensureValueSignal(val)
 	case *ssa.ChangeType:
-		if src := b.signalForValue(val.X); src != nil {
-			b.signals[v] = src
-			return src
-		}
+		return b.signalForValue(val.X)
 	case *ssa.Phi:
 		return b.ensureValueSignal(val)
-	case *ssa.IndexAddr, *ssa.MakeInterface, *ssa.Slice, *ssa.MakeChan:
+	case *ssa.IndexAddr:
+		return b.signalForIndexAddr(val)
+	case *ssa.MakeInterface, *ssa.Slice, *ssa.MakeChan:
 		return nil
 	case *ssa.Call:
 		return nil
 	}
 	b.reporter.Warning(v.Pos(), fmt.Sprintf("no signal mapping for value %T", v))
 	return nil
+}
+
+func (b *builder) lowerTypeChange(bb *BasicBlock, destVal ssa.Value, srcVal ssa.Value, dstType types.Type) {
+	if bb == nil || destVal == nil || srcVal == nil {
+		return
+	}
+	source := b.signalForValue(srcVal)
+	if source == nil {
+		return
+	}
+	destSignalType := signalType(dstType)
+	if source.Type != nil && source.Type.Equal(destSignalType) {
+		b.signals[destVal] = source
+		return
+	}
+	dest := b.ensureValueSignal(destVal)
+	dest.Type = destSignalType
+	bb.Ops = append(bb.Ops, &ConvertOperation{
+		Dest:  dest,
+		Value: source,
+	})
 }
 
 func (b *builder) channelForValue(v ssa.Value) *Channel {
@@ -814,9 +1136,19 @@ func (b *builder) handleFmtPrint(proc *Process, bb *BasicBlock, call *ssa.Call) 
 		}
 		segments, err = b.buildPrintfSegments(format, argValues)
 	case "Println":
-		segments, err = b.buildPrintSegments(call.Call.Args, true)
+		argValues, argErr := b.expandCallArgs(call.Call.Args)
+		if argErr != nil {
+			err = argErr
+			break
+		}
+		segments, err = b.buildPrintSegments(argValues, true)
 	case "Print":
-		segments, err = b.buildPrintSegments(call.Call.Args, false)
+		argValues, argErr := b.expandCallArgs(call.Call.Args)
+		if argErr != nil {
+			err = argErr
+			break
+		}
+		segments, err = b.buildPrintSegments(argValues, false)
 	default:
 		return false
 	}
@@ -1143,6 +1475,10 @@ func widthForBasic(b *types.Basic) (int, bool) {
 		return 64, true
 	case types.Uint64:
 		return 64, false
+	case types.Float32:
+		return 32, false
+	case types.Float64:
+		return 64, false
 	case types.Bool:
 		return 1, false
 	default:
@@ -1239,6 +1575,23 @@ func (b *builder) newAnonymousSignal(prefix string, typ *SignalType, pos token.P
 	}
 	if b.module != nil {
 		b.module.Signals[name] = sig
+	}
+	return sig
+}
+
+func (b *builder) newConstSignal(value interface{}, typ *SignalType, pos token.Pos) *Signal {
+	sig := &Signal{
+		Name:   b.newConstName(),
+		Type:   typ.Clone(),
+		Kind:   Const,
+		Source: pos,
+		Value:  value,
+	}
+	if sig.Type == nil {
+		sig.Type = &SignalType{}
+	}
+	if b.module != nil {
+		b.module.Signals[sig.Name] = sig
 	}
 	return sig
 }
