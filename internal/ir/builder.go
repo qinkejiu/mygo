@@ -28,7 +28,9 @@ func BuildDesign(prog *ssa.Program, reporter *diag.Reporter) (*Design, error) {
 	builder := &builder{
 		reporter:             reporter,
 		signals:              make(map[ssa.Value]*Signal),
+		tupleSignals:         make(map[ssa.Value][]*Signal),
 		indexedBases:         make(map[ssa.Value]*indexedBaseState),
+		globalValues:         make(map[*ssa.Global]*Signal),
 		processes:            make(map[*ssa.Function]*Process),
 		channels:             make(map[ssa.Value]*Channel),
 		paramSignals:         make(map[*ssa.Parameter]*Signal),
@@ -58,7 +60,9 @@ type builder struct {
 	reporter             *diag.Reporter
 	module               *Module
 	signals              map[ssa.Value]*Signal
+	tupleSignals         map[ssa.Value][]*Signal
 	indexedBases         map[ssa.Value]*indexedBaseState
+	globalValues         map[*ssa.Global]*Signal
 	processes            map[*ssa.Function]*Process
 	channels             map[ssa.Value]*Channel
 	paramSignals         map[*ssa.Parameter]*Signal
@@ -85,6 +89,7 @@ func (b *builder) buildModule(fn *ssa.Function) *Module {
 		Source:   fn.Pos(),
 	}
 	b.module = mod
+	b.bootstrapGlobalInitializers(fn.Pkg)
 	entry := b.buildProcess(fn)
 	if entry != nil && entry.Stage < 0 {
 		entry.Stage = 0
@@ -354,8 +359,8 @@ func (b *builder) handleBinOp(bb *BasicBlock, op *ssa.BinOp) {
 	if bb == nil || op == nil {
 		return
 	}
-	left := b.signalForValue(op.X)
-	right := b.signalForValue(op.Y)
+	left := b.signalForBinOperand(bb, op.X)
+	right := b.signalForBinOperand(bb, op.Y)
 	if left == nil || right == nil {
 		typ := signalType(op.Type())
 		if typ == nil {
@@ -407,6 +412,18 @@ func (b *builder) handleBinOp(bb *BasicBlock, op *ssa.BinOp) {
 		Left:  left,
 		Right: right,
 	})
+}
+
+func (b *builder) signalForBinOperand(bb *BasicBlock, v ssa.Value) *Signal {
+	sig := b.signalForValue(v)
+	if sig != nil {
+		return sig
+	}
+	addr, ok := v.(*ssa.IndexAddr)
+	if !ok {
+		return nil
+	}
+	return b.signalForIndexAddrInBlock(bb, addr)
 }
 
 func (b *builder) handleUnOp(proc *Process, bb *BasicBlock, op *ssa.UnOp) {
@@ -588,10 +605,13 @@ func (b *builder) translateInstr(proc *Process, bb *BasicBlock, instr ssa.Instru
 		if b.handleFmtPrint(proc, bb, v) {
 			return
 		}
+		b.handleCall(bb, v)
 	case *ssa.Go:
 		b.handleGo(proc, bb, v)
 	case *ssa.IndexAddr:
 		// Used for fmt.Printf variadic handling – ignore for now.
+	case *ssa.Extract:
+		// Extract values are resolved lazily through signalForValue.
 	case *ssa.MakeInterface:
 		// Interfaces only appear for fmt.Printf arguments – ignore.
 	case *ssa.Slice:
@@ -815,6 +835,32 @@ func (b *builder) signalForIndexAddr(addr *ssa.IndexAddr) *Signal {
 		return nil
 	}
 	return b.indexedElementSignal(state, idx, addr.Pos())
+}
+
+func (b *builder) signalForIndexAddrInBlock(bb *BasicBlock, addr *ssa.IndexAddr) *Signal {
+	if addr == nil {
+		return nil
+	}
+	if sig := b.signalForIndexAddr(addr); sig != nil {
+		return sig
+	}
+	if bb == nil {
+		return nil
+	}
+	state := b.indexedStateForBase(addr.X, addr.Pos())
+	if state == nil || state.length <= 0 {
+		return nil
+	}
+	index := b.signalForValue(addr.Index)
+	if index == nil {
+		return nil
+	}
+	selected := b.selectIndexedElement(bb, state, index, addr.Pos())
+	if selected == nil {
+		return nil
+	}
+	b.signals[addr] = selected
+	return selected
 }
 
 func (b *builder) lowerIndexedLoad(bb *BasicBlock, load *ssa.UnOp, addr *ssa.IndexAddr) bool {
@@ -1046,7 +1092,19 @@ func (b *builder) signalForValue(v ssa.Value) *Signal {
 	case *ssa.Phi:
 		return b.ensureValueSignal(val)
 	case *ssa.IndexAddr:
-		return b.signalForIndexAddr(val)
+		if sig := b.signalForIndexAddr(val); sig != nil {
+			return sig
+		}
+		// Dynamic index addresses require a basic-block context to emit the
+		// element-selection mux tree, so defer those to call sites that have one.
+		return nil
+	case *ssa.Extract:
+		if tuple, ok := b.tupleSignals[val.Tuple]; ok && val.Index >= 0 && val.Index < len(tuple) {
+			return tuple[val.Index]
+		}
+		return nil
+	case *ssa.Global:
+		return b.signalForGlobal(val)
 	case *ssa.MakeInterface, *ssa.Slice, *ssa.MakeChan:
 		return nil
 	case *ssa.Call:
@@ -1190,8 +1248,11 @@ func (b *builder) buildPrintfSegments(format string, args []ssa.Value) ([]PrintS
 		if i >= len(format) {
 			return nil, fmt.Errorf("trailing %% in format string")
 		}
-		verbChar := format[i]
-		i++
+		verbChar, width, zeroPad, next, parseErr := parsePrintfSpecifier(format, i)
+		if parseErr != nil {
+			return nil, parseErr
+		}
+		i = next
 		flushLiteral()
 		if argIndex >= len(args) {
 			return nil, fmt.Errorf("not enough arguments for format")
@@ -1214,13 +1275,39 @@ func (b *builder) buildPrintfSegments(format string, args []ssa.Value) ([]PrintS
 		default:
 			return nil, fmt.Errorf("unsupported verb %%%c", verbChar)
 		}
-		segments = append(segments, PrintSegment{Value: sig, Verb: verb})
+		segments = append(segments, PrintSegment{
+			Value:   sig,
+			Verb:    verb,
+			Width:   width,
+			ZeroPad: zeroPad,
+		})
 	}
 	flushLiteral()
 	if argIndex != len(args) {
 		return nil, fmt.Errorf("too many arguments for format")
 	}
 	return segments, nil
+}
+
+func parsePrintfSpecifier(format string, start int) (verb byte, width int, zeroPad bool, next int, err error) {
+	i := start
+	if i < len(format) && format[i] == '0' {
+		zeroPad = true
+		i++
+	}
+	for i < len(format) && format[i] >= '0' && format[i] <= '9' {
+		width = width*10 + int(format[i]-'0')
+		i++
+	}
+	if i >= len(format) {
+		return 0, 0, false, 0, fmt.Errorf("trailing %% in format string")
+	}
+	verb = format[i]
+	i++
+	if width == 0 {
+		zeroPad = false
+	}
+	return verb, width, zeroPad, i, nil
 }
 
 func (b *builder) buildPrintSegments(args []ssa.Value, newline bool) ([]PrintSegment, error) {

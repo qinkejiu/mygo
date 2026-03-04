@@ -1662,8 +1662,9 @@ func (p *processPrinter) emitOperation(block *ir.BasicBlock, op ir.Operation, pr
 	case *ir.NotOperation:
 		value := p.valueRef(o.Value)
 		dest := p.bindSSA(o.Dest)
+		ones := p.typedAllOnesConst(o.Value.Type)
 		p.printIndent()
-		fmt.Fprintf(p.w, "%s = comb.not %s : %s\n", dest, value, typeString(o.Value.Type))
+		fmt.Fprintf(p.w, "%s = comb.xor %s, %s : %s\n", dest, value, ones, typeString(o.Value.Type))
 	case *ir.MuxOperation:
 		cond := p.valueRef(o.Cond)
 		tVal := p.valueRef(o.TrueValue)
@@ -1829,6 +1830,16 @@ func (p *processPrinter) typedZeroConst(t *ir.SignalType) string {
 	return name
 }
 
+func (p *processPrinter) typedAllOnesConst(t *ir.SignalType) string {
+	if signalWidth(t) == 1 {
+		return p.boolConst(true)
+	}
+	name := p.freshValueName("c_ones")
+	p.printIndent()
+	fmt.Fprintf(p.w, "%s = hw.constant -1 : %s\n", name, typeString(t))
+	return name
+}
+
 func (p *processPrinter) orSignals(signals []string) string {
 	filtered := make([]string, 0, len(signals))
 	for _, sig := range signals {
@@ -1903,13 +1914,14 @@ func (p *processPrinter) emitConvertOperation(o *ir.ConvertOperation) {
 
 	switch {
 	case destWidth == srcWidth:
-		p.printIndent()
-		fmt.Fprintf(p.w, "%s = comb.bitcast %s : %s -> %s\n", dest, src, from, to)
+		// Sign-only reinterpretation: MLIR integer types are signless, so we can
+		// alias the source value directly instead of emitting an explicit bitcast.
+		p.valueNames[o.Dest] = src
+		return
 	case destWidth > srcWidth:
 		extendWidth := destWidth - srcWidth
 		if extendWidth <= 0 {
-			p.printIndent()
-			fmt.Fprintf(p.w, "%s = comb.bitcast %s : %s -> %s\n", dest, src, from, to)
+			p.valueNames[o.Dest] = src
 			return
 		}
 		if o.Value.Type != nil && o.Value.Type.Signed {
@@ -1999,7 +2011,7 @@ func (p *processPrinter) buildPrintfFormat(op *ir.PrintOperation) (string, []str
 		}
 		values = append(values, p.valueRef(seg.Value))
 		types = append(types, typeString(seg.Value.Type))
-		builder.WriteString(printVerbSpecifier(seg.Verb))
+		builder.WriteString(printVerbSpecifier(seg))
 	}
 	return builder.String(), values, types
 }
@@ -2008,15 +2020,24 @@ func escapePercent(text string) string {
 	return strings.ReplaceAll(text, "%", "%%")
 }
 
-func printVerbSpecifier(verb ir.PrintVerb) string {
-	switch verb {
-	case ir.PrintVerbHex:
-		return "%x"
-	case ir.PrintVerbBin:
-		return "%b"
-	default:
-		return "%d"
+func printVerbSpecifier(seg ir.PrintSegment) string {
+	var builder strings.Builder
+	builder.WriteByte('%')
+	if seg.ZeroPad && seg.Width > 0 {
+		builder.WriteByte('0')
 	}
+	if seg.Width > 0 {
+		builder.WriteString(strconv.Itoa(seg.Width))
+	}
+	switch seg.Verb {
+	case ir.PrintVerbHex:
+		builder.WriteByte('x')
+	case ir.PrintVerbBin:
+		builder.WriteByte('b')
+	default:
+		builder.WriteByte('d')
+	}
+	return builder.String()
 }
 
 func (p *processPrinter) stdoutConstant() string {

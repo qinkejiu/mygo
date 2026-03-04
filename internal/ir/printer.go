@@ -126,14 +126,7 @@ func renderOp(op Operation) string {
 				parts = append(parts, fmt.Sprintf("%q", seg.Text))
 				continue
 			}
-			verb := "%d"
-			switch seg.Verb {
-			case PrintVerbHex:
-				verb = "%x"
-			case PrintVerbBin:
-				verb = "%b"
-			}
-			parts = append(parts, fmt.Sprintf(verb, signalName(seg.Value)))
+			parts = append(parts, fmt.Sprintf("%s(%s)", printVerbSpecifier(seg), signalName(seg.Value)))
 		}
 		return fmt.Sprintf("print %s", strings.Join(parts, ""))
 	case *SendOperation:
@@ -166,6 +159,26 @@ func renderOp(op Operation) string {
 	default:
 		return fmt.Sprintf("<unknown op %T>", op)
 	}
+}
+
+func printVerbSpecifier(seg PrintSegment) string {
+	var builder strings.Builder
+	builder.WriteByte('%')
+	if seg.ZeroPad && seg.Width > 0 {
+		builder.WriteByte('0')
+	}
+	if seg.Width > 0 {
+		builder.WriteString(fmt.Sprintf("%d", seg.Width))
+	}
+	switch seg.Verb {
+	case PrintVerbHex:
+		builder.WriteByte('x')
+	case PrintVerbBin:
+		builder.WriteByte('b')
+	default:
+		builder.WriteByte('d')
+	}
+	return builder.String()
 }
 
 func renderTerminator(term Terminator) string {

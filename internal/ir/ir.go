@@ -371,9 +371,11 @@ const (
 
 // PrintSegment represents either a literal chunk or a formatted value.
 type PrintSegment struct {
-	Text  string
-	Value *Signal
-	Verb  PrintVerb
+	Text    string
+	Value   *Signal
+	Verb    PrintVerb
+	Width   int
+	ZeroPad bool
 }
 
 // PrintOperation emits formatted text to the simulator console.
