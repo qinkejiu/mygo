@@ -583,6 +583,11 @@ func collectProcessSignals(proc *ir.Process) map[*ir.Signal]struct{} {
 				for _, seg := range o.Segments {
 					add(seg.Value)
 				}
+			case *ir.CallOperation:
+				for _, arg := range o.Args {
+					add(arg)
+				}
+				add(o.Dest)
 			case *ir.SpawnOperation:
 				for _, arg := range o.Args {
 					add(arg)
@@ -1690,6 +1695,8 @@ func (p *processPrinter) emitOperation(block *ir.BasicBlock, op ir.Operation, pr
 			return
 		}
 		p.emitPrintOperation(o)
+	case *ir.CallOperation:
+		p.emitCallOperation(o)
 	default:
 		// skip unknown operations
 	}
@@ -1970,6 +1977,35 @@ func (p *processPrinter) emitConvertOperation(o *ir.ConvertOperation) {
 			to,
 		)
 	}
+}
+
+func (p *processPrinter) emitCallOperation(op *ir.CallOperation) {
+	if op == nil || strings.TrimSpace(op.Callee) == "" {
+		return
+	}
+	args := make([]string, 0, len(op.Args))
+	argTypes := make([]string, 0, len(op.Args))
+	for _, arg := range op.Args {
+		if arg == nil {
+			continue
+		}
+		args = append(args, p.valueRef(arg))
+		argTypes = append(argTypes, typeString(arg.Type))
+	}
+
+	callee := sanitize(op.Callee)
+	p.printIndent()
+	fmt.Fprintf(p.w, "// unsupported call @%s(%s) : (%s)\n",
+		callee,
+		strings.Join(args, ", "),
+		strings.Join(argTypes, ", "),
+	)
+	if op.Dest == nil {
+		return
+	}
+	result := p.bindSSA(op.Dest)
+	p.printIndent()
+	fmt.Fprintf(p.w, "%s = hw.constant 0 : %s\n", result, typeString(op.Dest.Type))
 }
 
 func (p *processPrinter) emitPrintOperation(op *ir.PrintOperation) {

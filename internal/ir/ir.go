@@ -401,6 +401,15 @@ type RecvOperation struct {
 
 func (RecvOperation) isOperation() {}
 
+// CallOperation represents a non-inlined function call.
+type CallOperation struct {
+	Callee string
+	Args   []*Signal
+	Dest   *Signal
+}
+
+func (CallOperation) isOperation() {}
+
 // SpawnOperation represents a goroutine launch.
 type SpawnOperation struct {
 	Callee   *Process

@@ -133,6 +133,15 @@ func renderOp(op Operation) string {
 		return fmt.Sprintf("send %s <- %s", o.Channel.Name, o.Value.Name)
 	case *RecvOperation:
 		return fmt.Sprintf("%s <- %s", o.Dest.Name, o.Channel.Name)
+	case *CallOperation:
+		args := make([]string, 0, len(o.Args))
+		for _, arg := range o.Args {
+			args = append(args, signalName(arg))
+		}
+		if o.Dest != nil {
+			return fmt.Sprintf("%s := call %s(%s)", o.Dest.Name, o.Callee, strings.Join(args, ", "))
+		}
+		return fmt.Sprintf("call %s(%s)", o.Callee, strings.Join(args, ", "))
 	case *SpawnOperation:
 		argNames := make([]string, 0, len(o.Args))
 		for _, arg := range o.Args {

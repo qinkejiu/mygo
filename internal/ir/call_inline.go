@@ -398,26 +398,41 @@ func (b *builder) handleCall(bb *BasicBlock, call *ssa.Call) {
 		args = append(args, sig)
 	}
 	results, ok := b.inlineCall(bb, callee, args, make(map[*ssa.Function]struct{}), 0)
-	if !ok {
-		if resultCount > 0 {
-			b.reporter.Warning(call.Pos(), fmt.Sprintf("call result for %s is not supported", callee.String()))
+	if ok {
+		if resultCount == 0 {
+			return
 		}
+		if len(results) != resultCount {
+			b.reporter.Warning(call.Pos(), fmt.Sprintf("call %s produced %d results, expected %d", callee.String(), len(results), resultCount))
+			return
+		}
+		if resultCount == 1 {
+			b.bindResolvedValue(bb, call, results[0])
+			return
+		}
+		copied := make([]*Signal, len(results))
+		copy(copied, results)
+		b.tupleSignals[call] = copied
 		return
 	}
-	if resultCount == 0 {
+
+	// Fallback to explicit call lowering when inlining is unavailable.
+	if resultCount > 1 {
+		b.reporter.Warning(call.Pos(), fmt.Sprintf("multi-result call for %s is not supported", callee.String()))
 		return
 	}
-	if len(results) != resultCount {
-		b.reporter.Warning(call.Pos(), fmt.Sprintf("call %s produced %d results, expected %d", callee.String(), len(results), resultCount))
-		return
+
+	callOp := &CallOperation{
+		Callee: callee.String(),
+		Args:   args,
 	}
 	if resultCount == 1 {
-		b.bindResolvedValue(bb, call, results[0])
-		return
+		dest := b.ensureValueSignal(call)
+		dest.Type = signalType(call.Type())
+		callOp.Dest = dest
+		b.signals[call] = dest
 	}
-	copied := make([]*Signal, len(results))
-	copy(copied, results)
-	b.tupleSignals[call] = copied
+	bb.Ops = append(bb.Ops, callOp)
 }
 
 func (b *builder) inlineCall(bb *BasicBlock, callee *ssa.Function, args []*Signal, stack map[*ssa.Function]struct{}, depth int) ([]*Signal, bool) {
