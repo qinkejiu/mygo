@@ -15,6 +15,15 @@ func TestEmitVerilogRunsExportVerilog(t *testing.T) {
 	tmp := t.TempDir()
 
 	opt := touchFakeBinary(t, tmp)
+	stubRunPipeline(t, func(binary, pipeline, inputPath, outputPath string) error {
+		if binary != opt {
+			return fmt.Errorf("unexpected binary %s", binary)
+		}
+		if pipeline != defaultVerilogPassPipeline {
+			return fmt.Errorf("expected default pipeline %s, got %s", defaultVerilogPassPipeline, pipeline)
+		}
+		return copyFile(inputPath, outputPath)
+	})
 	stubRunExport(t, func(binary, pipeline, loweringOptions, inputPath, mlirOutputPath, verilogOutputPath string) error {
 		if binary != opt {
 			return fmt.Errorf("unexpected binary %s", binary)
@@ -146,6 +155,12 @@ func TestEmitVerilogInlinesGeneratedFIFO(t *testing.T) {
 	design := testDesignWithChannel()
 	tmp := t.TempDir()
 	opt := touchFakeBinary(t, tmp)
+	stubRunPipeline(t, func(binary, pipeline, inputPath, outputPath string) error {
+		if pipeline != defaultVerilogPassPipeline {
+			return fmt.Errorf("expected default pipeline %s, got %s", defaultVerilogPassPipeline, pipeline)
+		}
+		return copyFile(inputPath, outputPath)
+	})
 	stubRunExport(t, func(binary, pipeline, loweringOptions, inputPath, mlirOutputPath, verilogOutputPath string) error {
 		if err := copyFile(inputPath, mlirOutputPath); err != nil {
 			return err
@@ -183,6 +198,12 @@ func TestEmitVerilogReplacesAnnotatedFifoStubs(t *testing.T) {
 	design := testDesignWithChannel()
 	tmp := t.TempDir()
 	opt := touchFakeBinary(t, tmp)
+	stubRunPipeline(t, func(binary, pipeline, inputPath, outputPath string) error {
+		if pipeline != defaultVerilogPassPipeline {
+			return fmt.Errorf("expected default pipeline %s, got %s", defaultVerilogPassPipeline, pipeline)
+		}
+		return copyFile(inputPath, outputPath)
+	})
 	stubRunExport(t, func(binary, pipeline, loweringOptions, inputPath, mlirOutputPath, verilogOutputPath string) error {
 		if err := copyFile(inputPath, mlirOutputPath); err != nil {
 			return err
@@ -239,6 +260,12 @@ func TestEmitVerilogGeneratesLoopFSMFallback(t *testing.T) {
 	design := testDesignWithDynamicLoopProcess()
 	tmp := t.TempDir()
 	opt := touchFakeBinary(t, tmp)
+	stubRunPipeline(t, func(binary, pipeline, inputPath, outputPath string) error {
+		if pipeline != defaultVerilogPassPipeline {
+			return fmt.Errorf("expected default pipeline %s, got %s", defaultVerilogPassPipeline, pipeline)
+		}
+		return copyFile(inputPath, outputPath)
+	})
 	stubRunExport(t, func(binary, pipeline, loweringOptions, inputPath, mlirOutputPath, verilogOutputPath string) error {
 		if err := copyFile(inputPath, mlirOutputPath); err != nil {
 			return err
@@ -293,6 +320,12 @@ func TestEmitVerilogSkipsLoopFSMFallbackWhenFSMAlreadyPresent(t *testing.T) {
 	design := testDesignWithDynamicLoopProcess()
 	tmp := t.TempDir()
 	opt := touchFakeBinary(t, tmp)
+	stubRunPipeline(t, func(binary, pipeline, inputPath, outputPath string) error {
+		if pipeline != defaultVerilogPassPipeline {
+			return fmt.Errorf("expected default pipeline %s, got %s", defaultVerilogPassPipeline, pipeline)
+		}
+		return copyFile(inputPath, outputPath)
+	})
 	stubRunExport(t, func(binary, pipeline, loweringOptions, inputPath, mlirOutputPath, verilogOutputPath string) error {
 		if err := copyFile(inputPath, mlirOutputPath); err != nil {
 			return err

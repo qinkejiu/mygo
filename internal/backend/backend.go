@@ -18,6 +18,8 @@ var (
 	runExport   = runCirctExportVerilog
 )
 
+const defaultVerilogPassPipeline = "builtin.module(lower-seq-to-sv,hw.module(lower-hw-to-sv))"
+
 // Options configures how the CIRCT backend is invoked.
 type Options struct {
 	// CIRCTOptPath optionally overrides the circt-opt binary. When empty the
@@ -78,10 +80,18 @@ func EmitVerilog(design *ir.Design, outputPath string, opts Options) (Result, er
 		return Result{}, fmt.Errorf("backend: emit mlir: %w", err)
 	}
 
+	passPipeline := strings.TrimSpace(opts.PassPipeline)
+	if passPipeline == "" {
+		// Default lowering is required because the emitter produces seq ops
+		// (for example seq.to_clock/seq.compreg) that cannot be exported
+		// directly to Verilog without seq/hw to sv conversion.
+		passPipeline = defaultVerilogPassPipeline
+	}
+
 	currentInput := mlirPath
-	if opts.PassPipeline != "" {
+	if passPipeline != "" {
 		pipelineOutput := filepath.Join(tempDir, "design.pipeline.mlir")
-		if err := runPipeline(optPath, opts.PassPipeline, currentInput, pipelineOutput); err != nil {
+		if err := runPipeline(optPath, passPipeline, currentInput, pipelineOutput); err != nil {
 			return Result{}, err
 		}
 		currentInput = pipelineOutput
