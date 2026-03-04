@@ -235,6 +235,98 @@ func TestGenerateFIFOVerilogSelectsImplementationStyle(t *testing.T) {
 	}
 }
 
+func TestEmitVerilogGeneratesLoopFSMFallback(t *testing.T) {
+	design := testDesignWithDynamicLoopProcess()
+	tmp := t.TempDir()
+	opt := touchFakeBinary(t, tmp)
+	stubRunExport(t, func(binary, pipeline, loweringOptions, inputPath, mlirOutputPath, verilogOutputPath string) error {
+		if err := copyFile(inputPath, mlirOutputPath); err != nil {
+			return err
+		}
+		const verilog = `module main(
+  input clk,
+        rst
+);
+endmodule
+
+module main__proc_worker(
+  input clk,
+        rst
+);
+endmodule
+`
+		return os.WriteFile(verilogOutputPath, []byte(verilog), 0o644)
+	})
+
+	out := filepath.Join(tmp, "fsm.sv")
+	if _, err := EmitVerilog(design, out, Options{CIRCTOptPath: opt}); err != nil {
+		t.Fatalf("EmitVerilog failed: %v", err)
+	}
+
+	data, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatalf("read output: %v", err)
+	}
+	text := string(data)
+	if !strings.Contains(text, "module main__proc_worker__loop0_fsm(") {
+		t.Fatalf("expected loop fsm fallback module in output:\n%s", text)
+	}
+	for _, fragment := range []string{
+		"STATE_CHECK",
+		"STATE_BODY",
+		"STATE_UPDATE",
+		"STATE_EXIT",
+		"if (check_cond)",
+		"next_state = STATE_BODY;",
+		"next_state = STATE_EXIT;",
+		"next_state = STATE_UPDATE;",
+		"next_state = STATE_CHECK;",
+		"(* fsm_encoding = \"sequential\" *)",
+	} {
+		if !strings.Contains(text, fragment) {
+			t.Fatalf("expected fragment %q in fsm fallback output:\n%s", fragment, text)
+		}
+	}
+}
+
+func TestEmitVerilogSkipsLoopFSMFallbackWhenFSMAlreadyPresent(t *testing.T) {
+	design := testDesignWithDynamicLoopProcess()
+	tmp := t.TempDir()
+	opt := touchFakeBinary(t, tmp)
+	stubRunExport(t, func(binary, pipeline, loweringOptions, inputPath, mlirOutputPath, verilogOutputPath string) error {
+		if err := copyFile(inputPath, mlirOutputPath); err != nil {
+			return err
+		}
+		const verilog = `module main__proc_worker(
+  input clk,
+        rst
+);
+  reg [1:0] state_reg0;
+  always @(posedge clk) begin
+    case (state_reg0)
+      2'b00: state_reg0 <= 2'b01;
+      default: state_reg0 <= state_reg0;
+    endcase
+  end
+endmodule
+`
+		return os.WriteFile(verilogOutputPath, []byte(verilog), 0o644)
+	})
+
+	out := filepath.Join(tmp, "fsm_existing.sv")
+	if _, err := EmitVerilog(design, out, Options{CIRCTOptPath: opt}); err != nil {
+		t.Fatalf("EmitVerilog failed: %v", err)
+	}
+	data, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatalf("read output: %v", err)
+	}
+	text := string(data)
+	if strings.Contains(text, "module main__proc_worker__loop0_fsm(") {
+		t.Fatalf("did not expect loop fsm fallback when FSM already exists:\n%s", text)
+	}
+}
+
 func testDesign() *ir.Design {
 	mod := &ir.Module{
 		Name: "main",
@@ -264,6 +356,53 @@ func testDesignWithChannel() *ir.Design {
 		Channels:  map[string]*ir.Channel{"t0": ch},
 		Processes: []*ir.Process{},
 	}
+	return &ir.Design{
+		Modules:  []*ir.Module{mod},
+		TopLevel: mod,
+	}
+}
+
+func testDesignWithDynamicLoopProcess() *ir.Design {
+	cond := &ir.Signal{Name: "loop_cond", Type: &ir.SignalType{Width: 1}, Kind: ir.Wire}
+
+	entry := &ir.BasicBlock{Label: "entry"}
+	check := &ir.BasicBlock{Label: "check"}
+	body := &ir.BasicBlock{Label: "body"}
+	update := &ir.BasicBlock{Label: "update"}
+	exit := &ir.BasicBlock{Label: "exit"}
+
+	entry.Terminator = &ir.JumpTerminator{Target: check}
+	check.Terminator = &ir.BranchTerminator{Cond: cond, True: body, False: exit}
+	body.Terminator = &ir.JumpTerminator{Target: update}
+	update.Terminator = &ir.JumpTerminator{Target: check}
+	exit.Terminator = &ir.ReturnTerminator{}
+
+	entry.Successors = []*ir.BasicBlock{check}
+	check.Predecessors = []*ir.BasicBlock{entry, update}
+	check.Successors = []*ir.BasicBlock{body, exit}
+	body.Predecessors = []*ir.BasicBlock{check}
+	body.Successors = []*ir.BasicBlock{update}
+	update.Predecessors = []*ir.BasicBlock{body}
+	update.Successors = []*ir.BasicBlock{check}
+	exit.Predecessors = []*ir.BasicBlock{check}
+
+	proc := &ir.Process{
+		Name:        "worker",
+		Sensitivity: ir.Sequential,
+		Blocks:      []*ir.BasicBlock{entry, check, body, update, exit},
+	}
+
+	mod := &ir.Module{
+		Name: "main",
+		Ports: []ir.Port{
+			{Name: "clk", Direction: ir.Input, Type: &ir.SignalType{Width: 1}},
+			{Name: "rst", Direction: ir.Input, Type: &ir.SignalType{Width: 1}},
+		},
+		Signals:   map[string]*ir.Signal{"loop_cond": cond},
+		Channels:  map[string]*ir.Channel{},
+		Processes: []*ir.Process{proc},
+	}
+
 	return &ir.Design{
 		Modules:  []*ir.Module{mod},
 		TopLevel: mod,

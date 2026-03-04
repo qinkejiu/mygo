@@ -115,9 +115,22 @@ func (c *checker) checkASTLoops() {
 				if !ok {
 					return true
 				}
-				if !isBoundedFor(forStmt, info) {
-					c.error(forStmt.For, "for loops must have compile-time constant init, condition, and step")
+				if isBoundedFor(forStmt, info) {
+					return true
 				}
+				if isVariableBoundedFor(forStmt, info) {
+					c.warning(forStmt.For, "for loop has variable bound; lowering will use loop FSM generation")
+					return true
+				}
+				if isConditionOnlyFor(forStmt) {
+					c.warning(forStmt.For, "for loop has condition-only control; lowering will use loop FSM generation")
+					return true
+				}
+				if isOpenEndedFor(forStmt) {
+					c.warning(forStmt.For, "for loop is open-ended; lowering will use loop FSM generation")
+					return true
+				}
+				c.error(forStmt.For, "for loops must have analyzable init, condition, and constant step")
 				return true
 			})
 		}
@@ -181,6 +194,12 @@ func (c *checker) error(pos token.Pos, format string, args ...any) {
 	c.errCount++
 	if c.reporter != nil {
 		c.reporter.Error(pos, fmt.Sprintf(format, args...))
+	}
+}
+
+func (c *checker) warning(pos token.Pos, format string, args ...any) {
+	if c.reporter != nil {
+		c.reporter.Warning(pos, fmt.Sprintf(format, args...))
 	}
 }
 
@@ -316,7 +335,29 @@ func isBoundedFor(stmt *ast.ForStmt, info *types.Info) bool {
 	if !ok {
 		return false
 	}
-	_, direction, ok := loopConditionInfo(stmt.Cond, iterName, info)
+	boundExpr, direction, ok := loopConditionExpr(stmt.Cond, iterName)
+	if !ok {
+		return false
+	}
+	if _, ok := constantIntValue(info, boundExpr); !ok {
+		return false
+	}
+	step, ok := loopStepInfo(stmt.Post, iterName, info)
+	if !ok {
+		return false
+	}
+	return stepDirectionMatchesBound(direction, step)
+}
+
+func isVariableBoundedFor(stmt *ast.ForStmt, info *types.Info) bool {
+	if stmt == nil || stmt.Init == nil || stmt.Cond == nil || stmt.Post == nil {
+		return false
+	}
+	iterName, initExpr, ok := loopInitExpr(stmt.Init)
+	if !ok {
+		return false
+	}
+	boundExpr, direction, ok := loopConditionExpr(stmt.Cond, iterName)
 	if !ok {
 		return false
 	}
@@ -324,29 +365,51 @@ func isBoundedFor(stmt *ast.ForStmt, info *types.Info) bool {
 	if !ok {
 		return false
 	}
-	if direction == increasing && step <= 0 {
+	if !stepDirectionMatchesBound(direction, step) {
 		return false
 	}
-	if direction == decreasing && step >= 0 {
+	// Variable init and/or bound are accepted and routed to FSM-based lowering.
+	_, initIsConst := constantIntValue(info, initExpr)
+	_, boundIsConst := constantIntValue(info, boundExpr)
+	return !initIsConst || !boundIsConst
+}
+
+func isConditionOnlyFor(stmt *ast.ForStmt) bool {
+	if stmt == nil {
 		return false
 	}
-	return true
+	return stmt.Init == nil && stmt.Cond != nil && stmt.Post == nil
+}
+
+func isOpenEndedFor(stmt *ast.ForStmt) bool {
+	if stmt == nil {
+		return false
+	}
+	return stmt.Init == nil && stmt.Cond == nil && stmt.Post == nil
 }
 
 func loopInitInfo(stmt ast.Stmt, info *types.Info) (string, int64, bool) {
-	assign, ok := stmt.(*ast.AssignStmt)
-	if !ok || len(assign.Lhs) != 1 || len(assign.Rhs) != 1 {
-		return "", 0, false
-	}
-	ident, ok := assign.Lhs[0].(*ast.Ident)
-	if !ok || ident.Name == "_" {
-		return "", 0, false
-	}
-	val, ok := constantIntValue(info, assign.Rhs[0])
+	iter, initExpr, ok := loopInitExpr(stmt)
 	if !ok {
 		return "", 0, false
 	}
-	return ident.Name, val, true
+	val, ok := constantIntValue(info, initExpr)
+	if !ok {
+		return "", 0, false
+	}
+	return iter, val, true
+}
+
+func loopInitExpr(stmt ast.Stmt) (string, ast.Expr, bool) {
+	assign, ok := stmt.(*ast.AssignStmt)
+	if !ok || len(assign.Lhs) != 1 || len(assign.Rhs) != 1 {
+		return "", nil, false
+	}
+	ident, ok := assign.Lhs[0].(*ast.Ident)
+	if !ok || ident.Name == "_" {
+		return "", nil, false
+	}
+	return ident.Name, assign.Rhs[0], true
 }
 
 type loopDirection int
@@ -357,26 +420,43 @@ const (
 )
 
 func loopConditionInfo(expr ast.Expr, iter string, info *types.Info) (int64, loopDirection, bool) {
-	bin, ok := expr.(*ast.BinaryExpr)
+	boundExpr, direction, ok := loopConditionExpr(expr, iter)
 	if !ok {
 		return 0, 0, false
+	}
+	value, ok := constantIntValue(info, boundExpr)
+	if !ok {
+		return 0, 0, false
+	}
+	return value, direction, true
+}
+
+func loopConditionExpr(expr ast.Expr, iter string) (ast.Expr, loopDirection, bool) {
+	bin, ok := expr.(*ast.BinaryExpr)
+	if !ok {
+		return nil, 0, false
 	}
 	left, ok := bin.X.(*ast.Ident)
 	if !ok || left.Name != iter {
-		return 0, 0, false
-	}
-	value, ok := constantIntValue(info, bin.Y)
-	if !ok {
-		return 0, 0, false
+		return nil, 0, false
 	}
 	switch bin.Op {
 	case token.LSS, token.LEQ:
-		return value, increasing, true
+		return bin.Y, increasing, true
 	case token.GTR, token.GEQ:
-		return value, decreasing, true
-	default:
-		return 0, 0, false
+		return bin.Y, decreasing, true
 	}
+	return nil, 0, false
+}
+
+func stepDirectionMatchesBound(direction loopDirection, step int64) bool {
+	if direction == increasing && step <= 0 {
+		return false
+	}
+	if direction == decreasing && step >= 0 {
+		return false
+	}
+	return true
 }
 
 func loopStepInfo(stmt ast.Stmt, iter string, info *types.Info) (int64, bool) {

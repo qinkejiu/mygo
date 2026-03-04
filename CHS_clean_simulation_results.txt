@@ -1,35 +1,30 @@
 CHSTONE SIMULATION RESULTS (behavioral check enabled)
 Hardware pass requires mygo sim stdout to match software stdout exactly.
-Generated: 2026-03-04 14:06:15
+Generated: 2026-03-04 16:58:42
 ======================================================================
 
 
 ======================================================================
 📁 adpcm | software simulation
-⏱️  14:06:15 | $ go run tests/CHStone/adpcm/main.go
+⏱️  16:58:42 | $ go run tests/CHStone/adpcm/main.go
 ======================================================================
 
 0
 
 ======================================================================
-✅ | End: 14:06:17
+✅ | End: 16:58:42
 ======================================================================
 
 
 ======================================================================
 📁 adpcm | hardware simulation
-⏱️  14:06:17 | $ go run ./cmd/mygo sim --sim-max-cycles 40000 tests/CHStone/adpcm/main.go
+⏱️  16:58:42 | $ go run ./cmd/mygo sim --sim-max-cycles 40000 tests/CHStone/adpcm/main.go
 ======================================================================
 
         141
 
-[ERROR]
-go: downloading golang.org/x/tools v0.39.0
-go: downloading golang.org/x/sync v0.18.0
-go: downloading golang.org/x/mod v0.30.0
-
 ======================================================================
-✅ | End: 14:06:30
+✅ | End: 16:58:47
 ======================================================================
 
 
@@ -50,9 +45,7 @@ output_match=False
 (no output)
 
 [HARDWARE_STDERR(filtered)]
-go: downloading golang.org/x/tools v0.39.0
-go: downloading golang.org/x/sync v0.18.0
-go: downloading golang.org/x/mod v0.30.0
+(no output)
 
 [SW_HW_DIFF]
 --- software
@@ -64,7 +57,7 @@ go: downloading golang.org/x/mod v0.30.0
 
 ======================================================================
 📁 aes | software simulation
-⏱️  14:06:30 | $ go run tests/CHStone/aes/main.go
+⏱️  16:58:47 | $ go run tests/CHStone/aes/main.go
 ======================================================================
 
 encrypted message 	3925841d02dc09fbdc118597196a0b32
@@ -73,35 +66,38 @@ decrypto message	3243f6a8885a308d313198a2e0370734
 0
 
 ======================================================================
-✅ | End: 14:06:31
+✅ | End: 16:58:47
 ======================================================================
 
 
 ======================================================================
 📁 aes | hardware simulation
-⏱️  14:06:31 | $ go run ./cmd/mygo sim --sim-max-cycles 120000 tests/CHStone/aes/main.go
+⏱️  16:58:47 | $ go run ./cmd/mygo sim --sim-max-cycles 120000 tests/CHStone/aes/main.go
 ======================================================================
 
 (no output)
 
 [ERROR]
-/home/qinkejiu/mygo/tests/CHStone/aes/main.go:295:2: error: for loops must have compile-time constant init, condition, and step
-/home/qinkejiu/mygo/tests/CHStone/aes/main.go:349:2: error: for loops must have compile-time constant init, condition, and step
-/home/qinkejiu/mygo/tests/CHStone/aes/main.go:363:2: error: for loops must have compile-time constant init, condition, and step
-/home/qinkejiu/mygo/tests/CHStone/aes/main.go:370:2: error: for loops must have compile-time constant init, condition, and step
-/home/qinkejiu/mygo/tests/CHStone/aes/main.go:437:2: error: for loops must have compile-time constant init, condition, and step
-/home/qinkejiu/mygo/tests/CHStone/aes/main.go:459:2: error: for loops must have compile-time constant init, condition, and step
-/home/qinkejiu/mygo/tests/CHStone/aes/main.go:515:2: error: for loops must have compile-time constant init, condition, and step
-/home/qinkejiu/mygo/tests/CHStone/aes/main.go:522:2: error: for loops must have compile-time constant init, condition, and step
-/home/qinkejiu/mygo/tests/CHStone/aes/main.go:583:2: error: for loops must have compile-time constant init, condition, and step
-/home/qinkejiu/mygo/tests/CHStone/aes/main.go:592:2: error: for loops must have compile-time constant init, condition, and step
-/home/qinkejiu/mygo/tests/CHStone/aes/main.go:643:2: error: for loops must have compile-time constant init, condition, and step
-/home/qinkejiu/mygo/tests/CHStone/aes/main.go:651:2: error: for loops must have compile-time constant init, condition, and step
-validation failed with 12 issue(s)
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:295:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:349:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:363:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:370:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:437:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:459:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:515:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:522:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:583:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:592:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:643:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:651:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/aes/.mygo-tmp/.mygo-circt-73868238/design.mlir:5:17: error: dialect "seq" not supported for direct Verilog emission
+    %clk_seq2 = seq.to_clock %clk
+                ^
+backend: circt-opt --export-verilog failed: exit status 1
 exit status 1
 
 ======================================================================
-❌ code=1 | End: 14:06:31
+❌ code=1 | End: 16:58:51
 ======================================================================
 
 
@@ -125,59 +121,64 @@ decrypto message	3243f6a8885a308d313198a2e0370734
 (no output)
 
 [HARDWARE_STDERR(filtered)]
-/home/qinkejiu/mygo/tests/CHStone/aes/main.go:295:2: error: for loops must have compile-time constant init, condition, and step
-/home/qinkejiu/mygo/tests/CHStone/aes/main.go:349:2: error: for loops must have compile-time constant init, condition, and step
-/home/qinkejiu/mygo/tests/CHStone/aes/main.go:363:2: error: for loops must have compile-time constant init, condition, and step
-/home/qinkejiu/mygo/tests/CHStone/aes/main.go:370:2: error: for loops must have compile-time constant init, condition, and step
-/home/qinkejiu/mygo/tests/CHStone/aes/main.go:437:2: error: for loops must have compile-time constant init, condition, and step
-/home/qinkejiu/mygo/tests/CHStone/aes/main.go:459:2: error: for loops must have compile-time constant init, condition, and step
-/home/qinkejiu/mygo/tests/CHStone/aes/main.go:515:2: error: for loops must have compile-time constant init, condition, and step
-/home/qinkejiu/mygo/tests/CHStone/aes/main.go:522:2: error: for loops must have compile-time constant init, condition, and step
-/home/qinkejiu/mygo/tests/CHStone/aes/main.go:583:2: error: for loops must have compile-time constant init, condition, and step
-/home/qinkejiu/mygo/tests/CHStone/aes/main.go:592:2: error: for loops must have compile-time constant init, condition, and step
-/home/qinkejiu/mygo/tests/CHStone/aes/main.go:643:2: error: for loops must have compile-time constant init, condition, and step
-/home/qinkejiu/mygo/tests/CHStone/aes/main.go:651:2: error: for loops must have compile-time constant init, condition, and step
-validation failed with 12 issue(s)
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:295:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:349:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:363:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:370:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:437:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:459:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:515:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:522:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:583:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:592:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:643:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:651:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/aes/.mygo-tmp/.mygo-circt-73868238/design.mlir:5:17: error: dialect "seq" not supported for direct Verilog emission
+    %clk_seq2 = seq.to_clock %clk
+                ^
+backend: circt-opt --export-verilog failed: exit status 1
 exit status 1
 
 
 ======================================================================
 📁 blowfish | software simulation
-⏱️  14:06:31 | $ go run tests/CHStone/blowfish/main.go
+⏱️  16:58:51 | $ go run tests/CHStone/blowfish/main.go
 ======================================================================
 
 3378
 
 ======================================================================
-✅ | End: 14:06:32
+✅ | End: 16:58:51
 ======================================================================
 
 
 ======================================================================
 📁 blowfish | hardware simulation
-⏱️  14:06:32 | $ go run ./cmd/mygo sim --sim-max-cycles 120000 tests/CHStone/blowfish/main.go
+⏱️  16:58:51 | $ go run ./cmd/mygo sim --sim-max-cycles 120000 tests/CHStone/blowfish/main.go
 ======================================================================
 
 (no output)
 
 [ERROR]
-/home/qinkejiu/mygo/tests/CHStone/blowfish/main.go:351:2: error: for loops must have compile-time constant init, condition, and step
-/home/qinkejiu/mygo/tests/CHStone/blowfish/main.go:427:3: error: for loops must have compile-time constant init, condition, and step
-/home/qinkejiu/mygo/tests/CHStone/blowfish/main.go:463:3: error: for loops must have compile-time constant init, condition, and step
-/home/qinkejiu/mygo/tests/CHStone/blowfish/main.go:1443:2: error: for loops must have compile-time constant init, condition, and step
-/home/qinkejiu/mygo/tests/CHStone/blowfish/main.go:1444:3: error: for loops must have compile-time constant init, condition, and step
-/home/qinkejiu/mygo/tests/CHStone/blowfish/main.go:1452:3: error: for loops must have compile-time constant init, condition, and step
-validation failed with 6 issue(s)
-exit status 1
+/home/qinkejiu/mygo/tests/CHStone/blowfish/main.go:351:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/blowfish/main.go:427:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/blowfish/main.go:463:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/blowfish/main.go:1443:2: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/blowfish/main.go:1444:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/blowfish/main.go:1452:3: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/blowfish/main.go:1467:27: warning: call result for mygo/tests/CHStone/blowfish.blowfishMain is not supported
+/home/qinkejiu/mygo/tests/CHStone/blowfish/main.go:1468:12: warning: fmt.Printf: unsupported argument type *ssa.Call
 
 ======================================================================
-❌ code=1 | End: 14:06:33
+✅ | End: 16:58:55
 ======================================================================
 
+[CHECK]
+Hardware run exited 0 but hit unsupported lowering markers; counting as FAIL.
 
 [CASE RESULT]
 software_return_code=0
-hardware_return_code=1
+hardware_return_code=0
 software_ok=True
 hardware_ok=False
 output_match=False
@@ -192,37 +193,37 @@ output_match=False
 (no output)
 
 [HARDWARE_STDERR(filtered)]
-/home/qinkejiu/mygo/tests/CHStone/blowfish/main.go:351:2: error: for loops must have compile-time constant init, condition, and step
-/home/qinkejiu/mygo/tests/CHStone/blowfish/main.go:427:3: error: for loops must have compile-time constant init, condition, and step
-/home/qinkejiu/mygo/tests/CHStone/blowfish/main.go:463:3: error: for loops must have compile-time constant init, condition, and step
-/home/qinkejiu/mygo/tests/CHStone/blowfish/main.go:1443:2: error: for loops must have compile-time constant init, condition, and step
-/home/qinkejiu/mygo/tests/CHStone/blowfish/main.go:1444:3: error: for loops must have compile-time constant init, condition, and step
-/home/qinkejiu/mygo/tests/CHStone/blowfish/main.go:1452:3: error: for loops must have compile-time constant init, condition, and step
-validation failed with 6 issue(s)
-exit status 1
+/home/qinkejiu/mygo/tests/CHStone/blowfish/main.go:351:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/blowfish/main.go:427:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/blowfish/main.go:463:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/blowfish/main.go:1443:2: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/blowfish/main.go:1444:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/blowfish/main.go:1452:3: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/blowfish/main.go:1467:27: warning: call result for mygo/tests/CHStone/blowfish.blowfishMain is not supported
+/home/qinkejiu/mygo/tests/CHStone/blowfish/main.go:1468:12: warning: fmt.Printf: unsupported argument type *ssa.Call
 
 
 ======================================================================
 📁 common | software simulation
-⏱️  14:06:33 | $ go run tests/CHStone/common/main.go
+⏱️  16:58:55 | $ go run tests/CHStone/common/main.go
 ======================================================================
 
 (no output)
 
 ======================================================================
-✅ | End: 14:06:33
+✅ | End: 16:58:55
 ======================================================================
 
 
 ======================================================================
 📁 common | hardware simulation
-⏱️  14:06:33 | $ go run ./cmd/mygo sim --sim-max-cycles 1024 tests/CHStone/common/main.go
+⏱️  16:58:55 | $ go run ./cmd/mygo sim --sim-max-cycles 1024 tests/CHStone/common/main.go
 ======================================================================
 
 (no output)
 
 ======================================================================
-✅ | End: 14:06:37
+✅ | End: 16:58:59
 ======================================================================
 
 
@@ -248,7 +249,7 @@ output_match=True
 
 ======================================================================
 📁 dfadd | software simulation
-⏱️  14:06:37 | $ go run tests/CHStone/dfadd/main.go
+⏱️  16:58:59 | $ go run tests/CHStone/dfadd/main.go
 ======================================================================
 
 a_input=7ff8000000000000 b_input=3ff0000000000000 expected=7ff8000000000000 output=7ff8000000000000 (NaN)
@@ -302,13 +303,13 @@ Errors: 0
 All tests passed!
 
 ======================================================================
-✅ | End: 14:06:37
+✅ | End: 16:58:59
 ======================================================================
 
 
 ======================================================================
 📁 dfadd | hardware simulation
-⏱️  14:06:37 | $ go run ./cmd/mygo sim --sim-max-cycles 20000 tests/CHStone/dfadd/main.go
+⏱️  16:58:59 | $ go run ./cmd/mygo sim --sim-max-cycles 20000 tests/CHStone/dfadd/main.go
 ======================================================================
 
 
@@ -319,7 +320,7 @@ All tests passed!
 /home/qinkejiu/mygo/tests/CHStone/dfadd/main.go:472:13: warning: fmt.Printf: unsupported verb %f
 
 ======================================================================
-✅ | End: 14:06:57
+✅ | End: 16:59:18
 ======================================================================
 
 
@@ -450,7 +451,7 @@ All tests passed!
 
 ======================================================================
 📁 dfdiv | software simulation
-⏱️  14:06:57 | $ go run tests/CHStone/dfdiv/main.go
+⏱️  16:59:18 | $ go run tests/CHStone/dfdiv/main.go
 ======================================================================
 
 a_input=7fff000000000000 b_input=3ff0000000000000 expected=7fff000000000000 output=7fff000000000000 (NaN)
@@ -478,31 +479,35 @@ a_input=bff0000000000000 b_input=bff8000000000000 expected=3fe5555555555555 outp
 0
 
 ======================================================================
-✅ | End: 14:06:58
+✅ | End: 16:59:19
 ======================================================================
 
 
 ======================================================================
 📁 dfdiv | hardware simulation
-⏱️  14:06:58 | $ go run ./cmd/mygo sim --sim-max-cycles 20000 tests/CHStone/dfdiv/main.go
+⏱️  16:59:19 | $ go run ./cmd/mygo sim --sim-max-cycles 20000 tests/CHStone/dfdiv/main.go
 ======================================================================
 
-(no output)
+          0
 
 [ERROR]
-/home/qinkejiu/mygo/tests/CHStone/dfdiv/main.go:143:2: error: for loops must have compile-time constant init, condition, and step
-/home/qinkejiu/mygo/tests/CHStone/dfdiv/main.go:403:3: error: for loops must have compile-time constant init, condition, and step
-validation failed with 2 issue(s)
-exit status 1
+/home/qinkejiu/mygo/tests/CHStone/dfdiv/main.go:143:2: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/dfdiv/main.go:403:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/dfdiv/main.go:507:24: warning: call result for mygo/tests/CHStone/dfdiv.float64_div is not supported
+/home/qinkejiu/mygo/tests/CHStone/dfdiv/main.go:508:13: warning: binary op != has unresolved operand; using zero value fallback
+/home/qinkejiu/mygo/tests/CHStone/dfdiv/main.go:514:18: warning: call mygo/tests/CHStone/dfdiv.ullongToDouble has unresolved argument *ssa.ChangeType
+/home/qinkejiu/mygo/tests/CHStone/dfdiv/main.go:512:13: warning: fmt.Printf: unsupported argument type *ssa.ChangeType
 
 ======================================================================
-❌ code=1 | End: 14:06:59
+✅ | End: 16:59:23
 ======================================================================
 
+[CHECK]
+Hardware run exited 0 but hit unsupported lowering markers; counting as FAIL.
 
 [CASE RESULT]
 software_return_code=0
-hardware_return_code=1
+hardware_return_code=0
 software_ok=True
 hardware_ok=False
 output_match=False
@@ -533,21 +538,23 @@ a_input=bff0000000000000 b_input=bff8000000000000 expected=3fe5555555555555 outp
 0
 
 [HARDWARE_STDOUT]
-(no output)
+          0
 
 [SOFTWARE_STDERR(filtered)]
 (no output)
 
 [HARDWARE_STDERR(filtered)]
-/home/qinkejiu/mygo/tests/CHStone/dfdiv/main.go:143:2: error: for loops must have compile-time constant init, condition, and step
-/home/qinkejiu/mygo/tests/CHStone/dfdiv/main.go:403:3: error: for loops must have compile-time constant init, condition, and step
-validation failed with 2 issue(s)
-exit status 1
+/home/qinkejiu/mygo/tests/CHStone/dfdiv/main.go:143:2: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/dfdiv/main.go:403:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/dfdiv/main.go:507:24: warning: call result for mygo/tests/CHStone/dfdiv.float64_div is not supported
+/home/qinkejiu/mygo/tests/CHStone/dfdiv/main.go:508:13: warning: binary op != has unresolved operand; using zero value fallback
+/home/qinkejiu/mygo/tests/CHStone/dfdiv/main.go:514:18: warning: call mygo/tests/CHStone/dfdiv.ullongToDouble has unresolved argument *ssa.ChangeType
+/home/qinkejiu/mygo/tests/CHStone/dfdiv/main.go:512:13: warning: fmt.Printf: unsupported argument type *ssa.ChangeType
 
 
 ======================================================================
 📁 dfmul | software simulation
-⏱️  14:06:59 | $ go run tests/CHStone/dfmul/main.go
+⏱️  16:59:23 | $ go run tests/CHStone/dfmul/main.go
 ======================================================================
 
 a_input=7ff0000000000000 b_input=ffffffffffffffff expected=ffffffffffffffff output=ffffffffffffffff (NaN)
@@ -573,13 +580,13 @@ a_input=0000000000000000 b_input=0000000000000000 expected=0000000000000000 outp
 Errors: 0
 
 ======================================================================
-✅ | End: 14:06:59
+✅ | End: 16:59:23
 ======================================================================
 
 
 ======================================================================
 📁 dfmul | hardware simulation
-⏱️  14:06:59 | $ go run ./cmd/mygo sim --sim-max-cycles 20000 tests/CHStone/dfmul/main.go
+⏱️  16:59:23 | $ go run ./cmd/mygo sim --sim-max-cycles 20000 tests/CHStone/dfmul/main.go
 ======================================================================
 
 Errors:           0
@@ -588,7 +595,7 @@ Errors:           0
 /home/qinkejiu/mygo/tests/CHStone/dfmul/main.go:426:13: warning: fmt.Printf: unsupported verb %f
 
 ======================================================================
-✅ | End: 14:07:20
+✅ | End: 16:59:45
 ======================================================================
 
 
@@ -661,7 +668,7 @@ Errors:           0
 
 ======================================================================
 📁 dfsin | software simulation
-⏱️  14:07:20 | $ go run tests/CHStone/dfsin/main.go
+⏱️  16:59:45 | $ go run tests/CHStone/dfsin/main.go
 ======================================================================
 
 input=0000000000000000 expected=0000000000000000 output=0000000000000000 (0.000000)
@@ -703,32 +710,36 @@ input=40186f423ca395cb expected=bfc63a23c48863dd output=bfc63a23c48863dd (-0.173
 0
 
 ======================================================================
-✅ | End: 14:07:21
+✅ | End: 16:59:46
 ======================================================================
 
 
 ======================================================================
 📁 dfsin | hardware simulation
-⏱️  14:07:21 | $ go run ./cmd/mygo sim --sim-max-cycles 40000 tests/CHStone/dfsin/main.go
+⏱️  16:59:46 | $ go run ./cmd/mygo sim --sim-max-cycles 40000 tests/CHStone/dfsin/main.go
 ======================================================================
 
-(no output)
+          0
 
 [ERROR]
-/home/qinkejiu/mygo/tests/CHStone/dfsin/main.go:152:2: error: for loops must have compile-time constant init, condition, and step
-/home/qinkejiu/mygo/tests/CHStone/dfsin/main.go:640:3: error: for loops must have compile-time constant init, condition, and step
-/home/qinkejiu/mygo/tests/CHStone/dfsin/main.go:689:2: error: for loops must have compile-time constant init, condition, and step
-validation failed with 3 issue(s)
-exit status 1
+/home/qinkejiu/mygo/tests/CHStone/dfsin/main.go:152:2: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/dfsin/main.go:640:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/dfsin/main.go:689:2: warning: for loop is open-ended; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/dfsin/main.go:787:22: warning: call result for mygo/tests/CHStone/dfsin.local_sin is not supported
+/home/qinkejiu/mygo/tests/CHStone/dfsin/main.go:788:13: warning: binary op != has unresolved operand; using zero value fallback
+/home/qinkejiu/mygo/tests/CHStone/dfsin/main.go:792:77: warning: call mygo/tests/CHStone/dfsin.ullong_to_double has unresolved argument *ssa.ChangeType
+/home/qinkejiu/mygo/tests/CHStone/dfsin/main.go:791:13: warning: fmt.Printf: unsupported argument type *ssa.ChangeType
 
 ======================================================================
-❌ code=1 | End: 14:07:22
+✅ | End: 16:59:50
 ======================================================================
 
+[CHECK]
+Hardware run exited 0 but hit unsupported lowering markers; counting as FAIL.
 
 [CASE RESULT]
 software_return_code=0
-hardware_return_code=1
+hardware_return_code=0
 software_ok=True
 hardware_ok=False
 output_match=False
@@ -773,52 +784,56 @@ input=40186f423ca395cb expected=bfc63a23c48863dd output=bfc63a23c48863dd (-0.173
 0
 
 [HARDWARE_STDOUT]
-(no output)
+          0
 
 [SOFTWARE_STDERR(filtered)]
 (no output)
 
 [HARDWARE_STDERR(filtered)]
-/home/qinkejiu/mygo/tests/CHStone/dfsin/main.go:152:2: error: for loops must have compile-time constant init, condition, and step
-/home/qinkejiu/mygo/tests/CHStone/dfsin/main.go:640:3: error: for loops must have compile-time constant init, condition, and step
-/home/qinkejiu/mygo/tests/CHStone/dfsin/main.go:689:2: error: for loops must have compile-time constant init, condition, and step
-validation failed with 3 issue(s)
-exit status 1
+/home/qinkejiu/mygo/tests/CHStone/dfsin/main.go:152:2: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/dfsin/main.go:640:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/dfsin/main.go:689:2: warning: for loop is open-ended; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/dfsin/main.go:787:22: warning: call result for mygo/tests/CHStone/dfsin.local_sin is not supported
+/home/qinkejiu/mygo/tests/CHStone/dfsin/main.go:788:13: warning: binary op != has unresolved operand; using zero value fallback
+/home/qinkejiu/mygo/tests/CHStone/dfsin/main.go:792:77: warning: call mygo/tests/CHStone/dfsin.ullong_to_double has unresolved argument *ssa.ChangeType
+/home/qinkejiu/mygo/tests/CHStone/dfsin/main.go:791:13: warning: fmt.Printf: unsupported argument type *ssa.ChangeType
 
 
 ======================================================================
 📁 gsm | software simulation
-⏱️  14:07:22 | $ go run tests/CHStone/gsm/main.go
+⏱️  16:59:50 | $ go run tests/CHStone/gsm/main.go
 ======================================================================
 
 0
 
 ======================================================================
-✅ | End: 14:07:22
+✅ | End: 16:59:50
 ======================================================================
 
 
 ======================================================================
 📁 gsm | hardware simulation
-⏱️  14:07:22 | $ go run ./cmd/mygo sim --sim-max-cycles 60000 tests/CHStone/gsm/main.go
+⏱️  16:59:50 | $ go run ./cmd/mygo sim --sim-max-cycles 60000 tests/CHStone/gsm/main.go
 ======================================================================
 
-(no output)
+        168
 
 [ERROR]
-/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:292:4: error: for loops must have compile-time constant init, condition, and step
-/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:312:3: error: for loops must have compile-time constant init, condition, and step
-validation failed with 2 issue(s)
-exit status 1
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:292:4: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:312:3: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:448:8: warning: unresolved dereference *ssa.IndexAddr; using zero value fallback
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:453:10: warning: unresolved dereference *ssa.IndexAddr; using zero value fallback
 
 ======================================================================
-❌ code=1 | End: 14:07:23
+✅ | End: 16:59:54
 ======================================================================
 
+[CHECK]
+Hardware run exited 0 but hit unsupported lowering markers; counting as FAIL.
 
 [CASE RESULT]
 software_return_code=0
-hardware_return_code=1
+hardware_return_code=0
 software_ok=True
 hardware_ok=False
 output_match=False
@@ -827,45 +842,50 @@ output_match=False
 0
 
 [HARDWARE_STDOUT]
-(no output)
+        168
 
 [SOFTWARE_STDERR(filtered)]
 (no output)
 
 [HARDWARE_STDERR(filtered)]
-/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:292:4: error: for loops must have compile-time constant init, condition, and step
-/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:312:3: error: for loops must have compile-time constant init, condition, and step
-validation failed with 2 issue(s)
-exit status 1
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:292:4: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:312:3: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:448:8: warning: unresolved dereference *ssa.IndexAddr; using zero value fallback
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:453:10: warning: unresolved dereference *ssa.IndexAddr; using zero value fallback
 
 
 ======================================================================
 📁 mips | software simulation
-⏱️  14:07:23 | $ go run tests/CHStone/mips/main.go
+⏱️  16:59:54 | $ go run tests/CHStone/mips/main.go
 ======================================================================
 
 0
 
 ======================================================================
-✅ | End: 14:07:23
+✅ | End: 16:59:55
 ======================================================================
 
 
 ======================================================================
 📁 mips | hardware simulation
-⏱️  14:07:23 | $ go run ./cmd/mygo sim --sim-max-cycles 120000 tests/CHStone/mips/main.go
+⏱️  16:59:55 | $ go run ./cmd/mygo sim --sim-max-cycles 120000 tests/CHStone/mips/main.go
 ======================================================================
 
 (no output)
 
 [ERROR]
-/home/qinkejiu/mygo/tests/CHStone/mips/main.go:148:2: error: for loops must have compile-time constant init, condition, and step
-/home/qinkejiu/mygo/tests/CHStone/mips/main.go:174:3: error: for loops must have compile-time constant init, condition, and step
-validation failed with 2 issue(s)
+/home/qinkejiu/mygo/tests/CHStone/mips/main.go:148:2: warning: for loop is open-ended; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/mips/main.go:174:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/mips/.mygo-tmp/.mygo-circt-1346100682/design.mlir:2799:5: error: redefinition of SSA value '%v2775'
+    %v2775 = seq.compreg %v2792, %clk_seq2774 : i32
+    ^
+    %v2775 = seq.compreg %c2024, %clk_seq2774 : i32
+    ^
+backend: circt-opt --export-verilog failed: exit status 1
 exit status 1
 
 ======================================================================
-❌ code=1 | End: 14:07:24
+❌ code=1 | End: 16:59:56
 ======================================================================
 
 
@@ -886,40 +906,49 @@ output_match=False
 (no output)
 
 [HARDWARE_STDERR(filtered)]
-/home/qinkejiu/mygo/tests/CHStone/mips/main.go:148:2: error: for loops must have compile-time constant init, condition, and step
-/home/qinkejiu/mygo/tests/CHStone/mips/main.go:174:3: error: for loops must have compile-time constant init, condition, and step
-validation failed with 2 issue(s)
+/home/qinkejiu/mygo/tests/CHStone/mips/main.go:148:2: warning: for loop is open-ended; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/mips/main.go:174:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/mips/.mygo-tmp/.mygo-circt-1346100682/design.mlir:2799:5: error: redefinition of SSA value '%v2775'
+    %v2775 = seq.compreg %v2792, %clk_seq2774 : i32
+    ^
+    %v2775 = seq.compreg %c2024, %clk_seq2774 : i32
+    ^
+backend: circt-opt --export-verilog failed: exit status 1
 exit status 1
 
 
 ======================================================================
 📁 motion | software simulation
-⏱️  14:07:24 | $ go run tests/CHStone/motion/main.go
+⏱️  16:59:56 | $ go run tests/CHStone/motion/main.go
 ======================================================================
 
 0
 
 ======================================================================
-✅ | End: 14:07:24
+✅ | End: 16:59:56
 ======================================================================
 
 
 ======================================================================
 📁 motion | hardware simulation
-⏱️  14:07:24 | $ go run ./cmd/mygo sim --sim-max-cycles 60000 tests/CHStone/motion/main.go
+⏱️  16:59:56 | $ go run ./cmd/mygo sim --sim-max-cycles 60000 tests/CHStone/motion/main.go
 ======================================================================
 
 (no output)
 
 [ERROR]
-/home/qinkejiu/mygo/tests/CHStone/motion/main.go:90:3: error: for loops must have compile-time constant init, condition, and step
-/home/qinkejiu/mygo/tests/CHStone/motion/main.go:97:3: error: for loops must have compile-time constant init, condition, and step
-/home/qinkejiu/mygo/tests/CHStone/motion/main.go:131:3: error: for loops must have compile-time constant init, condition, and step
-validation failed with 3 issue(s)
+/home/qinkejiu/mygo/tests/CHStone/motion/main.go:90:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/motion/main.go:97:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/motion/main.go:131:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/motion/main.go:512:52: warning: call result for mygo/tests/CHStone/motion.motion_vectors is not supported
+/home/qinkejiu/mygo/tests/CHStone/motion/.mygo-tmp/.mygo-circt-3899844384/design.mlir:123:19: error: dialect "seq" not supported for direct Verilog emission
+    %clk_seq117 = seq.to_clock %clk
+                  ^
+backend: circt-opt --export-verilog failed: exit status 1
 exit status 1
 
 ======================================================================
-❌ code=1 | End: 14:07:25
+❌ code=1 | End: 16:59:57
 ======================================================================
 
 
@@ -940,70 +969,77 @@ output_match=False
 (no output)
 
 [HARDWARE_STDERR(filtered)]
-/home/qinkejiu/mygo/tests/CHStone/motion/main.go:90:3: error: for loops must have compile-time constant init, condition, and step
-/home/qinkejiu/mygo/tests/CHStone/motion/main.go:97:3: error: for loops must have compile-time constant init, condition, and step
-/home/qinkejiu/mygo/tests/CHStone/motion/main.go:131:3: error: for loops must have compile-time constant init, condition, and step
-validation failed with 3 issue(s)
+/home/qinkejiu/mygo/tests/CHStone/motion/main.go:90:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/motion/main.go:97:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/motion/main.go:131:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/motion/main.go:512:52: warning: call result for mygo/tests/CHStone/motion.motion_vectors is not supported
+/home/qinkejiu/mygo/tests/CHStone/motion/.mygo-tmp/.mygo-circt-3899844384/design.mlir:123:19: error: dialect "seq" not supported for direct Verilog emission
+    %clk_seq117 = seq.to_clock %clk
+                  ^
+backend: circt-opt --export-verilog failed: exit status 1
 exit status 1
 
 
 ======================================================================
 📁 sha | software simulation
-⏱️  14:07:25 | $ go run tests/CHStone/sha/main.go
+⏱️  16:59:57 | $ go run tests/CHStone/sha/main.go
 ======================================================================
 
 0
 
 ======================================================================
-✅ | End: 14:07:25
+✅ | End: 16:59:57
 ======================================================================
 
 
 ======================================================================
 📁 sha | hardware simulation
-⏱️  14:07:25 | $ go run ./cmd/mygo sim --sim-max-cycles 80000 tests/CHStone/sha/main.go
+⏱️  16:59:57 | $ go run ./cmd/mygo sim --sim-max-cycles 80000 tests/CHStone/sha/main.go
 ======================================================================
 
-(no output)
+          5
 
 [ERROR]
-/home/qinkejiu/mygo/tests/CHStone/sha/main.go:1141:2: error: for loops must have compile-time constant init, condition, and step
-/home/qinkejiu/mygo/tests/CHStone/sha/main.go:1153:2: error: for loops must have compile-time constant init, condition, and step
-/home/qinkejiu/mygo/tests/CHStone/sha/main.go:1225:2: error: for loops must have compile-time constant init, condition, and step
-/home/qinkejiu/mygo/tests/CHStone/sha/main.go:1254:3: error: for loops must have compile-time constant init, condition, and step
-/home/qinkejiu/mygo/tests/CHStone/sha/main.go:1268:3: error: for loops must have compile-time constant init, condition, and step
-validation failed with 5 issue(s)
-exit status 1
+/home/qinkejiu/mygo/tests/CHStone/sha/main.go:1141:2: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/sha/main.go:1153:2: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/sha/main.go:1225:2: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/sha/main.go:1254:3: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/sha/main.go:1268:3: warning: for loop has variable bound; lowering will use loop FSM generation
 
 ======================================================================
-❌ code=1 | End: 14:07:26
+✅ | End: 17:00:04
 ======================================================================
 
 
 [CASE RESULT]
 software_return_code=0
-hardware_return_code=1
+hardware_return_code=0
 software_ok=True
-hardware_ok=False
+hardware_ok=True
 output_match=False
 
 [SOFTWARE_STDOUT]
 0
 
 [HARDWARE_STDOUT]
-(no output)
+          5
 
 [SOFTWARE_STDERR(filtered)]
 (no output)
 
 [HARDWARE_STDERR(filtered)]
-/home/qinkejiu/mygo/tests/CHStone/sha/main.go:1141:2: error: for loops must have compile-time constant init, condition, and step
-/home/qinkejiu/mygo/tests/CHStone/sha/main.go:1153:2: error: for loops must have compile-time constant init, condition, and step
-/home/qinkejiu/mygo/tests/CHStone/sha/main.go:1225:2: error: for loops must have compile-time constant init, condition, and step
-/home/qinkejiu/mygo/tests/CHStone/sha/main.go:1254:3: error: for loops must have compile-time constant init, condition, and step
-/home/qinkejiu/mygo/tests/CHStone/sha/main.go:1268:3: error: for loops must have compile-time constant init, condition, and step
-validation failed with 5 issue(s)
-exit status 1
+/home/qinkejiu/mygo/tests/CHStone/sha/main.go:1141:2: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/sha/main.go:1153:2: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/sha/main.go:1225:2: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/sha/main.go:1254:3: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/sha/main.go:1268:3: warning: for loop has variable bound; lowering will use loop FSM generation
+
+[SW_HW_DIFF]
+--- software
++++ hardware
+@@ -1 +1 @@
+-0
++5
 
 
 ======================================================================
@@ -1011,6 +1047,6 @@ SUMMARY
 ======================================================================
 Total folders: 12
 Software simulation success: 12/12
-Hardware simulation command success: 4/12
+Hardware simulation command success: 5/12
 Behavioral match success (HW==SW): 1/12
 ======================================================================

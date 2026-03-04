@@ -98,6 +98,56 @@ func TestValidateRejectsRecursion(t *testing.T) {
 	}
 }
 
+func TestValidateWarnsVariableBoundLoop(t *testing.T) {
+	diagStr, err := runValidation(t, "warn_variable_bound_loop")
+	if err != nil {
+		t.Fatalf("expected variable-bounded loop to pass validation, got %v with diagnostics %s", err, diagStr)
+	}
+	if !strings.Contains(diagStr, "warning: for loop has variable bound") {
+		t.Fatalf("expected variable-bound warning, got %q", diagStr)
+	}
+}
+
+func TestValidateWarnsVariableInitLoop(t *testing.T) {
+	diagStr, err := runValidation(t, "warn_variable_init_loop")
+	if err != nil {
+		t.Fatalf("expected variable-init loop to pass validation, got %v with diagnostics %s", err, diagStr)
+	}
+	if !strings.Contains(diagStr, "warning: for loop has variable bound") {
+		t.Fatalf("expected variable-loop warning, got %q", diagStr)
+	}
+}
+
+func TestValidateWarnsConditionOnlyLoop(t *testing.T) {
+	diagStr, err := runValidation(t, "warn_condition_only_loop")
+	if err != nil {
+		t.Fatalf("expected condition-only loop to pass validation, got %v with diagnostics %s", err, diagStr)
+	}
+	if !strings.Contains(diagStr, "warning: for loop has condition-only control") {
+		t.Fatalf("expected condition-only warning, got %q", diagStr)
+	}
+}
+
+func TestValidateWarnsOpenEndedLoop(t *testing.T) {
+	diagStr, err := runValidation(t, "warn_open_ended_loop")
+	if err != nil {
+		t.Fatalf("expected open-ended loop to pass validation, got %v with diagnostics %s", err, diagStr)
+	}
+	if !strings.Contains(diagStr, "warning: for loop is open-ended") {
+		t.Fatalf("expected open-ended warning, got %q", diagStr)
+	}
+}
+
+func TestValidateRejectsUnanalyzableLoop(t *testing.T) {
+	diagStr, err := runValidation(t, "bad_loop_unanalyzable")
+	if err == nil {
+		t.Fatalf("expected unanalyzable loop to fail validation")
+	}
+	if !strings.Contains(diagStr, "for loops must have analyzable init, condition, and constant step") {
+		t.Fatalf("expected loop structure diagnostic, got %q", diagStr)
+	}
+}
+
 func runValidation(t *testing.T, file string) (string, error) {
 	t.Helper()
 	prog, pkgs, astPkgs, fset := buildSSAProgram(t, file)

@@ -37,6 +37,7 @@ func BuildDesign(prog *ssa.Program, reporter *diag.Reporter) (*Design, error) {
 		paramChannels:        make(map[*ssa.Parameter]*Channel),
 		channelParamBindings: make(map[*ssa.Parameter]map[*Channel]struct{}),
 		channelUsage:         make(map[*Channel]int),
+		loopFSMs:             make(map[*ssa.Function][]*loopFSM),
 		nextStage:            1,
 	}
 
@@ -69,8 +70,10 @@ type builder struct {
 	paramChannels        map[*ssa.Parameter]*Channel
 	channelParamBindings map[*ssa.Parameter]map[*Channel]struct{}
 	channelUsage         map[*Channel]int
+	loopFSMs             map[*ssa.Function][]*loopFSM
 	nextStage            int
 	blocks               map[*ssa.BasicBlock]*BasicBlock
+	currentBlock         *BasicBlock
 	tempID               int
 }
 
@@ -78,6 +81,24 @@ type indexedBaseState struct {
 	elemType *SignalType
 	length   int
 	elements map[int]*Signal
+}
+
+// State is an SSA-backed FSM state for loop lowering.
+type State struct {
+	name   string
+	instrs []ssa.Instruction
+}
+
+type fsmTransition struct {
+	from string
+	to   string
+	when string
+}
+
+type loopFSM struct {
+	loop        loopStructure
+	states      []State
+	transitions []fsmTransition
 }
 
 func (b *builder) buildModule(fn *ssa.Function) *Module {
@@ -131,6 +152,7 @@ func (b *builder) buildProcess(fn *ssa.Function) *Process {
 	}
 	b.connectBlocks(ordered)
 	b.orderBlocks(proc)
+	b.buildLoopFSMs(fn)
 	return proc
 }
 
@@ -142,6 +164,9 @@ func (b *builder) translateBlock(proc *Process, block *ssa.BasicBlock) {
 	if bb == nil {
 		return
 	}
+	prevBlock := b.currentBlock
+	b.currentBlock = bb
+	defer func() { b.currentBlock = prevBlock }()
 	for _, instr := range block.Instrs {
 		switch v := instr.(type) {
 		case *ssa.Phi:
@@ -284,6 +309,156 @@ func (b *builder) orderBlocks(proc *Process) {
 		order[i], order[j] = order[j], order[i]
 	}
 	proc.Blocks = order
+}
+
+func (b *builder) buildLoopFSMs(fn *ssa.Function) {
+	if b == nil || fn == nil || len(fn.Blocks) == 0 {
+		return
+	}
+	loops := findLoops(fn)
+	if len(loops) == 0 {
+		return
+	}
+	fsms := make([]*loopFSM, 0, len(loops))
+	for _, loop := range loops {
+		if !isDynamicBoundaryLoop(loop) {
+			continue
+		}
+		fsm := b.buildFSMForLoop(loop)
+		if fsm == nil {
+			continue
+		}
+		fsms = append(fsms, fsm)
+	}
+	if len(fsms) == 0 {
+		return
+	}
+	if b.loopFSMs == nil {
+		b.loopFSMs = make(map[*ssa.Function][]*loopFSM)
+	}
+	b.loopFSMs[fn] = fsms
+}
+
+func isDynamicBoundaryLoop(loop loopStructure) bool {
+	if loop.Header == nil || len(loop.ExitConditions) == 0 {
+		return false
+	}
+	for _, exitCond := range loop.ExitConditions {
+		if exitCond == nil {
+			continue
+		}
+		if !isConstBool(exitCond.Cond) {
+			return true
+		}
+	}
+	return false
+}
+
+func isConstBool(v ssa.Value) bool {
+	c, ok := v.(*ssa.Const)
+	if !ok || c == nil || c.Value == nil {
+		return false
+	}
+	return c.Value.Kind() == constant.Bool
+}
+
+// buildFSMForLoop builds a canonical CHECK/BODY/UPDATE FSM for dynamic loops.
+func (b *builder) buildFSMForLoop(loop loopStructure) *loopFSM {
+	if loop.Header == nil {
+		return nil
+	}
+	latchSet := make(map[*ssa.BasicBlock]struct{}, len(loop.Latches))
+	for _, latch := range loop.Latches {
+		if latch != nil {
+			latchSet[latch] = struct{}{}
+		}
+	}
+
+	bodyBlocks := make([]*ssa.BasicBlock, 0, len(loop.Body))
+	for _, block := range loop.Body {
+		if block == nil {
+			continue
+		}
+		if _, isLatch := latchSet[block]; isLatch {
+			continue
+		}
+		bodyBlocks = append(bodyBlocks, block)
+	}
+	sort.Slice(bodyBlocks, func(i, j int) bool {
+		return bodyBlocks[i].Index < bodyBlocks[j].Index
+	})
+
+	latches := make([]*ssa.BasicBlock, 0, len(loop.Latches))
+	for _, latch := range loop.Latches {
+		if latch != nil {
+			latches = append(latches, latch)
+		}
+	}
+	sort.Slice(latches, func(i, j int) bool {
+		return latches[i].Index < latches[j].Index
+	})
+
+	check := State{
+		name:   "CHECK",
+		instrs: copyInstructions(loop.Header.Instrs, true),
+	}
+	body := State{
+		name:   "BODY",
+		instrs: flattenBlockInstructions(bodyBlocks),
+	}
+	update := State{
+		name:   "UPDATE",
+		instrs: flattenBlockInstructions(latches),
+	}
+
+	return &loopFSM{
+		loop: loop,
+		states: []State{
+			check,
+			body,
+			update,
+		},
+		transitions: []fsmTransition{
+			{from: "CHECK", to: "BODY", when: "true"},
+			{from: "CHECK", to: "EXIT", when: "false"},
+			{from: "BODY", to: "UPDATE", when: "always"},
+			{from: "UPDATE", to: "CHECK", when: "always"},
+		},
+	}
+}
+
+func flattenBlockInstructions(blocks []*ssa.BasicBlock) []ssa.Instruction {
+	if len(blocks) == 0 {
+		return nil
+	}
+	out := make([]ssa.Instruction, 0)
+	for _, block := range blocks {
+		if block == nil {
+			continue
+		}
+		out = append(out, copyInstructions(block.Instrs, false)...)
+	}
+	return out
+}
+
+func copyInstructions(instrs []ssa.Instruction, keepTerminator bool) []ssa.Instruction {
+	if len(instrs) == 0 {
+		return nil
+	}
+	out := make([]ssa.Instruction, 0, len(instrs))
+	for _, instr := range instrs {
+		if instr == nil {
+			continue
+		}
+		if !keepTerminator {
+			switch instr.(type) {
+			case *ssa.If, *ssa.Jump, *ssa.Return:
+				continue
+			}
+		}
+		out = append(out, instr)
+	}
+	return out
 }
 
 func (b *builder) handleIf(block *ssa.BasicBlock, bb *BasicBlock, stmt *ssa.If) {
@@ -826,40 +1001,51 @@ func (b *builder) signalForIndexAddr(addr *ssa.IndexAddr) *Signal {
 	if addr == nil {
 		return nil
 	}
-	state := b.indexedStateForBase(addr.X, addr.Pos())
-	if state == nil {
-		return nil
-	}
-	idx, ok := constIndexValue(addr.Index)
-	if !ok {
-		return nil
-	}
-	return b.indexedElementSignal(state, idx, addr.Pos())
+	base := b.signalForValue(addr.X)
+	index := b.signalForValue(addr.Index)
+	return b.memoryAccess(nil, base, index, addr)
 }
 
 func (b *builder) signalForIndexAddrInBlock(bb *BasicBlock, addr *ssa.IndexAddr) *Signal {
 	if addr == nil {
 		return nil
 	}
-	if sig := b.signalForIndexAddr(addr); sig != nil {
-		return sig
-	}
-	if bb == nil {
+	base := b.signalForValue(addr.X)
+	index := b.signalForValue(addr.Index)
+	return b.memoryAccess(bb, base, index, addr)
+}
+
+func (b *builder) memoryAccess(bb *BasicBlock, base, index *Signal, addr *ssa.IndexAddr) *Signal {
+	if b == nil || addr == nil {
 		return nil
+	}
+	if cached, ok := b.signals[addr]; ok && cached != nil {
+		return cached
 	}
 	state := b.indexedStateForBase(addr.X, addr.Pos())
-	if state == nil || state.length <= 0 {
+	if state == nil {
 		return nil
 	}
-	index := b.signalForValue(addr.Index)
-	if index == nil {
+	if idx, ok := constIndexValue(addr.Index); ok {
+		elem := b.indexedElementSignal(state, idx, addr.Pos())
+		if elem != nil {
+			b.signals[addr] = elem
+		}
+		return elem
+	}
+	if base == nil || index == nil {
+		return nil
+	}
+	if bb == nil {
+		bb = b.currentBlock
+	}
+	if bb == nil || state.length <= 0 {
 		return nil
 	}
 	selected := b.selectIndexedElement(bb, state, index, addr.Pos())
-	if selected == nil {
-		return nil
+	if selected != nil {
+		b.signals[addr] = selected
 	}
-	b.signals[addr] = selected
 	return selected
 }
 
@@ -867,23 +1053,9 @@ func (b *builder) lowerIndexedLoad(bb *BasicBlock, load *ssa.UnOp, addr *ssa.Ind
 	if bb == nil || load == nil || addr == nil {
 		return false
 	}
-	state := b.indexedStateForBase(addr.X, load.Pos())
-	if state == nil {
-		return false
-	}
-	if idx, ok := constIndexValue(addr.Index); ok {
-		elem := b.indexedElementSignal(state, idx, load.Pos())
-		if elem == nil {
-			return false
-		}
-		b.signals[load] = elem
-		return true
-	}
+	base := b.signalForValue(addr.X)
 	index := b.signalForValue(addr.Index)
-	if index == nil || state.length <= 0 {
-		return false
-	}
-	selected := b.selectIndexedElement(bb, state, index, load.Pos())
+	selected := b.memoryAccess(bb, base, index, addr)
 	if selected == nil {
 		return false
 	}
@@ -1092,11 +1264,13 @@ func (b *builder) signalForValue(v ssa.Value) *Signal {
 	case *ssa.Phi:
 		return b.ensureValueSignal(val)
 	case *ssa.IndexAddr:
-		if sig := b.signalForIndexAddr(val); sig != nil {
+		base := b.signalForValue(val.X)
+		index := b.signalForValue(val.Index)
+		if sig := b.memoryAccess(b.currentBlock, base, index, val); sig != nil {
 			return sig
 		}
-		// Dynamic index addresses require a basic-block context to emit the
-		// element-selection mux tree, so defer those to call sites that have one.
+		// Dynamic index addresses need block context plus analyzable base/index.
+		// When unavailable here, callers with explicit block context can retry.
 		return nil
 	case *ssa.Extract:
 		if tuple, ok := b.tupleSignals[val.Tuple]; ok && val.Index >= 0 && val.Index < len(tuple) {

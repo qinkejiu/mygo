@@ -4,6 +4,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"mygo/internal/diag"
@@ -70,6 +71,29 @@ func writer(out chan<- int32) {
 func main() {
     ch0 := make(chan int32, 4)
     go writer(ch0)
+}
+`
+
+const dynamicIndexProgram = `
+package main
+
+func sink(v int32) {}
+
+func main() {
+    var arr [4]int32
+    var idx int
+    var out int32
+    arr[0] = 11
+    arr[1] = 22
+    arr[2] = 33
+    idx = 0
+    if arr[0] > 0 {
+        idx = 1
+    } else {
+        idx = 2
+    }
+    out = arr[idx]
+    sink(out)
 }
 `
 
@@ -159,6 +183,34 @@ func TestChannelOccupancyTracking(t *testing.T) {
 	}
 	if !foundNonZero {
 		t.Fatalf("expected at least one channel to record non-zero occupancy")
+	}
+}
+
+func TestDynamicIndexAddrLowering(t *testing.T) {
+	design := buildDesignFromSource(t, dynamicIndexProgram)
+	if design == nil || design.TopLevel == nil {
+		t.Fatalf("expected design")
+	}
+	idxCompareCount := 0
+	idxMuxCount := 0
+	for _, proc := range design.TopLevel.Processes {
+		for _, block := range proc.Blocks {
+			for _, op := range block.Ops {
+				switch o := op.(type) {
+				case *CompareOperation:
+					if o.Dest != nil && strings.HasPrefix(o.Dest.Name, "idxeq_") {
+						idxCompareCount++
+					}
+				case *MuxOperation:
+					if o.Dest != nil && strings.HasPrefix(o.Dest.Name, "idxload_") {
+						idxMuxCount++
+					}
+				}
+			}
+		}
+	}
+	if idxCompareCount == 0 || idxMuxCount == 0 {
+		t.Fatalf("expected dynamic index lowering ops, got idxeq=%d idxload=%d", idxCompareCount, idxMuxCount)
 	}
 }
 
