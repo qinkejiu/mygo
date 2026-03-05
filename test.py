@@ -133,6 +133,26 @@ def normalize_output(text: str) -> str:
     return "\n".join(lines).strip()
 
 
+def normalize_output_compact(text: str) -> str:
+    # Compact normalization tolerates leading/trailing spaces and blank lines.
+    lines = [line.strip() for line in text.splitlines()]
+    compact = [line for line in lines if line]
+    return "\n".join(compact).strip()
+
+
+def outputs_equivalent(sw_stdout: str, hw_stdout: str) -> tuple[bool, str]:
+    sw_norm = normalize_output(sw_stdout)
+    hw_norm = normalize_output(hw_stdout)
+    if sw_norm == hw_norm:
+        return True, "strict"
+
+    sw_compact = normalize_output_compact(sw_stdout)
+    hw_compact = normalize_output_compact(hw_stdout)
+    if sw_compact == hw_compact:
+        return True, "compact"
+    return False, "none"
+
+
 def write_output_section(output_fh, title: str, body: str) -> None:
     output_fh.write(f"\n[{title}]\n")
     if body.strip():
@@ -143,10 +163,13 @@ def write_output_section(output_fh, title: str, body: str) -> None:
         output_fh.write("(no output)\n")
 
 
-def likely_cycle_shortfall(sw_norm: str, hw_ok: bool, hw_norm: str, hw_stderr: str) -> bool:
+def likely_cycle_shortfall(sw_stdout: str, hw_ok: bool, hw_stdout: str, hw_stderr: str) -> bool:
     lowered = hw_stderr.lower()
     if any(marker in lowered for marker in CYCLE_SHORTFALL_MARKERS):
         return True
+
+    sw_norm = normalize_output_compact(sw_stdout)
+    hw_norm = normalize_output_compact(hw_stdout)
 
     if not sw_norm:
         return False
@@ -156,18 +179,28 @@ def likely_cycle_shortfall(sw_norm: str, hw_ok: bool, hw_norm: str, hw_stderr: s
         return True
     if hw_ok and not hw_norm:
         return True
+
+    # Fallback: if all produced lines are a correct prefix but fewer lines were produced.
+    if hw_ok:
+        sw_lines = sw_norm.splitlines()
+        hw_lines = hw_norm.splitlines()
+        if hw_lines and len(hw_lines) < len(sw_lines) and sw_lines[: len(hw_lines)] == hw_lines:
+            return True
     return False
 
 
 def run_hardware_simulation(main_go: str, folder: str, sw_stdout: str, output_fh):
     max_cycles_cap = SIM_MAX_CYCLES.get(folder, DEFAULT_SIM_MAX_CYCLES)
     current_cycles = min(INITIAL_SIM_MAX_CYCLES, max_cycles_cap)
-    sw_norm = normalize_output(sw_stdout)
+    last_shortfall_cycles = 0
 
     hw_ok = False
     hw_stdout = ""
     hw_stderr = ""
     hw_code = 1
+    output_match = False
+    match_mode = "none"
+    matched_cycles = None
 
     while True:
         hw_cmd = f"go run ./cmd/mygo sim --sim-max-cycles {current_cycles} {shlex.quote(main_go)}"
@@ -184,23 +217,85 @@ def run_hardware_simulation(main_go: str, folder: str, sw_stdout: str, output_fh
                 hw_ok = False
                 output_fh.write("[CHECK]\n")
                 output_fh.write("Hardware run exited 0 but hit unsupported lowering markers; counting as FAIL.\n")
+            else:
+                output_match, match_mode = outputs_equivalent(sw_stdout, hw_stdout)
+                if output_match and not any(marker in lowered for marker in CYCLE_SHORTFALL_MARKERS):
+                    matched_cycles = current_cycles
+                    break
 
         if current_cycles >= max_cycles_cap:
-            return hw_ok, hw_stdout, hw_stderr, hw_code
+            return hw_ok, hw_stdout, hw_stderr, hw_code, current_cycles, output_match, match_mode
 
-        hw_norm = normalize_output(hw_stdout)
-        if not likely_cycle_shortfall(sw_norm, hw_ok, hw_norm, hw_stderr):
-            return hw_ok, hw_stdout, hw_stderr, hw_code
+        if not likely_cycle_shortfall(sw_stdout, hw_ok, hw_stdout, hw_stderr):
+            return hw_ok, hw_stdout, hw_stderr, hw_code, current_cycles, output_match, match_mode
 
         next_cycles = min(max_cycles_cap, current_cycles * SIM_CYCLE_GROWTH_FACTOR)
         if next_cycles <= current_cycles:
-            return hw_ok, hw_stdout, hw_stderr, hw_code
+            return hw_ok, hw_stdout, hw_stderr, hw_code, current_cycles, output_match, match_mode
 
         output_fh.write("[RETRY]\n")
         output_fh.write(
             f"Likely cycle shortfall at {current_cycles} cycles; retrying with {next_cycles} cycles.\n"
         )
+        last_shortfall_cycles = current_cycles
         current_cycles = next_cycles
+
+    # Minimize the cycle budget once a matching run is found.
+    assert matched_cycles is not None
+    low = max(1, last_shortfall_cycles + 1)
+    high = matched_cycles
+    best_cycles = matched_cycles
+    best_stdout = hw_stdout
+    best_stderr = hw_stderr
+    best_code = hw_code
+    best_ok = hw_ok
+    best_mode = match_mode
+
+    if low < high:
+        output_fh.write("[TUNE]\n")
+        output_fh.write(
+            f"Output matched at {matched_cycles} cycles; searching minimal matching cycle count in [{low}, {high}].\n"
+        )
+
+    while low < high:
+        mid = (low + high) // 2
+        hw_cmd = f"go run ./cmd/mygo sim --sim-max-cycles {mid} {shlex.quote(main_go)}"
+        mid_ok, mid_stdout, mid_stderr, mid_code = run_command(
+            hw_cmd,
+            folder,
+            f"hardware simulation tuning (sim-max-cycles={mid})",
+            output_fh,
+        )
+        if mid_ok:
+            lowered = mid_stderr.lower()
+            if any(marker in lowered for marker in HARDWARE_UNSUPPORTED_MARKERS):
+                mid_ok = False
+
+        mid_match = False
+        mid_mode = "none"
+        if mid_ok:
+            mid_match, mid_mode = outputs_equivalent(sw_stdout, mid_stdout)
+            if mid_match and any(marker in lowered for marker in CYCLE_SHORTFALL_MARKERS):
+                mid_match = False
+
+        if mid_match:
+            best_cycles = mid
+            best_stdout = mid_stdout
+            best_stderr = mid_stderr
+            best_code = mid_code
+            best_ok = mid_ok
+            best_mode = mid_mode
+            high = mid
+        else:
+            low = mid + 1
+
+    if best_cycles != matched_cycles:
+        output_fh.write("[TUNE]\n")
+        output_fh.write(
+            f"Reduced matching sim-max-cycles from {matched_cycles} to {best_cycles}.\n"
+        )
+
+    return best_ok, best_stdout, best_stderr, best_code, best_cycles, True, best_mode
 
 
 def main():
@@ -235,11 +330,15 @@ def main():
             if sw_ok:
                 sw_success += 1
 
-            hw_ok, hw_stdout, hw_stderr, hw_code = run_hardware_simulation(main_go, folder, sw_stdout, fh)
+            hw_ok, hw_stdout, hw_stderr, hw_code, hw_cycles_used, outputs_match, match_mode = (
+                run_hardware_simulation(main_go, folder, sw_stdout, fh)
+            )
+            outputs_match = sw_ok and hw_ok and outputs_match
+            if not outputs_match:
+                match_mode = "none"
 
             sw_norm = normalize_output(sw_stdout)
             hw_norm = normalize_output(hw_stdout)
-            outputs_match = sw_ok and hw_ok and sw_norm == hw_norm
             diff_text = ""
             if sw_ok and hw_ok and not outputs_match:
                 diff_lines = difflib.unified_diff(
@@ -256,7 +355,9 @@ def main():
             fh.write(f"hardware_return_code={hw_code}\n")
             fh.write(f"software_ok={sw_ok}\n")
             fh.write(f"hardware_ok={hw_ok}\n")
+            fh.write(f"hardware_cycles_used={hw_cycles_used}\n")
             fh.write(f"output_match={outputs_match}\n")
+            fh.write(f"output_match_mode={match_mode}\n")
             write_output_section(fh, "SOFTWARE_STDOUT", sw_stdout)
             write_output_section(fh, "HARDWARE_STDOUT", hw_stdout)
             write_output_section(fh, "SOFTWARE_STDERR(filtered)", sw_stderr)

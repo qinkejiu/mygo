@@ -83,6 +83,8 @@ type indexedBaseState struct {
 	elements map[int]*Signal
 }
 
+const defaultDynamicSliceIndexMax = 16
+
 // State is an SSA-backed FSM state for loop lowering.
 type State struct {
 	name   string
@@ -1033,16 +1035,20 @@ func (b *builder) memoryAccess(bb *BasicBlock, base, index *Signal, addr *ssa.In
 		}
 		return elem
 	}
-	if base == nil || index == nil {
+	if index == nil {
 		return nil
 	}
 	if bb == nil {
 		bb = b.currentBlock
 	}
-	if bb == nil || state.length <= 0 {
+	if bb == nil {
 		return nil
 	}
-	selected := b.selectIndexedElement(bb, state, index, addr.Pos())
+	maxLen := state.length
+	if maxLen < 0 {
+		maxLen = defaultDynamicSliceIndexMax
+	}
+	selected := b.selectIndexedElementWithMax(bb, state, index, addr.Pos(), maxLen)
 	if selected != nil {
 		b.signals[addr] = selected
 	}
@@ -1123,7 +1129,11 @@ func (b *builder) lowerIndexedStore(bb *BasicBlock, store *ssa.Store) bool {
 }
 
 func (b *builder) selectIndexedElement(bb *BasicBlock, state *indexedBaseState, index *Signal, pos token.Pos) *Signal {
-	if bb == nil || state == nil || index == nil || state.length <= 0 {
+	return b.selectIndexedElementWithMax(bb, state, index, pos, state.length)
+}
+
+func (b *builder) selectIndexedElementWithMax(bb *BasicBlock, state *indexedBaseState, index *Signal, pos token.Pos, maxLen int) *Signal {
+	if bb == nil || state == nil || index == nil || maxLen <= 0 {
 		return nil
 	}
 	selected := b.indexedElementSignal(state, 0, pos)
@@ -1134,7 +1144,7 @@ func (b *builder) selectIndexedElement(bb *BasicBlock, state *indexedBaseState, 
 	if indexType == nil {
 		indexType = &SignalType{Width: 32, Signed: true}
 	}
-	for i := 1; i < state.length; i++ {
+	for i := 1; i < maxLen; i++ {
 		elem := b.indexedElementSignal(state, i, pos)
 		if elem == nil {
 			continue
