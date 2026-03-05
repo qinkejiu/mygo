@@ -1059,7 +1059,10 @@ func (b *builder) lowerIndexedLoad(bb *BasicBlock, load *ssa.UnOp, addr *ssa.Ind
 	if selected == nil {
 		return false
 	}
-	b.signals[load] = selected
+	// Preserve any pre-created placeholder signal (e.g. when a phi references
+	// this load before the defining block is translated) by resolving through
+	// bindResolvedValue instead of replacing the map entry directly.
+	b.bindResolvedValue(bb, load, selected)
 	return true
 }
 

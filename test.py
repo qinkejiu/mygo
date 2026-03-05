@@ -11,6 +11,8 @@ BASE_DIR = Path("tests/CHStone")
 OUTPUT_FILE = Path("CHS_clean_simulation_results.txt")
 COMMAND_TIMEOUT_SEC = 600
 DEFAULT_SIM_MAX_CYCLES = 20000
+INITIAL_SIM_MAX_CYCLES = 4096
+SIM_CYCLE_GROWTH_FACTOR = 2
 
 # Heavier CHStone workloads often need many more cycles than stage tests.
 SIM_MAX_CYCLES = {
@@ -34,6 +36,13 @@ HARDWARE_UNSUPPORTED_MARKERS = (
     "unsupported argument",
     "unsupported unary op",
     "has unresolved operand; using zero value fallback",
+)
+
+CYCLE_SHORTFALL_MARKERS = (
+    "max cycles",
+    "cycle limit",
+    "timed out",
+    "timeout",
 )
 
 
@@ -134,6 +143,66 @@ def write_output_section(output_fh, title: str, body: str) -> None:
         output_fh.write("(no output)\n")
 
 
+def likely_cycle_shortfall(sw_norm: str, hw_ok: bool, hw_norm: str, hw_stderr: str) -> bool:
+    lowered = hw_stderr.lower()
+    if any(marker in lowered for marker in CYCLE_SHORTFALL_MARKERS):
+        return True
+
+    if not sw_norm:
+        return False
+
+    # If hardware output is only a strict prefix, simulation likely stopped too early.
+    if hw_ok and hw_norm and sw_norm.startswith(hw_norm) and sw_norm != hw_norm:
+        return True
+    if hw_ok and not hw_norm:
+        return True
+    return False
+
+
+def run_hardware_simulation(main_go: str, folder: str, sw_stdout: str, output_fh):
+    max_cycles_cap = SIM_MAX_CYCLES.get(folder, DEFAULT_SIM_MAX_CYCLES)
+    current_cycles = min(INITIAL_SIM_MAX_CYCLES, max_cycles_cap)
+    sw_norm = normalize_output(sw_stdout)
+
+    hw_ok = False
+    hw_stdout = ""
+    hw_stderr = ""
+    hw_code = 1
+
+    while True:
+        hw_cmd = f"go run ./cmd/mygo sim --sim-max-cycles {current_cycles} {shlex.quote(main_go)}"
+        hw_ok, hw_stdout, hw_stderr, hw_code = run_command(
+            hw_cmd,
+            folder,
+            f"hardware simulation (sim-max-cycles={current_cycles})",
+            output_fh,
+        )
+
+        if hw_ok:
+            lowered = hw_stderr.lower()
+            if any(marker in lowered for marker in HARDWARE_UNSUPPORTED_MARKERS):
+                hw_ok = False
+                output_fh.write("[CHECK]\n")
+                output_fh.write("Hardware run exited 0 but hit unsupported lowering markers; counting as FAIL.\n")
+
+        if current_cycles >= max_cycles_cap:
+            return hw_ok, hw_stdout, hw_stderr, hw_code
+
+        hw_norm = normalize_output(hw_stdout)
+        if not likely_cycle_shortfall(sw_norm, hw_ok, hw_norm, hw_stderr):
+            return hw_ok, hw_stdout, hw_stderr, hw_code
+
+        next_cycles = min(max_cycles_cap, current_cycles * SIM_CYCLE_GROWTH_FACTOR)
+        if next_cycles <= current_cycles:
+            return hw_ok, hw_stdout, hw_stderr, hw_code
+
+        output_fh.write("[RETRY]\n")
+        output_fh.write(
+            f"Likely cycle shortfall at {current_cycles} cycles; retrying with {next_cycles} cycles.\n"
+        )
+        current_cycles = next_cycles
+
+
 def main():
     if not BASE_DIR.exists():
         print(f"❌ Error: '{BASE_DIR}' not found", file=sys.stderr)
@@ -166,15 +235,7 @@ def main():
             if sw_ok:
                 sw_success += 1
 
-            max_cycles = SIM_MAX_CYCLES.get(folder, DEFAULT_SIM_MAX_CYCLES)
-            hw_cmd = f"go run ./cmd/mygo sim --sim-max-cycles {max_cycles} {shlex.quote(main_go)}"
-            hw_ok, hw_stdout, hw_stderr, hw_code = run_command(hw_cmd, folder, "hardware simulation", fh)
-            if hw_ok:
-                lowered = hw_stderr.lower()
-                if any(marker in lowered for marker in HARDWARE_UNSUPPORTED_MARKERS):
-                    hw_ok = False
-                    fh.write("[CHECK]\n")
-                    fh.write("Hardware run exited 0 but hit unsupported lowering markers; counting as FAIL.\n")
+            hw_ok, hw_stdout, hw_stderr, hw_code = run_hardware_simulation(main_go, folder, sw_stdout, fh)
 
             sw_norm = normalize_output(sw_stdout)
             hw_norm = normalize_output(hw_stdout)

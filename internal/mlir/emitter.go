@@ -1585,9 +1585,10 @@ func (p *processPrinter) emitOperation(block *ir.BasicBlock, op ir.Operation, pr
 	case *ir.AssignOperation:
 		clk := p.seqClock()
 		src := p.valueRef(o.Value)
-		dest := p.bindSSA(o.Dest)
+		dest := p.freshValueName("reg")
 		p.printIndent()
 		fmt.Fprintf(p.w, "%s = seq.compreg %s, %s : %s\n", dest, src, clk, typeString(o.Dest.Type))
+		p.valueNames[o.Dest] = dest
 	case *ir.SendOperation:
 		if p.fsm != nil {
 			return
