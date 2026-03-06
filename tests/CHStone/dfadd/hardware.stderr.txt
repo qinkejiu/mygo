@@ -1,0 +1,1 @@
+/home/qinkejiu/mygo/tests/CHStone/dfadd/main.go:472:13: warning: fmt.Printf: unsupported verb %f

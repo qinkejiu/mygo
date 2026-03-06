@@ -415,6 +415,23 @@ func (b *builder) handleCall(bb *BasicBlock, call *ssa.Call) {
 		b.tupleSignals[call] = copied
 		return
 	}
+	if folded, ok := b.constEvalCall(callee, call.Call.Args, args, call.Pos()); ok {
+		if resultCount == 0 {
+			return
+		}
+		if len(folded) != resultCount {
+			b.reporter.Warning(call.Pos(), fmt.Sprintf("const eval for %s produced %d results, expected %d", callee.String(), len(folded), resultCount))
+			return
+		}
+		if resultCount == 1 {
+			b.bindResolvedValue(bb, call, folded[0])
+			return
+		}
+		copied := make([]*Signal, len(folded))
+		copy(copied, folded)
+		b.tupleSignals[call] = copied
+		return
+	}
 
 	// Fallback to explicit call lowering when inlining is unavailable.
 	if resultCount > 1 {

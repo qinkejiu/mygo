@@ -1,0 +1,4 @@
+/home/qinkejiu/mygo/tests/CHStone/motion/main.go:90:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/motion/main.go:97:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/motion/main.go:131:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/motion/main.go:512:52: warning: multi-result call for mygo/tests/CHStone/motion.motion_vectors is not supported

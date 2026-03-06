@@ -1,0 +1,974 @@
+module main
+  ports:
+    in  clk 1bu
+    in  rst 1bu
+    in  test_in_0 64bu
+    in  test_in_1 64bu
+    in  test_in_2 64bu
+    in  test_in_3 64bu
+    in  test_in_4 64bu
+    in  test_in_5 64bu
+    in  test_in_6 64bu
+    in  test_in_7 64bu
+    in  test_in_8 64bu
+    in  test_in_9 64bu
+    in  test_in_10 64bu
+    in  test_in_11 64bu
+    in  test_in_12 64bu
+    in  test_in_13 64bu
+    in  test_in_14 64bu
+    in  test_in_15 64bu
+    in  test_in_16 64bu
+    in  test_in_17 64bu
+    in  test_in_18 64bu
+    in  test_in_19 64bu
+    in  test_in_20 64bu
+    in  test_in_21 64bu
+    in  test_in_22 64bu
+    in  test_in_23 64bu
+    in  test_in_24 64bu
+    in  test_in_25 64bu
+    in  test_in_26 64bu
+    in  test_in_27 64bu
+    in  test_in_28 64bu
+    in  test_in_29 64bu
+    in  test_in_30 64bu
+    in  test_in_31 64bu
+    in  test_in_32 64bu
+    in  test_in_33 64bu
+    in  test_in_34 64bu
+    in  test_in_35 64bu
+    in  test_out_0 64bu
+    in  test_out_1 64bu
+    in  test_out_2 64bu
+    in  test_out_3 64bu
+    in  test_out_4 64bu
+    in  test_out_5 64bu
+    in  test_out_6 64bu
+    in  test_out_7 64bu
+    in  test_out_8 64bu
+    in  test_out_9 64bu
+    in  test_out_10 64bu
+    in  test_out_11 64bu
+    in  test_out_12 64bu
+    in  test_out_13 64bu
+    in  test_out_14 64bu
+    in  test_out_15 64bu
+    in  test_out_16 64bu
+    in  test_out_17 64bu
+    in  test_out_18 64bu
+    in  test_out_19 64bu
+    in  test_out_20 64bu
+    in  test_out_21 64bu
+    in  test_out_22 64bu
+    in  test_out_23 64bu
+    in  test_out_24 64bu
+    in  test_out_25 64bu
+    in  test_out_26 64bu
+    in  test_out_27 64bu
+    in  test_out_28 64bu
+    in  test_out_29 64bu
+    in  test_out_30 64bu
+    in  test_out_31 64bu
+    in  test_out_32 64bu
+    in  test_out_33 64bu
+    in  test_out_34 64bu
+    in  test_out_35 64bu
+  signals:
+    const_0  const 1bu = true
+    const_1  const 8bs = 0
+    const_10 const 64bu = 4607394976692830289
+    const_101 const 32bs = 6
+    const_104 const 32bs = 7
+    const_107 const 32bs = 8
+    const_11 const 64bu = 4608181002946194185
+    const_110 const 32bs = 9
+    const_113 const 32bs = 10
+    const_116 const 32bs = 11
+    const_119 const 32bs = 12
+    const_12 const 64bu = 4608967029199558081
+    const_122 const 32bs = 13
+    const_125 const 32bs = 14
+    const_128 const 32bs = 15
+    const_13 const 64bu = 4609753055452921977
+    const_131 const 32bs = 16
+    const_134 const 32bs = 17
+    const_137 const 32bs = 18
+    const_14 const 64bu = 4610539081706285873
+    const_140 const 32bs = 19
+    const_143 const 32bs = 20
+    const_146 const 32bs = 21
+    const_149 const 32bs = 22
+    const_15 const 64bu = 4611325107959649769
+    const_152 const 32bs = 23
+    const_155 const 32bs = 24
+    const_158 const 32bs = 25
+    const_16 const 64bu = 4611898576320200785
+    const_161 const 32bs = 26
+    const_164 const 32bs = 27
+    const_167 const 32bs = 28
+    const_17 const 64bu = 4612291589446882733
+    const_170 const 32bs = 29
+    const_173 const 32bs = 30
+    const_176 const 32bs = 31
+    const_179 const 32bs = 32
+    const_18 const 64bu = 4612684602573564681
+    const_182 const 32bs = 33
+    const_185 const 32bs = 34
+    const_188 const 32bs = 35
+    const_19 const 64bu = 4613077615700246629
+    const_191 const 32bs = 0
+    const_193 const 32bs = 1
+    const_196 const 32bs = 2
+    const_199 const 32bs = 3
+    const_2  const 8bs = 0
+    const_20 const 64bu = 4613470628826928577
+    const_202 const 32bs = 4
+    const_205 const 32bs = 5
+    const_208 const 32bs = 6
+    const_21 const 64bu = 4613863641953610525
+    const_211 const 32bs = 7
+    const_214 const 32bs = 8
+    const_217 const 32bs = 9
+    const_22 const 64bu = 4614256655080292473
+    const_220 const 32bs = 10
+    const_223 const 32bs = 11
+    const_226 const 32bs = 12
+    const_229 const 32bs = 13
+    const_23 const 64bu = 4614649668206974421
+    const_232 const 32bs = 14
+    const_235 const 32bs = 15
+    const_238 const 32bs = 16
+    const_24 const 64bu = 4615042681333656369
+    const_241 const 32bs = 17
+    const_244 const 32bs = 18
+    const_247 const 32bs = 19
+    const_25 const 64bu = 4615435694460338317
+    const_250 const 32bs = 20
+    const_253 const 32bs = 21
+    const_256 const 32bs = 22
+    const_259 const 32bs = 23
+    const_26 const 64bu = 4615828707587020265
+    const_262 const 32bs = 24
+    const_265 const 32bs = 25
+    const_268 const 32bs = 26
+    const_27 const 64bu = 4616205669384230307
+    const_271 const 32bs = 27
+    const_274 const 32bs = 28
+    const_277 const 32bs = 29
+    const_28 const 64bu = 4616402175947571281
+    const_280 const 32bs = 30
+    const_283 const 32bs = 31
+    const_286 const 32bs = 32
+    const_289 const 32bs = 33
+    const_29 const 64bu = 4616598682510912255
+    const_292 const 32bs = 34
+    const_295 const 32bs = 35
+    const_298 const 32bs = 0
+    const_299 const 32bs = 0
+    const_3  const 8bs = 1
+    const_30 const 64bu = 4616795189074253229
+    const_300 const 32bs = 1
+    const_303 const 32bs = 1
+    const_306 const 32bs = 2
+    const_309 const 32bs = 3
+    const_31 const 64bu = 4616991695637594203
+    const_312 const 32bs = 4
+    const_315 const 32bs = 5
+    const_318 const 32bs = 6
+    const_32 const 64bu = 4617188202200935177
+    const_321 const 32bs = 7
+    const_324 const 32bs = 8
+    const_327 const 32bs = 9
+    const_33 const 64bu = 4617384708764276151
+    const_330 const 32bs = 10
+    const_333 const 32bs = 11
+    const_336 const 32bs = 12
+    const_339 const 32bs = 13
+    const_34 const 64bu = 4617581215327617125
+    const_342 const 32bs = 14
+    const_345 const 32bs = 15
+    const_348 const 32bs = 16
+    const_35 const 64bu = 4617777721890958099
+    const_351 const 32bs = 17
+    const_354 const 32bs = 18
+    const_357 const 32bs = 19
+    const_36 const 64bu = 4617974228454299073
+    const_360 const 32bs = 20
+    const_363 const 32bs = 21
+    const_366 const 32bs = 22
+    const_369 const 32bs = 23
+    const_37 const 64bu = 4618170735017640047
+    const_372 const 32bs = 24
+    const_375 const 32bs = 25
+    const_378 const 32bs = 26
+    const_38 const 64bu = 4618367241580981021
+    const_381 const 32bs = 27
+    const_384 const 32bs = 28
+    const_387 const 32bs = 29
+    const_39 const 64bu = 4618563748144321995
+    const_390 const 32bs = 30
+    const_393 const 32bs = 31
+    const_396 const 32bs = 32
+    const_399 const 32bs = 33
+    const_4  const 64bu = 0
+    const_40 const 64bu = 0
+    const_402 const 32bs = 34
+    const_405 const 32bs = 35
+    const_408 const 32bs = 1
+    const_41 const 64bu = 4595424353983311309
+    const_411 const 32bs = 2
+    const_414 const 32bs = 3
+    const_417 const 32bs = 4
+    const_42 const 64bu = 4599832905844899646
+    const_420 const 32bs = 5
+    const_423 const 32bs = 6
+    const_426 const 32bs = 7
+    const_429 const 32bs = 8
+    const_43 const 64bu = 4602678817326738065
+    const_432 const 32bs = 9
+    const_435 const 32bs = 10
+    const_438 const 32bs = 11
+    const_44 const 64bu = 4603964934626362083
+    const_441 const 32bs = 12
+    const_444 const 32bs = 13
+    const_447 const 32bs = 14
+    const_45 const 64bu = 4605075133481489574
+    const_450 const 32bs = 15
+    const_453 const 32bs = 16
+    const_456 const 32bs = 17
+    const_459 const 32bs = 18
+    const_46 const 64bu = 4605975682307795949
+    const_462 const 32bs = 19
+    const_465 const 32bs = 20
+    const_468 const 32bs = 21
+    const_47 const 64bu = 4606639217416480941
+    const_471 const 32bs = 22
+    const_474 const 32bs = 23
+    const_477 const 32bs = 24
+    const_48 const 64bu = 4607045578640063168
+    const_480 const 32bs = 25
+    const_483 const 32bs = 26
+    const_486 const 32bs = 27
+    const_489 const 32bs = 28
+    const_49 const 64bu = 4607182418293282730
+    const_492 const 32bs = 29
+    const_495 const 32bs = 30
+    const_498 const 32bs = 31
+    const_5  const 64bu = 4595456230317446593
+    const_50 const 64bu = 4607045579801131401
+    const_501 const 32bs = 32
+    const_504 const 32bs = 33
+    const_507 const 32bs = 34
+    const_51 const 64bu = 4606639219569943220
+    const_510 const 32bs = 35
+    const_512 const 32bs = 0
+    const_513 const 32bs = 0
+    const_514 const 32bs = 1
+    const_515 const 32bs = 0
+    const_516 const 32bs = 2
+    const_517 const 32bs = 0
+    const_518 const 32bs = 3
+    const_519 const 32bs = 0
+    const_52 const 64bu = 4605975685322773549
+    const_520 const 32bs = 1
+    const_53 const 64bu = 4605075138685085801
+    const_54 const 64bu = 4603964939033565416
+    const_55 const 64bu = 4602678823104758728
+    const_56 const 64bu = 4599832915021762757
+    const_57 const 64bu = 4595424366569280812
+    const_58 const 64bu = 4514487953518840721
+    const_59 const 64bu = 13818796365362082684
+    const_6  const 64bu = 4599959829944817089
+    const_60 const 64bu = 13823204928665915198
+    const_61 const 64bu = 13826050844372302187
+    const_62 const 64bu = 13827336967286268883
+    const_63 const 64bu = 13828447167311575061
+    const_64 const 64bu = 13829347717820362290
+    const_65 const 64bu = 13830011252101685591
+    const_66 const 64bu = 13830417614150978300
+    const_67 const 64bu = 13830554454629670031
+    const_68 const 64bu = 13830417615289509866
+    const_69 const 64bu = 13830011258544172583
+    const_7  const 64bu = 4602891377065459793
+    const_70 const 64bu = 13829347725204900682
+    const_71 const 64bu = 13828447179048474497
+    const_72 const 64bu = 13827336983130365270
+    const_73 const 64bu = 13826050865104724749
+    const_74 const 64bu = 13823204963627158263
+    const_75 const 64bu = 13818796431928484829
+    const_77 const 32bs = 0
+    const_8  const 64bu = 4604463429572187585
+    const_80 const 32bs = 0
+    const_82 const 32bs = 36
+    const_84 const 32bs = 0
+    const_86 const 32bs = 1
+    const_89 const 32bs = 2
+    const_9  const 64bu = 4606035482078915377
+    const_92 const 32bs = 3
+    const_95 const 32bs = 4
+    const_98 const 32bs = 5
+    idxeq_100 wire  1bu
+    idxeq_103 wire  1bu
+    idxeq_106 wire  1bu
+    idxeq_109 wire  1bu
+    idxeq_112 wire  1bu
+    idxeq_115 wire  1bu
+    idxeq_118 wire  1bu
+    idxeq_121 wire  1bu
+    idxeq_124 wire  1bu
+    idxeq_127 wire  1bu
+    idxeq_130 wire  1bu
+    idxeq_133 wire  1bu
+    idxeq_136 wire  1bu
+    idxeq_139 wire  1bu
+    idxeq_142 wire  1bu
+    idxeq_145 wire  1bu
+    idxeq_148 wire  1bu
+    idxeq_151 wire  1bu
+    idxeq_154 wire  1bu
+    idxeq_157 wire  1bu
+    idxeq_160 wire  1bu
+    idxeq_163 wire  1bu
+    idxeq_166 wire  1bu
+    idxeq_169 wire  1bu
+    idxeq_172 wire  1bu
+    idxeq_175 wire  1bu
+    idxeq_178 wire  1bu
+    idxeq_181 wire  1bu
+    idxeq_184 wire  1bu
+    idxeq_187 wire  1bu
+    idxeq_192 wire  1bu
+    idxeq_195 wire  1bu
+    idxeq_198 wire  1bu
+    idxeq_201 wire  1bu
+    idxeq_204 wire  1bu
+    idxeq_207 wire  1bu
+    idxeq_210 wire  1bu
+    idxeq_213 wire  1bu
+    idxeq_216 wire  1bu
+    idxeq_219 wire  1bu
+    idxeq_222 wire  1bu
+    idxeq_225 wire  1bu
+    idxeq_228 wire  1bu
+    idxeq_231 wire  1bu
+    idxeq_234 wire  1bu
+    idxeq_237 wire  1bu
+    idxeq_240 wire  1bu
+    idxeq_243 wire  1bu
+    idxeq_246 wire  1bu
+    idxeq_249 wire  1bu
+    idxeq_252 wire  1bu
+    idxeq_255 wire  1bu
+    idxeq_258 wire  1bu
+    idxeq_261 wire  1bu
+    idxeq_264 wire  1bu
+    idxeq_267 wire  1bu
+    idxeq_270 wire  1bu
+    idxeq_273 wire  1bu
+    idxeq_276 wire  1bu
+    idxeq_279 wire  1bu
+    idxeq_282 wire  1bu
+    idxeq_285 wire  1bu
+    idxeq_288 wire  1bu
+    idxeq_291 wire  1bu
+    idxeq_294 wire  1bu
+    idxeq_302 wire  1bu
+    idxeq_305 wire  1bu
+    idxeq_308 wire  1bu
+    idxeq_311 wire  1bu
+    idxeq_314 wire  1bu
+    idxeq_317 wire  1bu
+    idxeq_320 wire  1bu
+    idxeq_323 wire  1bu
+    idxeq_326 wire  1bu
+    idxeq_329 wire  1bu
+    idxeq_332 wire  1bu
+    idxeq_335 wire  1bu
+    idxeq_338 wire  1bu
+    idxeq_341 wire  1bu
+    idxeq_344 wire  1bu
+    idxeq_347 wire  1bu
+    idxeq_350 wire  1bu
+    idxeq_353 wire  1bu
+    idxeq_356 wire  1bu
+    idxeq_359 wire  1bu
+    idxeq_362 wire  1bu
+    idxeq_365 wire  1bu
+    idxeq_368 wire  1bu
+    idxeq_371 wire  1bu
+    idxeq_374 wire  1bu
+    idxeq_377 wire  1bu
+    idxeq_380 wire  1bu
+    idxeq_383 wire  1bu
+    idxeq_386 wire  1bu
+    idxeq_389 wire  1bu
+    idxeq_392 wire  1bu
+    idxeq_395 wire  1bu
+    idxeq_398 wire  1bu
+    idxeq_401 wire  1bu
+    idxeq_404 wire  1bu
+    idxeq_407 wire  1bu
+    idxeq_410 wire  1bu
+    idxeq_413 wire  1bu
+    idxeq_416 wire  1bu
+    idxeq_419 wire  1bu
+    idxeq_422 wire  1bu
+    idxeq_425 wire  1bu
+    idxeq_428 wire  1bu
+    idxeq_431 wire  1bu
+    idxeq_434 wire  1bu
+    idxeq_437 wire  1bu
+    idxeq_440 wire  1bu
+    idxeq_443 wire  1bu
+    idxeq_446 wire  1bu
+    idxeq_449 wire  1bu
+    idxeq_452 wire  1bu
+    idxeq_455 wire  1bu
+    idxeq_458 wire  1bu
+    idxeq_461 wire  1bu
+    idxeq_464 wire  1bu
+    idxeq_467 wire  1bu
+    idxeq_470 wire  1bu
+    idxeq_473 wire  1bu
+    idxeq_476 wire  1bu
+    idxeq_479 wire  1bu
+    idxeq_482 wire  1bu
+    idxeq_485 wire  1bu
+    idxeq_488 wire  1bu
+    idxeq_491 wire  1bu
+    idxeq_494 wire  1bu
+    idxeq_497 wire  1bu
+    idxeq_500 wire  1bu
+    idxeq_503 wire  1bu
+    idxeq_506 wire  1bu
+    idxeq_509 wire  1bu
+    idxeq_85 wire  1bu
+    idxeq_88 wire  1bu
+    idxeq_91 wire  1bu
+    idxeq_94 wire  1bu
+    idxeq_97 wire  1bu
+    idxload_102 wire  64bu
+    idxload_105 wire  64bu
+    idxload_108 wire  64bu
+    idxload_111 wire  64bu
+    idxload_114 wire  64bu
+    idxload_117 wire  64bu
+    idxload_120 wire  64bu
+    idxload_123 wire  64bu
+    idxload_126 wire  64bu
+    idxload_129 wire  64bu
+    idxload_132 wire  64bu
+    idxload_135 wire  64bu
+    idxload_138 wire  64bu
+    idxload_141 wire  64bu
+    idxload_144 wire  64bu
+    idxload_147 wire  64bu
+    idxload_150 wire  64bu
+    idxload_153 wire  64bu
+    idxload_156 wire  64bu
+    idxload_159 wire  64bu
+    idxload_162 wire  64bu
+    idxload_165 wire  64bu
+    idxload_168 wire  64bu
+    idxload_171 wire  64bu
+    idxload_174 wire  64bu
+    idxload_177 wire  64bu
+    idxload_180 wire  64bu
+    idxload_183 wire  64bu
+    idxload_186 wire  64bu
+    idxload_189 wire  64bu
+    idxload_194 wire  64bu
+    idxload_197 wire  64bu
+    idxload_200 wire  64bu
+    idxload_203 wire  64bu
+    idxload_206 wire  64bu
+    idxload_209 wire  64bu
+    idxload_212 wire  64bu
+    idxload_215 wire  64bu
+    idxload_218 wire  64bu
+    idxload_221 wire  64bu
+    idxload_224 wire  64bu
+    idxload_227 wire  64bu
+    idxload_230 wire  64bu
+    idxload_233 wire  64bu
+    idxload_236 wire  64bu
+    idxload_239 wire  64bu
+    idxload_242 wire  64bu
+    idxload_245 wire  64bu
+    idxload_248 wire  64bu
+    idxload_251 wire  64bu
+    idxload_254 wire  64bu
+    idxload_257 wire  64bu
+    idxload_260 wire  64bu
+    idxload_263 wire  64bu
+    idxload_266 wire  64bu
+    idxload_269 wire  64bu
+    idxload_272 wire  64bu
+    idxload_275 wire  64bu
+    idxload_278 wire  64bu
+    idxload_281 wire  64bu
+    idxload_284 wire  64bu
+    idxload_287 wire  64bu
+    idxload_290 wire  64bu
+    idxload_293 wire  64bu
+    idxload_296 wire  64bu
+    idxload_304 wire  64bu
+    idxload_307 wire  64bu
+    idxload_310 wire  64bu
+    idxload_313 wire  64bu
+    idxload_316 wire  64bu
+    idxload_319 wire  64bu
+    idxload_322 wire  64bu
+    idxload_325 wire  64bu
+    idxload_328 wire  64bu
+    idxload_331 wire  64bu
+    idxload_334 wire  64bu
+    idxload_337 wire  64bu
+    idxload_340 wire  64bu
+    idxload_343 wire  64bu
+    idxload_346 wire  64bu
+    idxload_349 wire  64bu
+    idxload_352 wire  64bu
+    idxload_355 wire  64bu
+    idxload_358 wire  64bu
+    idxload_361 wire  64bu
+    idxload_364 wire  64bu
+    idxload_367 wire  64bu
+    idxload_370 wire  64bu
+    idxload_373 wire  64bu
+    idxload_376 wire  64bu
+    idxload_379 wire  64bu
+    idxload_382 wire  64bu
+    idxload_385 wire  64bu
+    idxload_388 wire  64bu
+    idxload_391 wire  64bu
+    idxload_394 wire  64bu
+    idxload_397 wire  64bu
+    idxload_400 wire  64bu
+    idxload_403 wire  64bu
+    idxload_406 wire  64bu
+    idxload_409 wire  64bu
+    idxload_412 wire  64bu
+    idxload_415 wire  64bu
+    idxload_418 wire  64bu
+    idxload_421 wire  64bu
+    idxload_424 wire  64bu
+    idxload_427 wire  64bu
+    idxload_430 wire  64bu
+    idxload_433 wire  64bu
+    idxload_436 wire  64bu
+    idxload_439 wire  64bu
+    idxload_442 wire  64bu
+    idxload_445 wire  64bu
+    idxload_448 wire  64bu
+    idxload_451 wire  64bu
+    idxload_454 wire  64bu
+    idxload_457 wire  64bu
+    idxload_460 wire  64bu
+    idxload_463 wire  64bu
+    idxload_466 wire  64bu
+    idxload_469 wire  64bu
+    idxload_472 wire  64bu
+    idxload_475 wire  64bu
+    idxload_478 wire  64bu
+    idxload_481 wire  64bu
+    idxload_484 wire  64bu
+    idxload_487 wire  64bu
+    idxload_490 wire  64bu
+    idxload_493 wire  64bu
+    idxload_496 wire  64bu
+    idxload_499 wire  64bu
+    idxload_502 wire  64bu
+    idxload_505 wire  64bu
+    idxload_508 wire  64bu
+    idxload_511 wire  64bu
+    idxload_87 wire  64bu
+    idxload_90 wire  64bu
+    idxload_93 wire  64bu
+    idxload_96 wire  64bu
+    idxload_99 wire  64bu
+    t0_76    wire  32bs
+    t14_301  wire  32bs
+    t15_78   wire  32bs
+    t1_79    wire  32bs
+    t2_83    wire  1bu
+    t36_81   wire  32bs
+    t5_190   wire  64bu
+    t8_297   wire  1bu
+    test_in_0 wire  64bu
+    test_in_1 wire  64bu
+    test_in_10 wire  64bu
+    test_in_11 wire  64bu
+    test_in_12 wire  64bu
+    test_in_13 wire  64bu
+    test_in_14 wire  64bu
+    test_in_15 wire  64bu
+    test_in_16 wire  64bu
+    test_in_17 wire  64bu
+    test_in_18 wire  64bu
+    test_in_19 wire  64bu
+    test_in_2 wire  64bu
+    test_in_20 wire  64bu
+    test_in_21 wire  64bu
+    test_in_22 wire  64bu
+    test_in_23 wire  64bu
+    test_in_24 wire  64bu
+    test_in_25 wire  64bu
+    test_in_26 wire  64bu
+    test_in_27 wire  64bu
+    test_in_28 wire  64bu
+    test_in_29 wire  64bu
+    test_in_3 wire  64bu
+    test_in_30 wire  64bu
+    test_in_31 wire  64bu
+    test_in_32 wire  64bu
+    test_in_33 wire  64bu
+    test_in_34 wire  64bu
+    test_in_35 wire  64bu
+    test_in_4 wire  64bu
+    test_in_5 wire  64bu
+    test_in_6 wire  64bu
+    test_in_7 wire  64bu
+    test_in_8 wire  64bu
+    test_in_9 wire  64bu
+    test_out_0 wire  64bu
+    test_out_1 wire  64bu
+    test_out_10 wire  64bu
+    test_out_11 wire  64bu
+    test_out_12 wire  64bu
+    test_out_13 wire  64bu
+    test_out_14 wire  64bu
+    test_out_15 wire  64bu
+    test_out_16 wire  64bu
+    test_out_17 wire  64bu
+    test_out_18 wire  64bu
+    test_out_19 wire  64bu
+    test_out_2 wire  64bu
+    test_out_20 wire  64bu
+    test_out_21 wire  64bu
+    test_out_22 wire  64bu
+    test_out_23 wire  64bu
+    test_out_24 wire  64bu
+    test_out_25 wire  64bu
+    test_out_26 wire  64bu
+    test_out_27 wire  64bu
+    test_out_28 wire  64bu
+    test_out_29 wire  64bu
+    test_out_3 wire  64bu
+    test_out_30 wire  64bu
+    test_out_31 wire  64bu
+    test_out_32 wire  64bu
+    test_out_33 wire  64bu
+    test_out_34 wire  64bu
+    test_out_35 wire  64bu
+    test_out_4 wire  64bu
+    test_out_5 wire  64bu
+    test_out_6 wire  64bu
+    test_out_7 wire  64bu
+    test_out_8 wire  64bu
+    test_out_9 wire  64bu
+    varargs  reg   32bs
+  process 0 main (stage=0, sequential)
+    block entry
+      jump for.loop
+    block for.loop
+      t0_76 := phi[entry:const_77, if.done:t15_78]
+      t1_79 := phi[entry:const_80, if.done:t36_81]
+      t2_83 := cmp(t1_79 <s const_82)
+      br t2_83 ? for.body : for.done
+    block for.done
+      print %d(t0_76)"\n"
+      return
+    block for.body
+      idxeq_85 := cmp(t1_79 == const_86)
+      idxload_87 := mux(idxeq_85 ? const_5 : const_4)
+      idxeq_88 := cmp(t1_79 == const_89)
+      idxload_90 := mux(idxeq_88 ? const_6 : idxload_87)
+      idxeq_91 := cmp(t1_79 == const_92)
+      idxload_93 := mux(idxeq_91 ? const_7 : idxload_90)
+      idxeq_94 := cmp(t1_79 == const_95)
+      idxload_96 := mux(idxeq_94 ? const_8 : idxload_93)
+      idxeq_97 := cmp(t1_79 == const_98)
+      idxload_99 := mux(idxeq_97 ? const_9 : idxload_96)
+      idxeq_100 := cmp(t1_79 == const_101)
+      idxload_102 := mux(idxeq_100 ? const_10 : idxload_99)
+      idxeq_103 := cmp(t1_79 == const_104)
+      idxload_105 := mux(idxeq_103 ? const_11 : idxload_102)
+      idxeq_106 := cmp(t1_79 == const_107)
+      idxload_108 := mux(idxeq_106 ? const_12 : idxload_105)
+      idxeq_109 := cmp(t1_79 == const_110)
+      idxload_111 := mux(idxeq_109 ? const_13 : idxload_108)
+      idxeq_112 := cmp(t1_79 == const_113)
+      idxload_114 := mux(idxeq_112 ? const_14 : idxload_111)
+      idxeq_115 := cmp(t1_79 == const_116)
+      idxload_117 := mux(idxeq_115 ? const_15 : idxload_114)
+      idxeq_118 := cmp(t1_79 == const_119)
+      idxload_120 := mux(idxeq_118 ? const_16 : idxload_117)
+      idxeq_121 := cmp(t1_79 == const_122)
+      idxload_123 := mux(idxeq_121 ? const_17 : idxload_120)
+      idxeq_124 := cmp(t1_79 == const_125)
+      idxload_126 := mux(idxeq_124 ? const_18 : idxload_123)
+      idxeq_127 := cmp(t1_79 == const_128)
+      idxload_129 := mux(idxeq_127 ? const_19 : idxload_126)
+      idxeq_130 := cmp(t1_79 == const_131)
+      idxload_132 := mux(idxeq_130 ? const_20 : idxload_129)
+      idxeq_133 := cmp(t1_79 == const_134)
+      idxload_135 := mux(idxeq_133 ? const_21 : idxload_132)
+      idxeq_136 := cmp(t1_79 == const_137)
+      idxload_138 := mux(idxeq_136 ? const_22 : idxload_135)
+      idxeq_139 := cmp(t1_79 == const_140)
+      idxload_141 := mux(idxeq_139 ? const_23 : idxload_138)
+      idxeq_142 := cmp(t1_79 == const_143)
+      idxload_144 := mux(idxeq_142 ? const_24 : idxload_141)
+      idxeq_145 := cmp(t1_79 == const_146)
+      idxload_147 := mux(idxeq_145 ? const_25 : idxload_144)
+      idxeq_148 := cmp(t1_79 == const_149)
+      idxload_150 := mux(idxeq_148 ? const_26 : idxload_147)
+      idxeq_151 := cmp(t1_79 == const_152)
+      idxload_153 := mux(idxeq_151 ? const_27 : idxload_150)
+      idxeq_154 := cmp(t1_79 == const_155)
+      idxload_156 := mux(idxeq_154 ? const_28 : idxload_153)
+      idxeq_157 := cmp(t1_79 == const_158)
+      idxload_159 := mux(idxeq_157 ? const_29 : idxload_156)
+      idxeq_160 := cmp(t1_79 == const_161)
+      idxload_162 := mux(idxeq_160 ? const_30 : idxload_159)
+      idxeq_163 := cmp(t1_79 == const_164)
+      idxload_165 := mux(idxeq_163 ? const_31 : idxload_162)
+      idxeq_166 := cmp(t1_79 == const_167)
+      idxload_168 := mux(idxeq_166 ? const_32 : idxload_165)
+      idxeq_169 := cmp(t1_79 == const_170)
+      idxload_171 := mux(idxeq_169 ? const_33 : idxload_168)
+      idxeq_172 := cmp(t1_79 == const_173)
+      idxload_174 := mux(idxeq_172 ? const_34 : idxload_171)
+      idxeq_175 := cmp(t1_79 == const_176)
+      idxload_177 := mux(idxeq_175 ? const_35 : idxload_174)
+      idxeq_178 := cmp(t1_79 == const_179)
+      idxload_180 := mux(idxeq_178 ? const_36 : idxload_177)
+      idxeq_181 := cmp(t1_79 == const_182)
+      idxload_183 := mux(idxeq_181 ? const_37 : idxload_180)
+      idxeq_184 := cmp(t1_79 == const_185)
+      idxload_186 := mux(idxeq_184 ? const_38 : idxload_183)
+      idxeq_187 := cmp(t1_79 == const_188)
+      idxload_189 := mux(idxeq_187 ? const_39 : idxload_186)
+      t5_190 := call mygo/tests/CHStone/dfsin.local_sin(idxload_189)
+      idxeq_192 := cmp(t1_79 == const_193)
+      idxload_194 := mux(idxeq_192 ? const_41 : const_40)
+      idxeq_195 := cmp(t1_79 == const_196)
+      idxload_197 := mux(idxeq_195 ? const_42 : idxload_194)
+      idxeq_198 := cmp(t1_79 == const_199)
+      idxload_200 := mux(idxeq_198 ? const_43 : idxload_197)
+      idxeq_201 := cmp(t1_79 == const_202)
+      idxload_203 := mux(idxeq_201 ? const_44 : idxload_200)
+      idxeq_204 := cmp(t1_79 == const_205)
+      idxload_206 := mux(idxeq_204 ? const_45 : idxload_203)
+      idxeq_207 := cmp(t1_79 == const_208)
+      idxload_209 := mux(idxeq_207 ? const_46 : idxload_206)
+      idxeq_210 := cmp(t1_79 == const_211)
+      idxload_212 := mux(idxeq_210 ? const_47 : idxload_209)
+      idxeq_213 := cmp(t1_79 == const_214)
+      idxload_215 := mux(idxeq_213 ? const_48 : idxload_212)
+      idxeq_216 := cmp(t1_79 == const_217)
+      idxload_218 := mux(idxeq_216 ? const_49 : idxload_215)
+      idxeq_219 := cmp(t1_79 == const_220)
+      idxload_221 := mux(idxeq_219 ? const_50 : idxload_218)
+      idxeq_222 := cmp(t1_79 == const_223)
+      idxload_224 := mux(idxeq_222 ? const_51 : idxload_221)
+      idxeq_225 := cmp(t1_79 == const_226)
+      idxload_227 := mux(idxeq_225 ? const_52 : idxload_224)
+      idxeq_228 := cmp(t1_79 == const_229)
+      idxload_230 := mux(idxeq_228 ? const_53 : idxload_227)
+      idxeq_231 := cmp(t1_79 == const_232)
+      idxload_233 := mux(idxeq_231 ? const_54 : idxload_230)
+      idxeq_234 := cmp(t1_79 == const_235)
+      idxload_236 := mux(idxeq_234 ? const_55 : idxload_233)
+      idxeq_237 := cmp(t1_79 == const_238)
+      idxload_239 := mux(idxeq_237 ? const_56 : idxload_236)
+      idxeq_240 := cmp(t1_79 == const_241)
+      idxload_242 := mux(idxeq_240 ? const_57 : idxload_239)
+      idxeq_243 := cmp(t1_79 == const_244)
+      idxload_245 := mux(idxeq_243 ? const_58 : idxload_242)
+      idxeq_246 := cmp(t1_79 == const_247)
+      idxload_248 := mux(idxeq_246 ? const_59 : idxload_245)
+      idxeq_249 := cmp(t1_79 == const_250)
+      idxload_251 := mux(idxeq_249 ? const_60 : idxload_248)
+      idxeq_252 := cmp(t1_79 == const_253)
+      idxload_254 := mux(idxeq_252 ? const_61 : idxload_251)
+      idxeq_255 := cmp(t1_79 == const_256)
+      idxload_257 := mux(idxeq_255 ? const_62 : idxload_254)
+      idxeq_258 := cmp(t1_79 == const_259)
+      idxload_260 := mux(idxeq_258 ? const_63 : idxload_257)
+      idxeq_261 := cmp(t1_79 == const_262)
+      idxload_263 := mux(idxeq_261 ? const_64 : idxload_260)
+      idxeq_264 := cmp(t1_79 == const_265)
+      idxload_266 := mux(idxeq_264 ? const_65 : idxload_263)
+      idxeq_267 := cmp(t1_79 == const_268)
+      idxload_269 := mux(idxeq_267 ? const_66 : idxload_266)
+      idxeq_270 := cmp(t1_79 == const_271)
+      idxload_272 := mux(idxeq_270 ? const_67 : idxload_269)
+      idxeq_273 := cmp(t1_79 == const_274)
+      idxload_275 := mux(idxeq_273 ? const_68 : idxload_272)
+      idxeq_276 := cmp(t1_79 == const_277)
+      idxload_278 := mux(idxeq_276 ? const_69 : idxload_275)
+      idxeq_279 := cmp(t1_79 == const_280)
+      idxload_281 := mux(idxeq_279 ? const_70 : idxload_278)
+      idxeq_282 := cmp(t1_79 == const_283)
+      idxload_284 := mux(idxeq_282 ? const_71 : idxload_281)
+      idxeq_285 := cmp(t1_79 == const_286)
+      idxload_287 := mux(idxeq_285 ? const_72 : idxload_284)
+      idxeq_288 := cmp(t1_79 == const_289)
+      idxload_290 := mux(idxeq_288 ? const_73 : idxload_287)
+      idxeq_291 := cmp(t1_79 == const_292)
+      idxload_293 := mux(idxeq_291 ? const_74 : idxload_290)
+      idxeq_294 := cmp(t1_79 == const_295)
+      idxload_296 := mux(idxeq_294 ? const_75 : idxload_293)
+      t8_297 := cmp(t5_190 != idxload_296)
+      br t8_297 ? if.then : if.done
+    block if.then
+      t14_301 := t0_76 + const_300
+      jump if.done
+    block if.done
+      t15_78 := phi[for.body:t0_76, if.then:t14_301]
+      idxeq_302 := cmp(t1_79 == const_303)
+      idxload_304 := mux(idxeq_302 ? const_5 : const_4)
+      idxeq_305 := cmp(t1_79 == const_306)
+      idxload_307 := mux(idxeq_305 ? const_6 : idxload_304)
+      idxeq_308 := cmp(t1_79 == const_309)
+      idxload_310 := mux(idxeq_308 ? const_7 : idxload_307)
+      idxeq_311 := cmp(t1_79 == const_312)
+      idxload_313 := mux(idxeq_311 ? const_8 : idxload_310)
+      idxeq_314 := cmp(t1_79 == const_315)
+      idxload_316 := mux(idxeq_314 ? const_9 : idxload_313)
+      idxeq_317 := cmp(t1_79 == const_318)
+      idxload_319 := mux(idxeq_317 ? const_10 : idxload_316)
+      idxeq_320 := cmp(t1_79 == const_321)
+      idxload_322 := mux(idxeq_320 ? const_11 : idxload_319)
+      idxeq_323 := cmp(t1_79 == const_324)
+      idxload_325 := mux(idxeq_323 ? const_12 : idxload_322)
+      idxeq_326 := cmp(t1_79 == const_327)
+      idxload_328 := mux(idxeq_326 ? const_13 : idxload_325)
+      idxeq_329 := cmp(t1_79 == const_330)
+      idxload_331 := mux(idxeq_329 ? const_14 : idxload_328)
+      idxeq_332 := cmp(t1_79 == const_333)
+      idxload_334 := mux(idxeq_332 ? const_15 : idxload_331)
+      idxeq_335 := cmp(t1_79 == const_336)
+      idxload_337 := mux(idxeq_335 ? const_16 : idxload_334)
+      idxeq_338 := cmp(t1_79 == const_339)
+      idxload_340 := mux(idxeq_338 ? const_17 : idxload_337)
+      idxeq_341 := cmp(t1_79 == const_342)
+      idxload_343 := mux(idxeq_341 ? const_18 : idxload_340)
+      idxeq_344 := cmp(t1_79 == const_345)
+      idxload_346 := mux(idxeq_344 ? const_19 : idxload_343)
+      idxeq_347 := cmp(t1_79 == const_348)
+      idxload_349 := mux(idxeq_347 ? const_20 : idxload_346)
+      idxeq_350 := cmp(t1_79 == const_351)
+      idxload_352 := mux(idxeq_350 ? const_21 : idxload_349)
+      idxeq_353 := cmp(t1_79 == const_354)
+      idxload_355 := mux(idxeq_353 ? const_22 : idxload_352)
+      idxeq_356 := cmp(t1_79 == const_357)
+      idxload_358 := mux(idxeq_356 ? const_23 : idxload_355)
+      idxeq_359 := cmp(t1_79 == const_360)
+      idxload_361 := mux(idxeq_359 ? const_24 : idxload_358)
+      idxeq_362 := cmp(t1_79 == const_363)
+      idxload_364 := mux(idxeq_362 ? const_25 : idxload_361)
+      idxeq_365 := cmp(t1_79 == const_366)
+      idxload_367 := mux(idxeq_365 ? const_26 : idxload_364)
+      idxeq_368 := cmp(t1_79 == const_369)
+      idxload_370 := mux(idxeq_368 ? const_27 : idxload_367)
+      idxeq_371 := cmp(t1_79 == const_372)
+      idxload_373 := mux(idxeq_371 ? const_28 : idxload_370)
+      idxeq_374 := cmp(t1_79 == const_375)
+      idxload_376 := mux(idxeq_374 ? const_29 : idxload_373)
+      idxeq_377 := cmp(t1_79 == const_378)
+      idxload_379 := mux(idxeq_377 ? const_30 : idxload_376)
+      idxeq_380 := cmp(t1_79 == const_381)
+      idxload_382 := mux(idxeq_380 ? const_31 : idxload_379)
+      idxeq_383 := cmp(t1_79 == const_384)
+      idxload_385 := mux(idxeq_383 ? const_32 : idxload_382)
+      idxeq_386 := cmp(t1_79 == const_387)
+      idxload_388 := mux(idxeq_386 ? const_33 : idxload_385)
+      idxeq_389 := cmp(t1_79 == const_390)
+      idxload_391 := mux(idxeq_389 ? const_34 : idxload_388)
+      idxeq_392 := cmp(t1_79 == const_393)
+      idxload_394 := mux(idxeq_392 ? const_35 : idxload_391)
+      idxeq_395 := cmp(t1_79 == const_396)
+      idxload_397 := mux(idxeq_395 ? const_36 : idxload_394)
+      idxeq_398 := cmp(t1_79 == const_399)
+      idxload_400 := mux(idxeq_398 ? const_37 : idxload_397)
+      idxeq_401 := cmp(t1_79 == const_402)
+      idxload_403 := mux(idxeq_401 ? const_38 : idxload_400)
+      idxeq_404 := cmp(t1_79 == const_405)
+      idxload_406 := mux(idxeq_404 ? const_39 : idxload_403)
+      idxeq_407 := cmp(t1_79 == const_408)
+      idxload_409 := mux(idxeq_407 ? const_41 : const_40)
+      idxeq_410 := cmp(t1_79 == const_411)
+      idxload_412 := mux(idxeq_410 ? const_42 : idxload_409)
+      idxeq_413 := cmp(t1_79 == const_414)
+      idxload_415 := mux(idxeq_413 ? const_43 : idxload_412)
+      idxeq_416 := cmp(t1_79 == const_417)
+      idxload_418 := mux(idxeq_416 ? const_44 : idxload_415)
+      idxeq_419 := cmp(t1_79 == const_420)
+      idxload_421 := mux(idxeq_419 ? const_45 : idxload_418)
+      idxeq_422 := cmp(t1_79 == const_423)
+      idxload_424 := mux(idxeq_422 ? const_46 : idxload_421)
+      idxeq_425 := cmp(t1_79 == const_426)
+      idxload_427 := mux(idxeq_425 ? const_47 : idxload_424)
+      idxeq_428 := cmp(t1_79 == const_429)
+      idxload_430 := mux(idxeq_428 ? const_48 : idxload_427)
+      idxeq_431 := cmp(t1_79 == const_432)
+      idxload_433 := mux(idxeq_431 ? const_49 : idxload_430)
+      idxeq_434 := cmp(t1_79 == const_435)
+      idxload_436 := mux(idxeq_434 ? const_50 : idxload_433)
+      idxeq_437 := cmp(t1_79 == const_438)
+      idxload_439 := mux(idxeq_437 ? const_51 : idxload_436)
+      idxeq_440 := cmp(t1_79 == const_441)
+      idxload_442 := mux(idxeq_440 ? const_52 : idxload_439)
+      idxeq_443 := cmp(t1_79 == const_444)
+      idxload_445 := mux(idxeq_443 ? const_53 : idxload_442)
+      idxeq_446 := cmp(t1_79 == const_447)
+      idxload_448 := mux(idxeq_446 ? const_54 : idxload_445)
+      idxeq_449 := cmp(t1_79 == const_450)
+      idxload_451 := mux(idxeq_449 ? const_55 : idxload_448)
+      idxeq_452 := cmp(t1_79 == const_453)
+      idxload_454 := mux(idxeq_452 ? const_56 : idxload_451)
+      idxeq_455 := cmp(t1_79 == const_456)
+      idxload_457 := mux(idxeq_455 ? const_57 : idxload_454)
+      idxeq_458 := cmp(t1_79 == const_459)
+      idxload_460 := mux(idxeq_458 ? const_58 : idxload_457)
+      idxeq_461 := cmp(t1_79 == const_462)
+      idxload_463 := mux(idxeq_461 ? const_59 : idxload_460)
+      idxeq_464 := cmp(t1_79 == const_465)
+      idxload_466 := mux(idxeq_464 ? const_60 : idxload_463)
+      idxeq_467 := cmp(t1_79 == const_468)
+      idxload_469 := mux(idxeq_467 ? const_61 : idxload_466)
+      idxeq_470 := cmp(t1_79 == const_471)
+      idxload_472 := mux(idxeq_470 ? const_62 : idxload_469)
+      idxeq_473 := cmp(t1_79 == const_474)
+      idxload_475 := mux(idxeq_473 ? const_63 : idxload_472)
+      idxeq_476 := cmp(t1_79 == const_477)
+      idxload_478 := mux(idxeq_476 ? const_64 : idxload_475)
+      idxeq_479 := cmp(t1_79 == const_480)
+      idxload_481 := mux(idxeq_479 ? const_65 : idxload_478)
+      idxeq_482 := cmp(t1_79 == const_483)
+      idxload_484 := mux(idxeq_482 ? const_66 : idxload_481)
+      idxeq_485 := cmp(t1_79 == const_486)
+      idxload_487 := mux(idxeq_485 ? const_67 : idxload_484)
+      idxeq_488 := cmp(t1_79 == const_489)
+      idxload_490 := mux(idxeq_488 ? const_68 : idxload_487)
+      idxeq_491 := cmp(t1_79 == const_492)
+      idxload_493 := mux(idxeq_491 ? const_69 : idxload_490)
+      idxeq_494 := cmp(t1_79 == const_495)
+      idxload_496 := mux(idxeq_494 ? const_70 : idxload_493)
+      idxeq_497 := cmp(t1_79 == const_498)
+      idxload_499 := mux(idxeq_497 ? const_71 : idxload_496)
+      idxeq_500 := cmp(t1_79 == const_501)
+      idxload_502 := mux(idxeq_500 ? const_72 : idxload_499)
+      idxeq_503 := cmp(t1_79 == const_504)
+      idxload_505 := mux(idxeq_503 ? const_73 : idxload_502)
+      idxeq_506 := cmp(t1_79 == const_507)
+      idxload_508 := mux(idxeq_506 ? const_74 : idxload_505)
+      idxeq_509 := cmp(t1_79 == const_510)
+      idxload_511 := mux(idxeq_509 ? const_75 : idxload_508)
+      t36_81 := t1_79 + const_520
+      jump for.loop
+

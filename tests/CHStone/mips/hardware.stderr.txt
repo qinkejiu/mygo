@@ -1,0 +1,2 @@
+/home/qinkejiu/mygo/tests/CHStone/mips/main.go:148:2: warning: for loop is open-ended; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/mips/main.go:174:3: warning: for loop has condition-only control; lowering will use loop FSM generation

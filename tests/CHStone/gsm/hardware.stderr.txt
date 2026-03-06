@@ -1,0 +1,2 @@
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:292:4: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:312:3: warning: for loop has variable bound; lowering will use loop FSM generation

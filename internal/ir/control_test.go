@@ -97,6 +97,29 @@ func main() {
 }
 `
 
+const constEvalCallProgram = `
+package main
+
+var result int
+
+func maxValue(a [8]int) int {
+	i := 0
+	max := a[0]
+	for i < 8 {
+		if a[i] > max {
+			max = a[i]
+		}
+		i++
+	}
+	return max
+}
+
+func main() {
+	a := [8]int{3, 7, 2, 9, 5, 8, 1, 4}
+	result = maxValue(a)
+}
+`
+
 func TestControlFlowMuxLowering(t *testing.T) {
 	design := buildDesignFromSource(t, branchProgram)
 	if design == nil || design.TopLevel == nil {
@@ -211,6 +234,52 @@ func TestDynamicIndexAddrLowering(t *testing.T) {
 	}
 	if idxCompareCount == 0 || idxMuxCount == 0 {
 		t.Fatalf("expected dynamic index lowering ops, got idxeq=%d idxload=%d", idxCompareCount, idxMuxCount)
+	}
+}
+
+func TestConstEvalLoopCallFallback(t *testing.T) {
+	design := buildDesignFromSource(t, constEvalCallProgram)
+	if design == nil || design.TopLevel == nil {
+		t.Fatalf("expected design")
+	}
+
+	callCount := 0
+	sawConstNineAssign := false
+
+	for _, proc := range design.TopLevel.Processes {
+		for _, block := range proc.Blocks {
+			for _, op := range block.Ops {
+				switch o := op.(type) {
+				case *CallOperation:
+					callCount++
+				case *AssignOperation:
+					if o == nil || o.Value == nil || o.Value.Kind != Const {
+						continue
+					}
+					switch v := o.Value.Value.(type) {
+					case int:
+						if v == 9 {
+							sawConstNineAssign = true
+						}
+					case int64:
+						if v == 9 {
+							sawConstNineAssign = true
+						}
+					case uint64:
+						if v == 9 {
+							sawConstNineAssign = true
+						}
+					}
+				}
+			}
+		}
+	}
+
+	if callCount != 0 {
+		t.Fatalf("expected call to be eliminated, found %d call ops", callCount)
+	}
+	if !sawConstNineAssign {
+		t.Fatalf("expected folded constant assignment of 9 for call result")
 	}
 }
 

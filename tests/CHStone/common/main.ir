@@ -1,0 +1,16 @@
+module main
+  ports:
+    in  clk 1bu
+    in  rst 1bu
+  signals:
+    callcmp_3 wire  1bu
+    const_0  const 1bu = true
+    const_1  const 32bs = 0
+    const_2  const 32bs = 0
+    const_4  const 1bu = 0
+  process 0 main (stage=0, sequential)
+    block entry
+      callcmp_3 := cmp(const_1 == const_2)
+      call os.Exit(const_1)
+      return
+

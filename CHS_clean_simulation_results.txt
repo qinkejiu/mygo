@@ -1,34 +1,96 @@
-CHSTONE SIMULATION RESULTS (behavioral check enabled)
+GO WORKLOAD SIMULATION RESULTS (behavioral check enabled)
 Hardware pass requires mygo sim stdout to match software stdout exactly.
-Generated: 2026-03-05 13:20:01
+Base dirs: tests/CHStone
+Generated: 2026-03-06 14:57:36
 ======================================================================
 
 
 ======================================================================
-📁 adpcm | software simulation
-⏱️  13:20:01 | $ go run tests/CHStone/adpcm/main.go
+📁 tests/CHStone/adpcm | compile -emit=ssa
+⏱️  14:57:36 | $ go run ./cmd/mygo compile -emit=ssa -o tests/CHStone/adpcm/main.ssa tests/CHStone/adpcm/main.go
+======================================================================
+
+(no output)
+
+======================================================================
+✅ | End: 14:57:41
+======================================================================
+
+
+======================================================================
+📁 tests/CHStone/adpcm | compile -emit=ir
+⏱️  14:57:41 | $ go run ./cmd/mygo compile -emit=ir -o tests/CHStone/adpcm/main.ir tests/CHStone/adpcm/main.go
+======================================================================
+
+(no output)
+
+======================================================================
+✅ | End: 14:57:42
+======================================================================
+
+
+======================================================================
+📁 tests/CHStone/adpcm | compile -emit=mlir
+⏱️  14:57:42 | $ go run ./cmd/mygo compile -emit=mlir -o tests/CHStone/adpcm/main.mlir tests/CHStone/adpcm/main.go
+======================================================================
+
+(no output)
+
+======================================================================
+✅ | End: 14:57:43
+======================================================================
+
+
+======================================================================
+📁 tests/CHStone/adpcm | compile -emit=verilog
+⏱️  14:57:43 | $ go run ./cmd/mygo compile -emit=verilog -o tests/CHStone/adpcm/main.sv tests/CHStone/adpcm/main.go
+======================================================================
+
+(no output)
+
+======================================================================
+✅ | End: 14:57:44
+======================================================================
+
+
+======================================================================
+📁 tests/CHStone/adpcm | software simulation
+⏱️  14:57:44 | $ go run tests/CHStone/adpcm/main.go
 ======================================================================
 
 0
 
 ======================================================================
-✅ | End: 13:20:01
+✅ | End: 14:57:44
 ======================================================================
 
 
 ======================================================================
-📁 adpcm | hardware simulation (sim-max-cycles=4096)
-⏱️  13:20:01 | $ go run ./cmd/mygo sim --sim-max-cycles 4096 tests/CHStone/adpcm/main.go
+📁 tests/CHStone/adpcm | hardware simulation (sim-max-cycles=4096)
+⏱️  14:57:44 | $ go run ./cmd/mygo sim --sim-max-cycles 4096 tests/CHStone/adpcm/main.go
 ======================================================================
 
         141
 
 ======================================================================
-✅ | End: 13:20:06
+✅ | End: 14:57:49
 ======================================================================
 
 
 [CASE RESULT]
+case=tests/CHStone/adpcm
+ssa_ok=True
+ssa_return_code=0
+ssa_path=tests/CHStone/adpcm/main.ssa
+ir_ok=True
+ir_return_code=0
+ir_path=tests/CHStone/adpcm/main.ir
+mlir_ok=True
+mlir_return_code=0
+mlir_path=tests/CHStone/adpcm/main.mlir
+verilog_ok=True
+verilog_return_code=0
+verilog_path=tests/CHStone/adpcm/main.sv
 software_return_code=0
 hardware_return_code=0
 software_ok=True
@@ -58,8 +120,98 @@ output_match_mode=none
 
 
 ======================================================================
-📁 aes | software simulation
-⏱️  13:20:06 | $ go run tests/CHStone/aes/main.go
+📁 tests/CHStone/aes | compile -emit=ssa
+⏱️  14:57:49 | $ go run ./cmd/mygo compile -emit=ssa -o tests/CHStone/aes/main.ssa tests/CHStone/aes/main.go
+======================================================================
+
+(no output)
+
+======================================================================
+✅ | End: 14:57:53
+======================================================================
+
+
+======================================================================
+📁 tests/CHStone/aes | compile -emit=ir
+⏱️  14:57:53 | $ go run ./cmd/mygo compile -emit=ir -o tests/CHStone/aes/main.ir tests/CHStone/aes/main.go
+======================================================================
+
+(no output)
+
+[ERROR]
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:295:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:349:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:363:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:370:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:437:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:459:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:515:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:522:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:583:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:592:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:643:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:651:2: warning: for loop has variable bound; lowering will use loop FSM generation
+
+======================================================================
+✅ | End: 14:57:54
+======================================================================
+
+
+======================================================================
+📁 tests/CHStone/aes | compile -emit=mlir
+⏱️  14:57:54 | $ go run ./cmd/mygo compile -emit=mlir -o tests/CHStone/aes/main.mlir tests/CHStone/aes/main.go
+======================================================================
+
+(no output)
+
+[ERROR]
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:295:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:349:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:363:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:370:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:437:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:459:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:515:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:522:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:583:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:592:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:643:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:651:2: warning: for loop has variable bound; lowering will use loop FSM generation
+
+======================================================================
+✅ | End: 14:57:55
+======================================================================
+
+
+======================================================================
+📁 tests/CHStone/aes | compile -emit=verilog
+⏱️  14:57:55 | $ go run ./cmd/mygo compile -emit=verilog -o tests/CHStone/aes/main.sv tests/CHStone/aes/main.go
+======================================================================
+
+(no output)
+
+[ERROR]
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:295:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:349:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:363:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:370:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:437:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:459:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:515:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:522:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:583:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:592:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:643:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:651:2: warning: for loop has variable bound; lowering will use loop FSM generation
+
+======================================================================
+✅ | End: 14:57:56
+======================================================================
+
+
+======================================================================
+📁 tests/CHStone/aes | software simulation
+⏱️  14:57:56 | $ go run tests/CHStone/aes/main.go
 ======================================================================
 
 encrypted message 	3925841d02dc09fbdc118597196a0b32
@@ -68,13 +220,13 @@ decrypto message	3243f6a8885a308d313198a2e0370734
 0
 
 ======================================================================
-✅ | End: 13:20:06
+✅ | End: 14:57:56
 ======================================================================
 
 
 ======================================================================
-📁 aes | hardware simulation (sim-max-cycles=4096)
-⏱️  13:20:06 | $ go run ./cmd/mygo sim --sim-max-cycles 4096 tests/CHStone/aes/main.go
+📁 tests/CHStone/aes | hardware simulation (sim-max-cycles=4096)
+⏱️  14:57:56 | $ go run ./cmd/mygo sim --sim-max-cycles 4096 tests/CHStone/aes/main.go
 ======================================================================
 
 
@@ -8285,11 +8437,24 @@ decrypto message	3243f6a8885a308d313198a2e0370734
 /home/qinkejiu/mygo/tests/CHStone/aes/main.go:651:2: warning: for loop has variable bound; lowering will use loop FSM generation
 
 ======================================================================
-✅ | End: 13:20:10
+✅ | End: 14:58:00
 ======================================================================
 
 
 [CASE RESULT]
+case=tests/CHStone/aes
+ssa_ok=True
+ssa_return_code=0
+ssa_path=tests/CHStone/aes/main.ssa
+ir_ok=True
+ir_return_code=0
+ir_path=tests/CHStone/aes/main.ir
+mlir_ok=True
+mlir_return_code=0
+mlir_path=tests/CHStone/aes/main.mlir
+verilog_ok=True
+verilog_return_code=0
+verilog_path=tests/CHStone/aes/main.sv
 software_return_code=0
 hardware_return_code=0
 software_ok=True
@@ -24716,20 +24881,92 @@ decrypto message	3243f6a8885a308d313198a2e0370734
 
 
 ======================================================================
-📁 blowfish | software simulation
-⏱️  13:20:10 | $ go run tests/CHStone/blowfish/main.go
+📁 tests/CHStone/blowfish | compile -emit=ssa
+⏱️  14:58:00 | $ go run ./cmd/mygo compile -emit=ssa -o tests/CHStone/blowfish/main.ssa tests/CHStone/blowfish/main.go
+======================================================================
+
+(no output)
+
+======================================================================
+✅ | End: 14:58:01
+======================================================================
+
+
+======================================================================
+📁 tests/CHStone/blowfish | compile -emit=ir
+⏱️  14:58:01 | $ go run ./cmd/mygo compile -emit=ir -o tests/CHStone/blowfish/main.ir tests/CHStone/blowfish/main.go
+======================================================================
+
+(no output)
+
+[ERROR]
+/home/qinkejiu/mygo/tests/CHStone/blowfish/main.go:351:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/blowfish/main.go:427:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/blowfish/main.go:463:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/blowfish/main.go:1443:2: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/blowfish/main.go:1444:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/blowfish/main.go:1452:3: warning: for loop has variable bound; lowering will use loop FSM generation
+
+======================================================================
+✅ | End: 14:58:02
+======================================================================
+
+
+======================================================================
+📁 tests/CHStone/blowfish | compile -emit=mlir
+⏱️  14:58:02 | $ go run ./cmd/mygo compile -emit=mlir -o tests/CHStone/blowfish/main.mlir tests/CHStone/blowfish/main.go
+======================================================================
+
+(no output)
+
+[ERROR]
+/home/qinkejiu/mygo/tests/CHStone/blowfish/main.go:351:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/blowfish/main.go:427:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/blowfish/main.go:463:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/blowfish/main.go:1443:2: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/blowfish/main.go:1444:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/blowfish/main.go:1452:3: warning: for loop has variable bound; lowering will use loop FSM generation
+
+======================================================================
+✅ | End: 14:58:03
+======================================================================
+
+
+======================================================================
+📁 tests/CHStone/blowfish | compile -emit=verilog
+⏱️  14:58:03 | $ go run ./cmd/mygo compile -emit=verilog -o tests/CHStone/blowfish/main.sv tests/CHStone/blowfish/main.go
+======================================================================
+
+(no output)
+
+[ERROR]
+/home/qinkejiu/mygo/tests/CHStone/blowfish/main.go:351:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/blowfish/main.go:427:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/blowfish/main.go:463:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/blowfish/main.go:1443:2: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/blowfish/main.go:1444:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/blowfish/main.go:1452:3: warning: for loop has variable bound; lowering will use loop FSM generation
+
+======================================================================
+✅ | End: 14:58:04
+======================================================================
+
+
+======================================================================
+📁 tests/CHStone/blowfish | software simulation
+⏱️  14:58:04 | $ go run tests/CHStone/blowfish/main.go
 ======================================================================
 
 3378
 
 ======================================================================
-✅ | End: 13:20:11
+✅ | End: 14:58:04
 ======================================================================
 
 
 ======================================================================
-📁 blowfish | hardware simulation (sim-max-cycles=4096)
-⏱️  13:20:11 | $ go run ./cmd/mygo sim --sim-max-cycles 4096 tests/CHStone/blowfish/main.go
+📁 tests/CHStone/blowfish | hardware simulation (sim-max-cycles=4096)
+⏱️  14:58:04 | $ go run ./cmd/mygo sim --sim-max-cycles 4096 tests/CHStone/blowfish/main.go
 ======================================================================
 
           0
@@ -28838,11 +29075,24 @@ decrypto message	3243f6a8885a308d313198a2e0370734
 /home/qinkejiu/mygo/tests/CHStone/blowfish/main.go:1452:3: warning: for loop has variable bound; lowering will use loop FSM generation
 
 ======================================================================
-✅ | End: 13:20:14
+✅ | End: 14:58:09
 ======================================================================
 
 
 [CASE RESULT]
+case=tests/CHStone/blowfish
+ssa_ok=True
+ssa_return_code=0
+ssa_path=tests/CHStone/blowfish/main.ssa
+ir_ok=True
+ir_return_code=0
+ir_path=tests/CHStone/blowfish/main.ir
+mlir_ok=True
+mlir_return_code=0
+mlir_path=tests/CHStone/blowfish/main.mlir
+verilog_ok=True
+verilog_return_code=0
+verilog_path=tests/CHStone/blowfish/main.sv
 software_return_code=0
 hardware_return_code=0
 software_ok=True
@@ -37067,154 +37317,215 @@ output_match_mode=none
 
 
 ======================================================================
-📁 common | software simulation
-⏱️  13:20:14 | $ go run tests/CHStone/common/main.go
+📁 tests/CHStone/common | compile -emit=ssa
+⏱️  14:58:09 | $ go run ./cmd/mygo compile -emit=ssa -o tests/CHStone/common/main.ssa tests/CHStone/common/main.go
 ======================================================================
 
 (no output)
 
 ======================================================================
-✅ | End: 13:20:15
+✅ | End: 14:58:10
 ======================================================================
 
 
 ======================================================================
-📁 common | hardware simulation (sim-max-cycles=1024)
-⏱️  13:20:15 | $ go run ./cmd/mygo sim --sim-max-cycles 1024 tests/CHStone/common/main.go
+📁 tests/CHStone/common | compile -emit=ir
+⏱️  14:58:10 | $ go run ./cmd/mygo compile -emit=ir -o tests/CHStone/common/main.ir tests/CHStone/common/main.go
 ======================================================================
 
 (no output)
 
 ======================================================================
-✅ | End: 13:20:18
+✅ | End: 14:58:11
+======================================================================
+
+
+======================================================================
+📁 tests/CHStone/common | compile -emit=mlir
+⏱️  14:58:11 | $ go run ./cmd/mygo compile -emit=mlir -o tests/CHStone/common/main.mlir tests/CHStone/common/main.go
+======================================================================
+
+(no output)
+
+======================================================================
+✅ | End: 14:58:12
+======================================================================
+
+
+======================================================================
+📁 tests/CHStone/common | compile -emit=verilog
+⏱️  14:58:12 | $ go run ./cmd/mygo compile -emit=verilog -o tests/CHStone/common/main.sv tests/CHStone/common/main.go
+======================================================================
+
+(no output)
+
+======================================================================
+✅ | End: 14:58:13
+======================================================================
+
+
+======================================================================
+📁 tests/CHStone/common | software simulation
+⏱️  14:58:13 | $ go run tests/CHStone/common/main.go
+======================================================================
+
+(no output)
+
+======================================================================
+✅ | End: 14:58:13
+======================================================================
+
+
+======================================================================
+📁 tests/CHStone/common | hardware simulation (sim-max-cycles=1024)
+⏱️  14:58:13 | $ go run ./cmd/mygo sim --sim-max-cycles 1024 tests/CHStone/common/main.go
+======================================================================
+
+(no output)
+
+======================================================================
+✅ | End: 14:58:17
 ======================================================================
 
 [TUNE]
 Output matched at 1024 cycles; searching minimal matching cycle count in [1, 1024].
 
 ======================================================================
-📁 common | hardware simulation tuning (sim-max-cycles=512)
-⏱️  13:20:18 | $ go run ./cmd/mygo sim --sim-max-cycles 512 tests/CHStone/common/main.go
+📁 tests/CHStone/common | hardware simulation tuning (sim-max-cycles=512)
+⏱️  14:58:17 | $ go run ./cmd/mygo sim --sim-max-cycles 512 tests/CHStone/common/main.go
 ======================================================================
 
 (no output)
 
 ======================================================================
-✅ | End: 13:20:25
+✅ | End: 14:58:22
 ======================================================================
 
 
 ======================================================================
-📁 common | hardware simulation tuning (sim-max-cycles=256)
-⏱️  13:20:25 | $ go run ./cmd/mygo sim --sim-max-cycles 256 tests/CHStone/common/main.go
-======================================================================
-
-(no output)
-
-======================================================================
-✅ | End: 13:20:29
-======================================================================
-
-
-======================================================================
-📁 common | hardware simulation tuning (sim-max-cycles=128)
-⏱️  13:20:29 | $ go run ./cmd/mygo sim --sim-max-cycles 128 tests/CHStone/common/main.go
+📁 tests/CHStone/common | hardware simulation tuning (sim-max-cycles=256)
+⏱️  14:58:22 | $ go run ./cmd/mygo sim --sim-max-cycles 256 tests/CHStone/common/main.go
 ======================================================================
 
 (no output)
 
 ======================================================================
-✅ | End: 13:20:33
+✅ | End: 14:58:29
 ======================================================================
 
 
 ======================================================================
-📁 common | hardware simulation tuning (sim-max-cycles=64)
-⏱️  13:20:33 | $ go run ./cmd/mygo sim --sim-max-cycles 64 tests/CHStone/common/main.go
-======================================================================
-
-(no output)
-
-======================================================================
-✅ | End: 13:20:37
-======================================================================
-
-
-======================================================================
-📁 common | hardware simulation tuning (sim-max-cycles=32)
-⏱️  13:20:37 | $ go run ./cmd/mygo sim --sim-max-cycles 32 tests/CHStone/common/main.go
+📁 tests/CHStone/common | hardware simulation tuning (sim-max-cycles=128)
+⏱️  14:58:29 | $ go run ./cmd/mygo sim --sim-max-cycles 128 tests/CHStone/common/main.go
 ======================================================================
 
 (no output)
 
 ======================================================================
-✅ | End: 13:20:41
+✅ | End: 14:58:33
 ======================================================================
 
 
 ======================================================================
-📁 common | hardware simulation tuning (sim-max-cycles=16)
-⏱️  13:20:41 | $ go run ./cmd/mygo sim --sim-max-cycles 16 tests/CHStone/common/main.go
-======================================================================
-
-(no output)
-
-======================================================================
-✅ | End: 13:20:44
-======================================================================
-
-
-======================================================================
-📁 common | hardware simulation tuning (sim-max-cycles=8)
-⏱️  13:20:44 | $ go run ./cmd/mygo sim --sim-max-cycles 8 tests/CHStone/common/main.go
+📁 tests/CHStone/common | hardware simulation tuning (sim-max-cycles=64)
+⏱️  14:58:33 | $ go run ./cmd/mygo sim --sim-max-cycles 64 tests/CHStone/common/main.go
 ======================================================================
 
 (no output)
 
 ======================================================================
-✅ | End: 13:20:48
+✅ | End: 14:58:37
 ======================================================================
 
 
 ======================================================================
-📁 common | hardware simulation tuning (sim-max-cycles=4)
-⏱️  13:20:48 | $ go run ./cmd/mygo sim --sim-max-cycles 4 tests/CHStone/common/main.go
-======================================================================
-
-(no output)
-
-======================================================================
-✅ | End: 13:20:52
-======================================================================
-
-
-======================================================================
-📁 common | hardware simulation tuning (sim-max-cycles=2)
-⏱️  13:20:52 | $ go run ./cmd/mygo sim --sim-max-cycles 2 tests/CHStone/common/main.go
+📁 tests/CHStone/common | hardware simulation tuning (sim-max-cycles=32)
+⏱️  14:58:37 | $ go run ./cmd/mygo sim --sim-max-cycles 32 tests/CHStone/common/main.go
 ======================================================================
 
 (no output)
 
 ======================================================================
-✅ | End: 13:20:56
+✅ | End: 14:58:41
 ======================================================================
 
 
 ======================================================================
-📁 common | hardware simulation tuning (sim-max-cycles=1)
-⏱️  13:20:56 | $ go run ./cmd/mygo sim --sim-max-cycles 1 tests/CHStone/common/main.go
+📁 tests/CHStone/common | hardware simulation tuning (sim-max-cycles=16)
+⏱️  14:58:41 | $ go run ./cmd/mygo sim --sim-max-cycles 16 tests/CHStone/common/main.go
 ======================================================================
 
 (no output)
 
 ======================================================================
-✅ | End: 13:21:02
+✅ | End: 14:58:45
+======================================================================
+
+
+======================================================================
+📁 tests/CHStone/common | hardware simulation tuning (sim-max-cycles=8)
+⏱️  14:58:45 | $ go run ./cmd/mygo sim --sim-max-cycles 8 tests/CHStone/common/main.go
+======================================================================
+
+(no output)
+
+======================================================================
+✅ | End: 14:58:49
+======================================================================
+
+
+======================================================================
+📁 tests/CHStone/common | hardware simulation tuning (sim-max-cycles=4)
+⏱️  14:58:49 | $ go run ./cmd/mygo sim --sim-max-cycles 4 tests/CHStone/common/main.go
+======================================================================
+
+(no output)
+
+======================================================================
+✅ | End: 14:58:53
+======================================================================
+
+
+======================================================================
+📁 tests/CHStone/common | hardware simulation tuning (sim-max-cycles=2)
+⏱️  14:58:53 | $ go run ./cmd/mygo sim --sim-max-cycles 2 tests/CHStone/common/main.go
+======================================================================
+
+(no output)
+
+======================================================================
+✅ | End: 14:58:57
+======================================================================
+
+
+======================================================================
+📁 tests/CHStone/common | hardware simulation tuning (sim-max-cycles=1)
+⏱️  14:58:57 | $ go run ./cmd/mygo sim --sim-max-cycles 1 tests/CHStone/common/main.go
+======================================================================
+
+(no output)
+
+======================================================================
+✅ | End: 14:59:04
 ======================================================================
 
 [TUNE]
 Reduced matching sim-max-cycles from 1024 to 1.
 
 [CASE RESULT]
+case=tests/CHStone/common
+ssa_ok=True
+ssa_return_code=0
+ssa_path=tests/CHStone/common/main.ssa
+ir_ok=True
+ir_return_code=0
+ir_path=tests/CHStone/common/main.ir
+mlir_ok=True
+mlir_return_code=0
+mlir_path=tests/CHStone/common/main.mlir
+verilog_ok=True
+verilog_return_code=0
+verilog_path=tests/CHStone/common/main.sv
 software_return_code=0
 hardware_return_code=0
 software_ok=True
@@ -37237,8 +37548,65 @@ output_match_mode=strict
 
 
 ======================================================================
-📁 dfadd | software simulation
-⏱️  13:21:02 | $ go run tests/CHStone/dfadd/main.go
+📁 tests/CHStone/dfadd | compile -emit=ssa
+⏱️  14:59:04 | $ go run ./cmd/mygo compile -emit=ssa -o tests/CHStone/dfadd/main.ssa tests/CHStone/dfadd/main.go
+======================================================================
+
+(no output)
+
+======================================================================
+✅ | End: 14:59:05
+======================================================================
+
+
+======================================================================
+📁 tests/CHStone/dfadd | compile -emit=ir
+⏱️  14:59:05 | $ go run ./cmd/mygo compile -emit=ir -o tests/CHStone/dfadd/main.ir tests/CHStone/dfadd/main.go
+======================================================================
+
+(no output)
+
+[ERROR]
+/home/qinkejiu/mygo/tests/CHStone/dfadd/main.go:472:13: warning: fmt.Printf: unsupported verb %f
+
+======================================================================
+✅ | End: 14:59:07
+======================================================================
+
+
+======================================================================
+📁 tests/CHStone/dfadd | compile -emit=mlir
+⏱️  14:59:07 | $ go run ./cmd/mygo compile -emit=mlir -o tests/CHStone/dfadd/main.mlir tests/CHStone/dfadd/main.go
+======================================================================
+
+(no output)
+
+[ERROR]
+/home/qinkejiu/mygo/tests/CHStone/dfadd/main.go:472:13: warning: fmt.Printf: unsupported verb %f
+
+======================================================================
+✅ | End: 14:59:10
+======================================================================
+
+
+======================================================================
+📁 tests/CHStone/dfadd | compile -emit=verilog
+⏱️  14:59:10 | $ go run ./cmd/mygo compile -emit=verilog -o tests/CHStone/dfadd/main.sv tests/CHStone/dfadd/main.go
+======================================================================
+
+(no output)
+
+[ERROR]
+/home/qinkejiu/mygo/tests/CHStone/dfadd/main.go:472:13: warning: fmt.Printf: unsupported verb %f
+
+======================================================================
+✅ | End: 14:59:19
+======================================================================
+
+
+======================================================================
+📁 tests/CHStone/dfadd | software simulation
+⏱️  14:59:19 | $ go run tests/CHStone/dfadd/main.go
 ======================================================================
 
 a_input=7ff8000000000000 b_input=3ff0000000000000 expected=7ff8000000000000 output=7ff8000000000000 (NaN)
@@ -37292,13 +37660,13 @@ Errors: 0
 All tests passed!
 
 ======================================================================
-✅ | End: 13:21:03
+✅ | End: 14:59:19
 ======================================================================
 
 
 ======================================================================
-📁 dfadd | hardware simulation (sim-max-cycles=4096)
-⏱️  13:21:03 | $ go run ./cmd/mygo sim --sim-max-cycles 4096 tests/CHStone/dfadd/main.go
+📁 tests/CHStone/dfadd | hardware simulation (sim-max-cycles=4096)
+⏱️  14:59:19 | $ go run ./cmd/mygo sim --sim-max-cycles 4096 tests/CHStone/dfadd/main.go
 ======================================================================
 
 
@@ -37309,11 +37677,24 @@ All tests passed!
 /home/qinkejiu/mygo/tests/CHStone/dfadd/main.go:472:13: warning: fmt.Printf: unsupported verb %f
 
 ======================================================================
-✅ | End: 13:21:22
+✅ | End: 14:59:43
 ======================================================================
 
 
 [CASE RESULT]
+case=tests/CHStone/dfadd
+ssa_ok=True
+ssa_return_code=0
+ssa_path=tests/CHStone/dfadd/main.ssa
+ir_ok=True
+ir_return_code=0
+ir_path=tests/CHStone/dfadd/main.ir
+mlir_ok=True
+mlir_return_code=0
+mlir_path=tests/CHStone/dfadd/main.mlir
+verilog_ok=True
+verilog_return_code=0
+verilog_path=tests/CHStone/dfadd/main.sv
 software_return_code=0
 hardware_return_code=0
 software_ok=True
@@ -37441,8 +37822,71 @@ All tests passed!
 
 
 ======================================================================
-📁 dfdiv | software simulation
-⏱️  13:21:22 | $ go run tests/CHStone/dfdiv/main.go
+📁 tests/CHStone/dfdiv | compile -emit=ssa
+⏱️  14:59:43 | $ go run ./cmd/mygo compile -emit=ssa -o tests/CHStone/dfdiv/main.ssa tests/CHStone/dfdiv/main.go
+======================================================================
+
+(no output)
+
+======================================================================
+✅ | End: 14:59:44
+======================================================================
+
+
+======================================================================
+📁 tests/CHStone/dfdiv | compile -emit=ir
+⏱️  14:59:44 | $ go run ./cmd/mygo compile -emit=ir -o tests/CHStone/dfdiv/main.ir tests/CHStone/dfdiv/main.go
+======================================================================
+
+(no output)
+
+[ERROR]
+/home/qinkejiu/mygo/tests/CHStone/dfdiv/main.go:143:2: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/dfdiv/main.go:403:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/dfdiv/main.go:512:13: warning: fmt.Printf: unsupported verb %f
+
+======================================================================
+✅ | End: 14:59:45
+======================================================================
+
+
+======================================================================
+📁 tests/CHStone/dfdiv | compile -emit=mlir
+⏱️  14:59:45 | $ go run ./cmd/mygo compile -emit=mlir -o tests/CHStone/dfdiv/main.mlir tests/CHStone/dfdiv/main.go
+======================================================================
+
+(no output)
+
+[ERROR]
+/home/qinkejiu/mygo/tests/CHStone/dfdiv/main.go:143:2: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/dfdiv/main.go:403:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/dfdiv/main.go:512:13: warning: fmt.Printf: unsupported verb %f
+
+======================================================================
+✅ | End: 14:59:46
+======================================================================
+
+
+======================================================================
+📁 tests/CHStone/dfdiv | compile -emit=verilog
+⏱️  14:59:46 | $ go run ./cmd/mygo compile -emit=verilog -o tests/CHStone/dfdiv/main.sv tests/CHStone/dfdiv/main.go
+======================================================================
+
+(no output)
+
+[ERROR]
+/home/qinkejiu/mygo/tests/CHStone/dfdiv/main.go:143:2: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/dfdiv/main.go:403:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/dfdiv/main.go:512:13: warning: fmt.Printf: unsupported verb %f
+
+======================================================================
+✅ | End: 14:59:46
+======================================================================
+
+
+======================================================================
+📁 tests/CHStone/dfdiv | software simulation
+⏱️  14:59:46 | $ go run tests/CHStone/dfdiv/main.go
 ======================================================================
 
 a_input=7fff000000000000 b_input=3ff0000000000000 expected=7fff000000000000 output=7fff000000000000 (NaN)
@@ -37470,13 +37914,13 @@ a_input=bff0000000000000 b_input=bff8000000000000 expected=3fe5555555555555 outp
 0
 
 ======================================================================
-✅ | End: 13:21:22
+✅ | End: 14:59:47
 ======================================================================
 
 
 ======================================================================
-📁 dfdiv | hardware simulation (sim-max-cycles=4096)
-⏱️  13:21:22 | $ go run ./cmd/mygo sim --sim-max-cycles 4096 tests/CHStone/dfdiv/main.go
+📁 tests/CHStone/dfdiv | hardware simulation (sim-max-cycles=4096)
+⏱️  14:59:47 | $ go run ./cmd/mygo sim --sim-max-cycles 4096 tests/CHStone/dfdiv/main.go
 ======================================================================
 
          20
@@ -37487,11 +37931,24 @@ a_input=bff0000000000000 b_input=bff8000000000000 expected=3fe5555555555555 outp
 /home/qinkejiu/mygo/tests/CHStone/dfdiv/main.go:512:13: warning: fmt.Printf: unsupported verb %f
 
 ======================================================================
-✅ | End: 13:21:26
+✅ | End: 14:59:51
 ======================================================================
 
 
 [CASE RESULT]
+case=tests/CHStone/dfdiv
+ssa_ok=True
+ssa_return_code=0
+ssa_path=tests/CHStone/dfdiv/main.ssa
+ir_ok=True
+ir_return_code=0
+ir_path=tests/CHStone/dfdiv/main.ir
+mlir_ok=True
+mlir_return_code=0
+mlir_path=tests/CHStone/dfdiv/main.mlir
+verilog_ok=True
+verilog_return_code=0
+verilog_path=tests/CHStone/dfdiv/main.sv
 software_return_code=0
 hardware_return_code=0
 software_ok=True
@@ -37567,8 +38024,65 @@ a_input=bff0000000000000 b_input=bff8000000000000 expected=3fe5555555555555 outp
 
 
 ======================================================================
-📁 dfmul | software simulation
-⏱️  13:21:26 | $ go run tests/CHStone/dfmul/main.go
+📁 tests/CHStone/dfmul | compile -emit=ssa
+⏱️  14:59:51 | $ go run ./cmd/mygo compile -emit=ssa -o tests/CHStone/dfmul/main.ssa tests/CHStone/dfmul/main.go
+======================================================================
+
+(no output)
+
+======================================================================
+✅ | End: 14:59:52
+======================================================================
+
+
+======================================================================
+📁 tests/CHStone/dfmul | compile -emit=ir
+⏱️  14:59:52 | $ go run ./cmd/mygo compile -emit=ir -o tests/CHStone/dfmul/main.ir tests/CHStone/dfmul/main.go
+======================================================================
+
+(no output)
+
+[ERROR]
+/home/qinkejiu/mygo/tests/CHStone/dfmul/main.go:426:13: warning: fmt.Printf: unsupported verb %f
+
+======================================================================
+✅ | End: 14:59:54
+======================================================================
+
+
+======================================================================
+📁 tests/CHStone/dfmul | compile -emit=mlir
+⏱️  14:59:54 | $ go run ./cmd/mygo compile -emit=mlir -o tests/CHStone/dfmul/main.mlir tests/CHStone/dfmul/main.go
+======================================================================
+
+(no output)
+
+[ERROR]
+/home/qinkejiu/mygo/tests/CHStone/dfmul/main.go:426:13: warning: fmt.Printf: unsupported verb %f
+
+======================================================================
+✅ | End: 14:59:58
+======================================================================
+
+
+======================================================================
+📁 tests/CHStone/dfmul | compile -emit=verilog
+⏱️  14:59:58 | $ go run ./cmd/mygo compile -emit=verilog -o tests/CHStone/dfmul/main.sv tests/CHStone/dfmul/main.go
+======================================================================
+
+(no output)
+
+[ERROR]
+/home/qinkejiu/mygo/tests/CHStone/dfmul/main.go:426:13: warning: fmt.Printf: unsupported verb %f
+
+======================================================================
+✅ | End: 15:00:07
+======================================================================
+
+
+======================================================================
+📁 tests/CHStone/dfmul | software simulation
+⏱️  15:00:07 | $ go run tests/CHStone/dfmul/main.go
 ======================================================================
 
 a_input=7ff0000000000000 b_input=ffffffffffffffff expected=ffffffffffffffff output=ffffffffffffffff (NaN)
@@ -37594,13 +38108,13 @@ a_input=0000000000000000 b_input=0000000000000000 expected=0000000000000000 outp
 Errors: 0
 
 ======================================================================
-✅ | End: 13:21:27
+✅ | End: 15:00:07
 ======================================================================
 
 
 ======================================================================
-📁 dfmul | hardware simulation (sim-max-cycles=4096)
-⏱️  13:21:27 | $ go run ./cmd/mygo sim --sim-max-cycles 4096 tests/CHStone/dfmul/main.go
+📁 tests/CHStone/dfmul | hardware simulation (sim-max-cycles=4096)
+⏱️  15:00:07 | $ go run ./cmd/mygo sim --sim-max-cycles 4096 tests/CHStone/dfmul/main.go
 ======================================================================
 
 Errors:           0
@@ -37609,11 +38123,24 @@ Errors:           0
 /home/qinkejiu/mygo/tests/CHStone/dfmul/main.go:426:13: warning: fmt.Printf: unsupported verb %f
 
 ======================================================================
-✅ | End: 13:21:48
+✅ | End: 15:00:30
 ======================================================================
 
 
 [CASE RESULT]
+case=tests/CHStone/dfmul
+ssa_ok=True
+ssa_return_code=0
+ssa_path=tests/CHStone/dfmul/main.ssa
+ir_ok=True
+ir_return_code=0
+ir_path=tests/CHStone/dfmul/main.ir
+mlir_ok=True
+mlir_return_code=0
+mlir_path=tests/CHStone/dfmul/main.mlir
+verilog_ok=True
+verilog_return_code=0
+verilog_path=tests/CHStone/dfmul/main.sv
 software_return_code=0
 hardware_return_code=0
 software_ok=True
@@ -37683,8 +38210,74 @@ Errors:           0
 
 
 ======================================================================
-📁 dfsin | software simulation
-⏱️  13:21:48 | $ go run tests/CHStone/dfsin/main.go
+📁 tests/CHStone/dfsin | compile -emit=ssa
+⏱️  15:00:30 | $ go run ./cmd/mygo compile -emit=ssa -o tests/CHStone/dfsin/main.ssa tests/CHStone/dfsin/main.go
+======================================================================
+
+(no output)
+
+======================================================================
+✅ | End: 15:00:31
+======================================================================
+
+
+======================================================================
+📁 tests/CHStone/dfsin | compile -emit=ir
+⏱️  15:00:31 | $ go run ./cmd/mygo compile -emit=ir -o tests/CHStone/dfsin/main.ir tests/CHStone/dfsin/main.go
+======================================================================
+
+(no output)
+
+[ERROR]
+/home/qinkejiu/mygo/tests/CHStone/dfsin/main.go:152:2: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/dfsin/main.go:640:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/dfsin/main.go:689:2: warning: for loop is open-ended; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/dfsin/main.go:791:13: warning: fmt.Printf: unsupported verb %f
+
+======================================================================
+✅ | End: 15:00:32
+======================================================================
+
+
+======================================================================
+📁 tests/CHStone/dfsin | compile -emit=mlir
+⏱️  15:00:32 | $ go run ./cmd/mygo compile -emit=mlir -o tests/CHStone/dfsin/main.mlir tests/CHStone/dfsin/main.go
+======================================================================
+
+(no output)
+
+[ERROR]
+/home/qinkejiu/mygo/tests/CHStone/dfsin/main.go:152:2: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/dfsin/main.go:640:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/dfsin/main.go:689:2: warning: for loop is open-ended; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/dfsin/main.go:791:13: warning: fmt.Printf: unsupported verb %f
+
+======================================================================
+✅ | End: 15:00:33
+======================================================================
+
+
+======================================================================
+📁 tests/CHStone/dfsin | compile -emit=verilog
+⏱️  15:00:33 | $ go run ./cmd/mygo compile -emit=verilog -o tests/CHStone/dfsin/main.sv tests/CHStone/dfsin/main.go
+======================================================================
+
+(no output)
+
+[ERROR]
+/home/qinkejiu/mygo/tests/CHStone/dfsin/main.go:152:2: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/dfsin/main.go:640:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/dfsin/main.go:689:2: warning: for loop is open-ended; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/dfsin/main.go:791:13: warning: fmt.Printf: unsupported verb %f
+
+======================================================================
+✅ | End: 15:00:34
+======================================================================
+
+
+======================================================================
+📁 tests/CHStone/dfsin | software simulation
+⏱️  15:00:34 | $ go run tests/CHStone/dfsin/main.go
 ======================================================================
 
 input=0000000000000000 expected=0000000000000000 output=0000000000000000 (0.000000)
@@ -37726,13 +38319,13 @@ input=40186f423ca395cb expected=bfc63a23c48863dd output=bfc63a23c48863dd (-0.173
 0
 
 ======================================================================
-✅ | End: 13:21:48
+✅ | End: 15:00:34
 ======================================================================
 
 
 ======================================================================
-📁 dfsin | hardware simulation (sim-max-cycles=4096)
-⏱️  13:21:48 | $ go run ./cmd/mygo sim --sim-max-cycles 4096 tests/CHStone/dfsin/main.go
+📁 tests/CHStone/dfsin | hardware simulation (sim-max-cycles=4096)
+⏱️  15:00:34 | $ go run ./cmd/mygo sim --sim-max-cycles 4096 tests/CHStone/dfsin/main.go
 ======================================================================
 
          35
@@ -37744,11 +38337,24 @@ input=40186f423ca395cb expected=bfc63a23c48863dd output=bfc63a23c48863dd (-0.173
 /home/qinkejiu/mygo/tests/CHStone/dfsin/main.go:791:13: warning: fmt.Printf: unsupported verb %f
 
 ======================================================================
-✅ | End: 13:21:52
+✅ | End: 15:00:38
 ======================================================================
 
 
 [CASE RESULT]
+case=tests/CHStone/dfsin
+ssa_ok=True
+ssa_return_code=0
+ssa_path=tests/CHStone/dfsin/main.ssa
+ir_ok=True
+ir_return_code=0
+ir_path=tests/CHStone/dfsin/main.ir
+mlir_ok=True
+mlir_return_code=0
+mlir_path=tests/CHStone/dfsin/main.mlir
+verilog_ok=True
+verilog_return_code=0
+verilog_path=tests/CHStone/dfsin/main.sv
 software_return_code=0
 hardware_return_code=0
 software_ok=True
@@ -37853,20 +38459,80 @@ input=40186f423ca395cb expected=bfc63a23c48863dd output=bfc63a23c48863dd (-0.173
 
 
 ======================================================================
-📁 gsm | software simulation
-⏱️  13:21:52 | $ go run tests/CHStone/gsm/main.go
+📁 tests/CHStone/gsm | compile -emit=ssa
+⏱️  15:00:38 | $ go run ./cmd/mygo compile -emit=ssa -o tests/CHStone/gsm/main.ssa tests/CHStone/gsm/main.go
+======================================================================
+
+(no output)
+
+======================================================================
+✅ | End: 15:00:39
+======================================================================
+
+
+======================================================================
+📁 tests/CHStone/gsm | compile -emit=ir
+⏱️  15:00:39 | $ go run ./cmd/mygo compile -emit=ir -o tests/CHStone/gsm/main.ir tests/CHStone/gsm/main.go
+======================================================================
+
+(no output)
+
+[ERROR]
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:292:4: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:312:3: warning: for loop has variable bound; lowering will use loop FSM generation
+
+======================================================================
+✅ | End: 15:00:40
+======================================================================
+
+
+======================================================================
+📁 tests/CHStone/gsm | compile -emit=mlir
+⏱️  15:00:40 | $ go run ./cmd/mygo compile -emit=mlir -o tests/CHStone/gsm/main.mlir tests/CHStone/gsm/main.go
+======================================================================
+
+(no output)
+
+[ERROR]
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:292:4: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:312:3: warning: for loop has variable bound; lowering will use loop FSM generation
+
+======================================================================
+✅ | End: 15:00:41
+======================================================================
+
+
+======================================================================
+📁 tests/CHStone/gsm | compile -emit=verilog
+⏱️  15:00:41 | $ go run ./cmd/mygo compile -emit=verilog -o tests/CHStone/gsm/main.sv tests/CHStone/gsm/main.go
+======================================================================
+
+(no output)
+
+[ERROR]
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:292:4: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:312:3: warning: for loop has variable bound; lowering will use loop FSM generation
+
+======================================================================
+✅ | End: 15:00:42
+======================================================================
+
+
+======================================================================
+📁 tests/CHStone/gsm | software simulation
+⏱️  15:00:42 | $ go run tests/CHStone/gsm/main.go
 ======================================================================
 
 0
 
 ======================================================================
-✅ | End: 13:21:52
+✅ | End: 15:00:42
 ======================================================================
 
 
 ======================================================================
-📁 gsm | hardware simulation (sim-max-cycles=4096)
-⏱️  13:21:52 | $ go run ./cmd/mygo sim --sim-max-cycles 4096 tests/CHStone/gsm/main.go
+📁 tests/CHStone/gsm | hardware simulation (sim-max-cycles=4096)
+⏱️  15:00:42 | $ go run ./cmd/mygo sim --sim-max-cycles 4096 tests/CHStone/gsm/main.go
 ======================================================================
 
         168
@@ -37876,11 +38542,24 @@ input=40186f423ca395cb expected=bfc63a23c48863dd output=bfc63a23c48863dd (-0.173
 /home/qinkejiu/mygo/tests/CHStone/gsm/main.go:312:3: warning: for loop has variable bound; lowering will use loop FSM generation
 
 ======================================================================
-✅ | End: 13:21:56
+✅ | End: 15:00:46
 ======================================================================
 
 
 [CASE RESULT]
+case=tests/CHStone/gsm
+ssa_ok=True
+ssa_return_code=0
+ssa_path=tests/CHStone/gsm/main.ssa
+ir_ok=True
+ir_return_code=0
+ir_path=tests/CHStone/gsm/main.ir
+mlir_ok=True
+mlir_return_code=0
+mlir_path=tests/CHStone/gsm/main.mlir
+verilog_ok=True
+verilog_return_code=0
+verilog_path=tests/CHStone/gsm/main.sv
 software_return_code=0
 hardware_return_code=0
 software_ok=True
@@ -37911,20 +38590,80 @@ output_match_mode=none
 
 
 ======================================================================
-📁 mips | software simulation
-⏱️  13:21:56 | $ go run tests/CHStone/mips/main.go
+📁 tests/CHStone/mips | compile -emit=ssa
+⏱️  15:00:46 | $ go run ./cmd/mygo compile -emit=ssa -o tests/CHStone/mips/main.ssa tests/CHStone/mips/main.go
+======================================================================
+
+(no output)
+
+======================================================================
+✅ | End: 15:00:50
+======================================================================
+
+
+======================================================================
+📁 tests/CHStone/mips | compile -emit=ir
+⏱️  15:00:50 | $ go run ./cmd/mygo compile -emit=ir -o tests/CHStone/mips/main.ir tests/CHStone/mips/main.go
+======================================================================
+
+(no output)
+
+[ERROR]
+/home/qinkejiu/mygo/tests/CHStone/mips/main.go:148:2: warning: for loop is open-ended; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/mips/main.go:174:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+
+======================================================================
+✅ | End: 15:00:51
+======================================================================
+
+
+======================================================================
+📁 tests/CHStone/mips | compile -emit=mlir
+⏱️  15:00:51 | $ go run ./cmd/mygo compile -emit=mlir -o tests/CHStone/mips/main.mlir tests/CHStone/mips/main.go
+======================================================================
+
+(no output)
+
+[ERROR]
+/home/qinkejiu/mygo/tests/CHStone/mips/main.go:148:2: warning: for loop is open-ended; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/mips/main.go:174:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+
+======================================================================
+✅ | End: 15:00:52
+======================================================================
+
+
+======================================================================
+📁 tests/CHStone/mips | compile -emit=verilog
+⏱️  15:00:52 | $ go run ./cmd/mygo compile -emit=verilog -o tests/CHStone/mips/main.sv tests/CHStone/mips/main.go
+======================================================================
+
+(no output)
+
+[ERROR]
+/home/qinkejiu/mygo/tests/CHStone/mips/main.go:148:2: warning: for loop is open-ended; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/mips/main.go:174:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+
+======================================================================
+✅ | End: 15:00:53
+======================================================================
+
+
+======================================================================
+📁 tests/CHStone/mips | software simulation
+⏱️  15:00:53 | $ go run tests/CHStone/mips/main.go
 ======================================================================
 
 0
 
 ======================================================================
-✅ | End: 13:21:57
+✅ | End: 15:00:53
 ======================================================================
 
 
 ======================================================================
-📁 mips | hardware simulation (sim-max-cycles=4096)
-⏱️  13:21:57 | $ go run ./cmd/mygo sim --sim-max-cycles 4096 tests/CHStone/mips/main.go
+📁 tests/CHStone/mips | hardware simulation (sim-max-cycles=4096)
+⏱️  15:00:53 | $ go run ./cmd/mygo sim --sim-max-cycles 4096 tests/CHStone/mips/main.go
 ======================================================================
 
           0
@@ -37934,15 +38673,15 @@ output_match_mode=none
 /home/qinkejiu/mygo/tests/CHStone/mips/main.go:174:3: warning: for loop has condition-only control; lowering will use loop FSM generation
 
 ======================================================================
-✅ | End: 13:22:04
+✅ | End: 15:01:01
 ======================================================================
 
 [TUNE]
 Output matched at 4096 cycles; searching minimal matching cycle count in [1, 4096].
 
 ======================================================================
-📁 mips | hardware simulation tuning (sim-max-cycles=2048)
-⏱️  13:22:04 | $ go run ./cmd/mygo sim --sim-max-cycles 2048 tests/CHStone/mips/main.go
+📁 tests/CHStone/mips | hardware simulation tuning (sim-max-cycles=2048)
+⏱️  15:01:01 | $ go run ./cmd/mygo sim --sim-max-cycles 2048 tests/CHStone/mips/main.go
 ======================================================================
 
           0
@@ -37952,13 +38691,13 @@ Output matched at 4096 cycles; searching minimal matching cycle count in [1, 409
 /home/qinkejiu/mygo/tests/CHStone/mips/main.go:174:3: warning: for loop has condition-only control; lowering will use loop FSM generation
 
 ======================================================================
-✅ | End: 13:22:14
+✅ | End: 15:01:08
 ======================================================================
 
 
 ======================================================================
-📁 mips | hardware simulation tuning (sim-max-cycles=1024)
-⏱️  13:22:14 | $ go run ./cmd/mygo sim --sim-max-cycles 1024 tests/CHStone/mips/main.go
+📁 tests/CHStone/mips | hardware simulation tuning (sim-max-cycles=1024)
+⏱️  15:01:08 | $ go run ./cmd/mygo sim --sim-max-cycles 1024 tests/CHStone/mips/main.go
 ======================================================================
 
           0
@@ -37968,13 +38707,13 @@ Output matched at 4096 cycles; searching minimal matching cycle count in [1, 409
 /home/qinkejiu/mygo/tests/CHStone/mips/main.go:174:3: warning: for loop has condition-only control; lowering will use loop FSM generation
 
 ======================================================================
-✅ | End: 13:22:21
+✅ | End: 15:01:17
 ======================================================================
 
 
 ======================================================================
-📁 mips | hardware simulation tuning (sim-max-cycles=512)
-⏱️  13:22:21 | $ go run ./cmd/mygo sim --sim-max-cycles 512 tests/CHStone/mips/main.go
+📁 tests/CHStone/mips | hardware simulation tuning (sim-max-cycles=512)
+⏱️  15:01:17 | $ go run ./cmd/mygo sim --sim-max-cycles 512 tests/CHStone/mips/main.go
 ======================================================================
 
 (no output)
@@ -37984,13 +38723,13 @@ Output matched at 4096 cycles; searching minimal matching cycle count in [1, 409
 /home/qinkejiu/mygo/tests/CHStone/mips/main.go:174:3: warning: for loop has condition-only control; lowering will use loop FSM generation
 
 ======================================================================
-✅ | End: 13:22:29
+✅ | End: 15:01:28
 ======================================================================
 
 
 ======================================================================
-📁 mips | hardware simulation tuning (sim-max-cycles=768)
-⏱️  13:22:29 | $ go run ./cmd/mygo sim --sim-max-cycles 768 tests/CHStone/mips/main.go
+📁 tests/CHStone/mips | hardware simulation tuning (sim-max-cycles=768)
+⏱️  15:01:28 | $ go run ./cmd/mygo sim --sim-max-cycles 768 tests/CHStone/mips/main.go
 ======================================================================
 
           0
@@ -38000,13 +38739,13 @@ Output matched at 4096 cycles; searching minimal matching cycle count in [1, 409
 /home/qinkejiu/mygo/tests/CHStone/mips/main.go:174:3: warning: for loop has condition-only control; lowering will use loop FSM generation
 
 ======================================================================
-✅ | End: 13:22:36
+✅ | End: 15:01:37
 ======================================================================
 
 
 ======================================================================
-📁 mips | hardware simulation tuning (sim-max-cycles=640)
-⏱️  13:22:36 | $ go run ./cmd/mygo sim --sim-max-cycles 640 tests/CHStone/mips/main.go
+📁 tests/CHStone/mips | hardware simulation tuning (sim-max-cycles=640)
+⏱️  15:01:37 | $ go run ./cmd/mygo sim --sim-max-cycles 640 tests/CHStone/mips/main.go
 ======================================================================
 
 (no output)
@@ -38016,61 +38755,13 @@ Output matched at 4096 cycles; searching minimal matching cycle count in [1, 409
 /home/qinkejiu/mygo/tests/CHStone/mips/main.go:174:3: warning: for loop has condition-only control; lowering will use loop FSM generation
 
 ======================================================================
-✅ | End: 13:22:46
+✅ | End: 15:01:46
 ======================================================================
 
 
 ======================================================================
-📁 mips | hardware simulation tuning (sim-max-cycles=704)
-⏱️  13:22:46 | $ go run ./cmd/mygo sim --sim-max-cycles 704 tests/CHStone/mips/main.go
-======================================================================
-
-(no output)
-
-[ERROR]
-/home/qinkejiu/mygo/tests/CHStone/mips/main.go:148:2: warning: for loop is open-ended; lowering will use loop FSM generation
-/home/qinkejiu/mygo/tests/CHStone/mips/main.go:174:3: warning: for loop has condition-only control; lowering will use loop FSM generation
-
-======================================================================
-✅ | End: 13:22:54
-======================================================================
-
-
-======================================================================
-📁 mips | hardware simulation tuning (sim-max-cycles=736)
-⏱️  13:22:54 | $ go run ./cmd/mygo sim --sim-max-cycles 736 tests/CHStone/mips/main.go
-======================================================================
-
-          0
-
-[ERROR]
-/home/qinkejiu/mygo/tests/CHStone/mips/main.go:148:2: warning: for loop is open-ended; lowering will use loop FSM generation
-/home/qinkejiu/mygo/tests/CHStone/mips/main.go:174:3: warning: for loop has condition-only control; lowering will use loop FSM generation
-
-======================================================================
-✅ | End: 13:23:01
-======================================================================
-
-
-======================================================================
-📁 mips | hardware simulation tuning (sim-max-cycles=720)
-⏱️  13:23:01 | $ go run ./cmd/mygo sim --sim-max-cycles 720 tests/CHStone/mips/main.go
-======================================================================
-
-          0
-
-[ERROR]
-/home/qinkejiu/mygo/tests/CHStone/mips/main.go:148:2: warning: for loop is open-ended; lowering will use loop FSM generation
-/home/qinkejiu/mygo/tests/CHStone/mips/main.go:174:3: warning: for loop has condition-only control; lowering will use loop FSM generation
-
-======================================================================
-✅ | End: 13:23:08
-======================================================================
-
-
-======================================================================
-📁 mips | hardware simulation tuning (sim-max-cycles=712)
-⏱️  13:23:08 | $ go run ./cmd/mygo sim --sim-max-cycles 712 tests/CHStone/mips/main.go
+📁 tests/CHStone/mips | hardware simulation tuning (sim-max-cycles=704)
+⏱️  15:01:46 | $ go run ./cmd/mygo sim --sim-max-cycles 704 tests/CHStone/mips/main.go
 ======================================================================
 
 (no output)
@@ -38080,29 +38771,13 @@ Output matched at 4096 cycles; searching minimal matching cycle count in [1, 409
 /home/qinkejiu/mygo/tests/CHStone/mips/main.go:174:3: warning: for loop has condition-only control; lowering will use loop FSM generation
 
 ======================================================================
-✅ | End: 13:23:16
+✅ | End: 15:01:55
 ======================================================================
 
 
 ======================================================================
-📁 mips | hardware simulation tuning (sim-max-cycles=716)
-⏱️  13:23:16 | $ go run ./cmd/mygo sim --sim-max-cycles 716 tests/CHStone/mips/main.go
-======================================================================
-
-          0
-
-[ERROR]
-/home/qinkejiu/mygo/tests/CHStone/mips/main.go:148:2: warning: for loop is open-ended; lowering will use loop FSM generation
-/home/qinkejiu/mygo/tests/CHStone/mips/main.go:174:3: warning: for loop has condition-only control; lowering will use loop FSM generation
-
-======================================================================
-✅ | End: 13:23:26
-======================================================================
-
-
-======================================================================
-📁 mips | hardware simulation tuning (sim-max-cycles=714)
-⏱️  13:23:26 | $ go run ./cmd/mygo sim --sim-max-cycles 714 tests/CHStone/mips/main.go
+📁 tests/CHStone/mips | hardware simulation tuning (sim-max-cycles=736)
+⏱️  15:01:55 | $ go run ./cmd/mygo sim --sim-max-cycles 736 tests/CHStone/mips/main.go
 ======================================================================
 
           0
@@ -38112,13 +38787,29 @@ Output matched at 4096 cycles; searching minimal matching cycle count in [1, 409
 /home/qinkejiu/mygo/tests/CHStone/mips/main.go:174:3: warning: for loop has condition-only control; lowering will use loop FSM generation
 
 ======================================================================
-✅ | End: 13:23:33
+✅ | End: 15:02:07
 ======================================================================
 
 
 ======================================================================
-📁 mips | hardware simulation tuning (sim-max-cycles=713)
-⏱️  13:23:33 | $ go run ./cmd/mygo sim --sim-max-cycles 713 tests/CHStone/mips/main.go
+📁 tests/CHStone/mips | hardware simulation tuning (sim-max-cycles=720)
+⏱️  15:02:07 | $ go run ./cmd/mygo sim --sim-max-cycles 720 tests/CHStone/mips/main.go
+======================================================================
+
+          0
+
+[ERROR]
+/home/qinkejiu/mygo/tests/CHStone/mips/main.go:148:2: warning: for loop is open-ended; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/mips/main.go:174:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+
+======================================================================
+✅ | End: 15:02:15
+======================================================================
+
+
+======================================================================
+📁 tests/CHStone/mips | hardware simulation tuning (sim-max-cycles=712)
+⏱️  15:02:15 | $ go run ./cmd/mygo sim --sim-max-cycles 712 tests/CHStone/mips/main.go
 ======================================================================
 
 (no output)
@@ -38128,13 +38819,74 @@ Output matched at 4096 cycles; searching minimal matching cycle count in [1, 409
 /home/qinkejiu/mygo/tests/CHStone/mips/main.go:174:3: warning: for loop has condition-only control; lowering will use loop FSM generation
 
 ======================================================================
-✅ | End: 13:23:41
+✅ | End: 15:02:24
+======================================================================
+
+
+======================================================================
+📁 tests/CHStone/mips | hardware simulation tuning (sim-max-cycles=716)
+⏱️  15:02:24 | $ go run ./cmd/mygo sim --sim-max-cycles 716 tests/CHStone/mips/main.go
+======================================================================
+
+          0
+
+[ERROR]
+/home/qinkejiu/mygo/tests/CHStone/mips/main.go:148:2: warning: for loop is open-ended; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/mips/main.go:174:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+
+======================================================================
+✅ | End: 15:02:32
+======================================================================
+
+
+======================================================================
+📁 tests/CHStone/mips | hardware simulation tuning (sim-max-cycles=714)
+⏱️  15:02:32 | $ go run ./cmd/mygo sim --sim-max-cycles 714 tests/CHStone/mips/main.go
+======================================================================
+
+          0
+
+[ERROR]
+/home/qinkejiu/mygo/tests/CHStone/mips/main.go:148:2: warning: for loop is open-ended; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/mips/main.go:174:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+
+======================================================================
+✅ | End: 15:02:44
+======================================================================
+
+
+======================================================================
+📁 tests/CHStone/mips | hardware simulation tuning (sim-max-cycles=713)
+⏱️  15:02:44 | $ go run ./cmd/mygo sim --sim-max-cycles 713 tests/CHStone/mips/main.go
+======================================================================
+
+(no output)
+
+[ERROR]
+/home/qinkejiu/mygo/tests/CHStone/mips/main.go:148:2: warning: for loop is open-ended; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/mips/main.go:174:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+
+======================================================================
+✅ | End: 15:02:52
 ======================================================================
 
 [TUNE]
 Reduced matching sim-max-cycles from 4096 to 714.
 
 [CASE RESULT]
+case=tests/CHStone/mips
+ssa_ok=True
+ssa_return_code=0
+ssa_path=tests/CHStone/mips/main.ssa
+ir_ok=True
+ir_return_code=0
+ir_path=tests/CHStone/mips/main.ir
+mlir_ok=True
+mlir_return_code=0
+mlir_path=tests/CHStone/mips/main.mlir
+verilog_ok=True
+verilog_return_code=0
+verilog_path=tests/CHStone/mips/main.sv
 software_return_code=0
 hardware_return_code=0
 software_ok=True
@@ -38158,20 +38910,86 @@ output_match_mode=strict
 
 
 ======================================================================
-📁 motion | software simulation
-⏱️  13:23:41 | $ go run tests/CHStone/motion/main.go
+📁 tests/CHStone/motion | compile -emit=ssa
+⏱️  15:02:52 | $ go run ./cmd/mygo compile -emit=ssa -o tests/CHStone/motion/main.ssa tests/CHStone/motion/main.go
+======================================================================
+
+(no output)
+
+======================================================================
+✅ | End: 15:02:53
+======================================================================
+
+
+======================================================================
+📁 tests/CHStone/motion | compile -emit=ir
+⏱️  15:02:53 | $ go run ./cmd/mygo compile -emit=ir -o tests/CHStone/motion/main.ir tests/CHStone/motion/main.go
+======================================================================
+
+(no output)
+
+[ERROR]
+/home/qinkejiu/mygo/tests/CHStone/motion/main.go:90:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/motion/main.go:97:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/motion/main.go:131:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/motion/main.go:512:52: warning: multi-result call for mygo/tests/CHStone/motion.motion_vectors is not supported
+
+======================================================================
+✅ | End: 15:02:54
+======================================================================
+
+
+======================================================================
+📁 tests/CHStone/motion | compile -emit=mlir
+⏱️  15:02:54 | $ go run ./cmd/mygo compile -emit=mlir -o tests/CHStone/motion/main.mlir tests/CHStone/motion/main.go
+======================================================================
+
+(no output)
+
+[ERROR]
+/home/qinkejiu/mygo/tests/CHStone/motion/main.go:90:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/motion/main.go:97:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/motion/main.go:131:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/motion/main.go:512:52: warning: multi-result call for mygo/tests/CHStone/motion.motion_vectors is not supported
+
+======================================================================
+✅ | End: 15:02:55
+======================================================================
+
+
+======================================================================
+📁 tests/CHStone/motion | compile -emit=verilog
+⏱️  15:02:55 | $ go run ./cmd/mygo compile -emit=verilog -o tests/CHStone/motion/main.sv tests/CHStone/motion/main.go
+======================================================================
+
+(no output)
+
+[ERROR]
+/home/qinkejiu/mygo/tests/CHStone/motion/main.go:90:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/motion/main.go:97:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/motion/main.go:131:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/motion/main.go:512:52: warning: multi-result call for mygo/tests/CHStone/motion.motion_vectors is not supported
+
+======================================================================
+✅ | End: 15:02:56
+======================================================================
+
+
+======================================================================
+📁 tests/CHStone/motion | software simulation
+⏱️  15:02:56 | $ go run tests/CHStone/motion/main.go
 ======================================================================
 
 0
 
 ======================================================================
-✅ | End: 13:23:41
+✅ | End: 15:02:56
 ======================================================================
 
 
 ======================================================================
-📁 motion | hardware simulation (sim-max-cycles=4096)
-⏱️  13:23:41 | $ go run ./cmd/mygo sim --sim-max-cycles 4096 tests/CHStone/motion/main.go
+📁 tests/CHStone/motion | hardware simulation (sim-max-cycles=4096)
+⏱️  15:02:56 | $ go run ./cmd/mygo sim --sim-max-cycles 4096 tests/CHStone/motion/main.go
 ======================================================================
 
           0
@@ -38183,15 +39001,15 @@ output_match_mode=strict
 /home/qinkejiu/mygo/tests/CHStone/motion/main.go:512:52: warning: multi-result call for mygo/tests/CHStone/motion.motion_vectors is not supported
 
 ======================================================================
-✅ | End: 13:23:45
+✅ | End: 15:03:01
 ======================================================================
 
 [TUNE]
 Output matched at 4096 cycles; searching minimal matching cycle count in [1, 4096].
 
 ======================================================================
-📁 motion | hardware simulation tuning (sim-max-cycles=2048)
-⏱️  13:23:45 | $ go run ./cmd/mygo sim --sim-max-cycles 2048 tests/CHStone/motion/main.go
+📁 tests/CHStone/motion | hardware simulation tuning (sim-max-cycles=2048)
+⏱️  15:03:01 | $ go run ./cmd/mygo sim --sim-max-cycles 2048 tests/CHStone/motion/main.go
 ======================================================================
 
           0
@@ -38203,31 +39021,13 @@ Output matched at 4096 cycles; searching minimal matching cycle count in [1, 409
 /home/qinkejiu/mygo/tests/CHStone/motion/main.go:512:52: warning: multi-result call for mygo/tests/CHStone/motion.motion_vectors is not supported
 
 ======================================================================
-✅ | End: 13:23:49
+✅ | End: 15:03:05
 ======================================================================
 
 
 ======================================================================
-📁 motion | hardware simulation tuning (sim-max-cycles=1024)
-⏱️  13:23:49 | $ go run ./cmd/mygo sim --sim-max-cycles 1024 tests/CHStone/motion/main.go
-======================================================================
-
-          0
-
-[ERROR]
-/home/qinkejiu/mygo/tests/CHStone/motion/main.go:90:3: warning: for loop has condition-only control; lowering will use loop FSM generation
-/home/qinkejiu/mygo/tests/CHStone/motion/main.go:97:3: warning: for loop has condition-only control; lowering will use loop FSM generation
-/home/qinkejiu/mygo/tests/CHStone/motion/main.go:131:3: warning: for loop has condition-only control; lowering will use loop FSM generation
-/home/qinkejiu/mygo/tests/CHStone/motion/main.go:512:52: warning: multi-result call for mygo/tests/CHStone/motion.motion_vectors is not supported
-
-======================================================================
-✅ | End: 13:23:53
-======================================================================
-
-
-======================================================================
-📁 motion | hardware simulation tuning (sim-max-cycles=512)
-⏱️  13:23:53 | $ go run ./cmd/mygo sim --sim-max-cycles 512 tests/CHStone/motion/main.go
+📁 tests/CHStone/motion | hardware simulation tuning (sim-max-cycles=1024)
+⏱️  15:03:05 | $ go run ./cmd/mygo sim --sim-max-cycles 1024 tests/CHStone/motion/main.go
 ======================================================================
 
           0
@@ -38239,31 +39039,13 @@ Output matched at 4096 cycles; searching minimal matching cycle count in [1, 409
 /home/qinkejiu/mygo/tests/CHStone/motion/main.go:512:52: warning: multi-result call for mygo/tests/CHStone/motion.motion_vectors is not supported
 
 ======================================================================
-✅ | End: 13:24:00
+✅ | End: 15:03:13
 ======================================================================
 
 
 ======================================================================
-📁 motion | hardware simulation tuning (sim-max-cycles=256)
-⏱️  13:24:00 | $ go run ./cmd/mygo sim --sim-max-cycles 256 tests/CHStone/motion/main.go
-======================================================================
-
-          0
-
-[ERROR]
-/home/qinkejiu/mygo/tests/CHStone/motion/main.go:90:3: warning: for loop has condition-only control; lowering will use loop FSM generation
-/home/qinkejiu/mygo/tests/CHStone/motion/main.go:97:3: warning: for loop has condition-only control; lowering will use loop FSM generation
-/home/qinkejiu/mygo/tests/CHStone/motion/main.go:131:3: warning: for loop has condition-only control; lowering will use loop FSM generation
-/home/qinkejiu/mygo/tests/CHStone/motion/main.go:512:52: warning: multi-result call for mygo/tests/CHStone/motion.motion_vectors is not supported
-
-======================================================================
-✅ | End: 13:24:04
-======================================================================
-
-
-======================================================================
-📁 motion | hardware simulation tuning (sim-max-cycles=128)
-⏱️  13:24:04 | $ go run ./cmd/mygo sim --sim-max-cycles 128 tests/CHStone/motion/main.go
+📁 tests/CHStone/motion | hardware simulation tuning (sim-max-cycles=512)
+⏱️  15:03:13 | $ go run ./cmd/mygo sim --sim-max-cycles 512 tests/CHStone/motion/main.go
 ======================================================================
 
           0
@@ -38275,13 +39057,49 @@ Output matched at 4096 cycles; searching minimal matching cycle count in [1, 409
 /home/qinkejiu/mygo/tests/CHStone/motion/main.go:512:52: warning: multi-result call for mygo/tests/CHStone/motion.motion_vectors is not supported
 
 ======================================================================
-✅ | End: 13:24:07
+✅ | End: 15:03:17
 ======================================================================
 
 
 ======================================================================
-📁 motion | hardware simulation tuning (sim-max-cycles=64)
-⏱️  13:24:07 | $ go run ./cmd/mygo sim --sim-max-cycles 64 tests/CHStone/motion/main.go
+📁 tests/CHStone/motion | hardware simulation tuning (sim-max-cycles=256)
+⏱️  15:03:17 | $ go run ./cmd/mygo sim --sim-max-cycles 256 tests/CHStone/motion/main.go
+======================================================================
+
+          0
+
+[ERROR]
+/home/qinkejiu/mygo/tests/CHStone/motion/main.go:90:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/motion/main.go:97:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/motion/main.go:131:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/motion/main.go:512:52: warning: multi-result call for mygo/tests/CHStone/motion.motion_vectors is not supported
+
+======================================================================
+✅ | End: 15:03:22
+======================================================================
+
+
+======================================================================
+📁 tests/CHStone/motion | hardware simulation tuning (sim-max-cycles=128)
+⏱️  15:03:22 | $ go run ./cmd/mygo sim --sim-max-cycles 128 tests/CHStone/motion/main.go
+======================================================================
+
+          0
+
+[ERROR]
+/home/qinkejiu/mygo/tests/CHStone/motion/main.go:90:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/motion/main.go:97:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/motion/main.go:131:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/motion/main.go:512:52: warning: multi-result call for mygo/tests/CHStone/motion.motion_vectors is not supported
+
+======================================================================
+✅ | End: 15:03:26
+======================================================================
+
+
+======================================================================
+📁 tests/CHStone/motion | hardware simulation tuning (sim-max-cycles=64)
+⏱️  15:03:26 | $ go run ./cmd/mygo sim --sim-max-cycles 64 tests/CHStone/motion/main.go
 ======================================================================
 
 (no output)
@@ -38293,85 +39111,13 @@ Output matched at 4096 cycles; searching minimal matching cycle count in [1, 409
 /home/qinkejiu/mygo/tests/CHStone/motion/main.go:512:52: warning: multi-result call for mygo/tests/CHStone/motion.motion_vectors is not supported
 
 ======================================================================
-✅ | End: 13:24:11
+✅ | End: 15:03:31
 ======================================================================
 
 
 ======================================================================
-📁 motion | hardware simulation tuning (sim-max-cycles=96)
-⏱️  13:24:11 | $ go run ./cmd/mygo sim --sim-max-cycles 96 tests/CHStone/motion/main.go
-======================================================================
-
-(no output)
-
-[ERROR]
-/home/qinkejiu/mygo/tests/CHStone/motion/main.go:90:3: warning: for loop has condition-only control; lowering will use loop FSM generation
-/home/qinkejiu/mygo/tests/CHStone/motion/main.go:97:3: warning: for loop has condition-only control; lowering will use loop FSM generation
-/home/qinkejiu/mygo/tests/CHStone/motion/main.go:131:3: warning: for loop has condition-only control; lowering will use loop FSM generation
-/home/qinkejiu/mygo/tests/CHStone/motion/main.go:512:52: warning: multi-result call for mygo/tests/CHStone/motion.motion_vectors is not supported
-
-======================================================================
-✅ | End: 13:24:15
-======================================================================
-
-
-======================================================================
-📁 motion | hardware simulation tuning (sim-max-cycles=112)
-⏱️  13:24:15 | $ go run ./cmd/mygo sim --sim-max-cycles 112 tests/CHStone/motion/main.go
-======================================================================
-
-          0
-
-[ERROR]
-/home/qinkejiu/mygo/tests/CHStone/motion/main.go:90:3: warning: for loop has condition-only control; lowering will use loop FSM generation
-/home/qinkejiu/mygo/tests/CHStone/motion/main.go:97:3: warning: for loop has condition-only control; lowering will use loop FSM generation
-/home/qinkejiu/mygo/tests/CHStone/motion/main.go:131:3: warning: for loop has condition-only control; lowering will use loop FSM generation
-/home/qinkejiu/mygo/tests/CHStone/motion/main.go:512:52: warning: multi-result call for mygo/tests/CHStone/motion.motion_vectors is not supported
-
-======================================================================
-✅ | End: 13:24:19
-======================================================================
-
-
-======================================================================
-📁 motion | hardware simulation tuning (sim-max-cycles=104)
-⏱️  13:24:19 | $ go run ./cmd/mygo sim --sim-max-cycles 104 tests/CHStone/motion/main.go
-======================================================================
-
-          0
-
-[ERROR]
-/home/qinkejiu/mygo/tests/CHStone/motion/main.go:90:3: warning: for loop has condition-only control; lowering will use loop FSM generation
-/home/qinkejiu/mygo/tests/CHStone/motion/main.go:97:3: warning: for loop has condition-only control; lowering will use loop FSM generation
-/home/qinkejiu/mygo/tests/CHStone/motion/main.go:131:3: warning: for loop has condition-only control; lowering will use loop FSM generation
-/home/qinkejiu/mygo/tests/CHStone/motion/main.go:512:52: warning: multi-result call for mygo/tests/CHStone/motion.motion_vectors is not supported
-
-======================================================================
-✅ | End: 13:24:23
-======================================================================
-
-
-======================================================================
-📁 motion | hardware simulation tuning (sim-max-cycles=100)
-⏱️  13:24:23 | $ go run ./cmd/mygo sim --sim-max-cycles 100 tests/CHStone/motion/main.go
-======================================================================
-
-          0
-
-[ERROR]
-/home/qinkejiu/mygo/tests/CHStone/motion/main.go:90:3: warning: for loop has condition-only control; lowering will use loop FSM generation
-/home/qinkejiu/mygo/tests/CHStone/motion/main.go:97:3: warning: for loop has condition-only control; lowering will use loop FSM generation
-/home/qinkejiu/mygo/tests/CHStone/motion/main.go:131:3: warning: for loop has condition-only control; lowering will use loop FSM generation
-/home/qinkejiu/mygo/tests/CHStone/motion/main.go:512:52: warning: multi-result call for mygo/tests/CHStone/motion.motion_vectors is not supported
-
-======================================================================
-✅ | End: 13:24:27
-======================================================================
-
-
-======================================================================
-📁 motion | hardware simulation tuning (sim-max-cycles=98)
-⏱️  13:24:27 | $ go run ./cmd/mygo sim --sim-max-cycles 98 tests/CHStone/motion/main.go
+📁 tests/CHStone/motion | hardware simulation tuning (sim-max-cycles=96)
+⏱️  15:03:31 | $ go run ./cmd/mygo sim --sim-max-cycles 96 tests/CHStone/motion/main.go
 ======================================================================
 
 (no output)
@@ -38383,13 +39129,13 @@ Output matched at 4096 cycles; searching minimal matching cycle count in [1, 409
 /home/qinkejiu/mygo/tests/CHStone/motion/main.go:512:52: warning: multi-result call for mygo/tests/CHStone/motion.motion_vectors is not supported
 
 ======================================================================
-✅ | End: 13:24:34
+✅ | End: 15:03:35
 ======================================================================
 
 
 ======================================================================
-📁 motion | hardware simulation tuning (sim-max-cycles=99)
-⏱️  13:24:34 | $ go run ./cmd/mygo sim --sim-max-cycles 99 tests/CHStone/motion/main.go
+📁 tests/CHStone/motion | hardware simulation tuning (sim-max-cycles=112)
+⏱️  15:03:35 | $ go run ./cmd/mygo sim --sim-max-cycles 112 tests/CHStone/motion/main.go
 ======================================================================
 
           0
@@ -38401,13 +39147,98 @@ Output matched at 4096 cycles; searching minimal matching cycle count in [1, 409
 /home/qinkejiu/mygo/tests/CHStone/motion/main.go:512:52: warning: multi-result call for mygo/tests/CHStone/motion.motion_vectors is not supported
 
 ======================================================================
-✅ | End: 13:24:38
+✅ | End: 15:03:40
+======================================================================
+
+
+======================================================================
+📁 tests/CHStone/motion | hardware simulation tuning (sim-max-cycles=104)
+⏱️  15:03:40 | $ go run ./cmd/mygo sim --sim-max-cycles 104 tests/CHStone/motion/main.go
+======================================================================
+
+          0
+
+[ERROR]
+/home/qinkejiu/mygo/tests/CHStone/motion/main.go:90:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/motion/main.go:97:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/motion/main.go:131:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/motion/main.go:512:52: warning: multi-result call for mygo/tests/CHStone/motion.motion_vectors is not supported
+
+======================================================================
+✅ | End: 15:03:47
+======================================================================
+
+
+======================================================================
+📁 tests/CHStone/motion | hardware simulation tuning (sim-max-cycles=100)
+⏱️  15:03:47 | $ go run ./cmd/mygo sim --sim-max-cycles 100 tests/CHStone/motion/main.go
+======================================================================
+
+          0
+
+[ERROR]
+/home/qinkejiu/mygo/tests/CHStone/motion/main.go:90:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/motion/main.go:97:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/motion/main.go:131:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/motion/main.go:512:52: warning: multi-result call for mygo/tests/CHStone/motion.motion_vectors is not supported
+
+======================================================================
+✅ | End: 15:03:52
+======================================================================
+
+
+======================================================================
+📁 tests/CHStone/motion | hardware simulation tuning (sim-max-cycles=98)
+⏱️  15:03:52 | $ go run ./cmd/mygo sim --sim-max-cycles 98 tests/CHStone/motion/main.go
+======================================================================
+
+(no output)
+
+[ERROR]
+/home/qinkejiu/mygo/tests/CHStone/motion/main.go:90:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/motion/main.go:97:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/motion/main.go:131:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/motion/main.go:512:52: warning: multi-result call for mygo/tests/CHStone/motion.motion_vectors is not supported
+
+======================================================================
+✅ | End: 15:03:56
+======================================================================
+
+
+======================================================================
+📁 tests/CHStone/motion | hardware simulation tuning (sim-max-cycles=99)
+⏱️  15:03:56 | $ go run ./cmd/mygo sim --sim-max-cycles 99 tests/CHStone/motion/main.go
+======================================================================
+
+          0
+
+[ERROR]
+/home/qinkejiu/mygo/tests/CHStone/motion/main.go:90:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/motion/main.go:97:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/motion/main.go:131:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/motion/main.go:512:52: warning: multi-result call for mygo/tests/CHStone/motion.motion_vectors is not supported
+
+======================================================================
+✅ | End: 15:04:00
 ======================================================================
 
 [TUNE]
 Reduced matching sim-max-cycles from 4096 to 99.
 
 [CASE RESULT]
+case=tests/CHStone/motion
+ssa_ok=True
+ssa_return_code=0
+ssa_path=tests/CHStone/motion/main.ssa
+ir_ok=True
+ir_return_code=0
+ir_path=tests/CHStone/motion/main.ir
+mlir_ok=True
+mlir_return_code=0
+mlir_path=tests/CHStone/motion/main.mlir
+verilog_ok=True
+verilog_return_code=0
+verilog_path=tests/CHStone/motion/main.sv
 software_return_code=0
 hardware_return_code=0
 software_ok=True
@@ -38433,20 +39264,89 @@ output_match_mode=strict
 
 
 ======================================================================
-📁 sha | software simulation
-⏱️  13:24:38 | $ go run tests/CHStone/sha/main.go
+📁 tests/CHStone/sha | compile -emit=ssa
+⏱️  15:04:00 | $ go run ./cmd/mygo compile -emit=ssa -o tests/CHStone/sha/main.ssa tests/CHStone/sha/main.go
+======================================================================
+
+(no output)
+
+======================================================================
+✅ | End: 15:04:01
+======================================================================
+
+
+======================================================================
+📁 tests/CHStone/sha | compile -emit=ir
+⏱️  15:04:01 | $ go run ./cmd/mygo compile -emit=ir -o tests/CHStone/sha/main.ir tests/CHStone/sha/main.go
+======================================================================
+
+(no output)
+
+[ERROR]
+/home/qinkejiu/mygo/tests/CHStone/sha/main.go:1141:2: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/sha/main.go:1153:2: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/sha/main.go:1225:2: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/sha/main.go:1254:3: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/sha/main.go:1268:3: warning: for loop has variable bound; lowering will use loop FSM generation
+
+======================================================================
+✅ | End: 15:04:03
+======================================================================
+
+
+======================================================================
+📁 tests/CHStone/sha | compile -emit=mlir
+⏱️  15:04:03 | $ go run ./cmd/mygo compile -emit=mlir -o tests/CHStone/sha/main.mlir tests/CHStone/sha/main.go
+======================================================================
+
+(no output)
+
+[ERROR]
+/home/qinkejiu/mygo/tests/CHStone/sha/main.go:1141:2: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/sha/main.go:1153:2: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/sha/main.go:1225:2: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/sha/main.go:1254:3: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/sha/main.go:1268:3: warning: for loop has variable bound; lowering will use loop FSM generation
+
+======================================================================
+✅ | End: 15:04:03
+======================================================================
+
+
+======================================================================
+📁 tests/CHStone/sha | compile -emit=verilog
+⏱️  15:04:03 | $ go run ./cmd/mygo compile -emit=verilog -o tests/CHStone/sha/main.sv tests/CHStone/sha/main.go
+======================================================================
+
+(no output)
+
+[ERROR]
+/home/qinkejiu/mygo/tests/CHStone/sha/main.go:1141:2: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/sha/main.go:1153:2: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/sha/main.go:1225:2: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/sha/main.go:1254:3: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/sha/main.go:1268:3: warning: for loop has variable bound; lowering will use loop FSM generation
+
+======================================================================
+✅ | End: 15:04:05
+======================================================================
+
+
+======================================================================
+📁 tests/CHStone/sha | software simulation
+⏱️  15:04:05 | $ go run tests/CHStone/sha/main.go
 ======================================================================
 
 0
 
 ======================================================================
-✅ | End: 13:24:38
+✅ | End: 15:04:05
 ======================================================================
 
 
 ======================================================================
-📁 sha | hardware simulation (sim-max-cycles=4096)
-⏱️  13:24:38 | $ go run ./cmd/mygo sim --sim-max-cycles 4096 tests/CHStone/sha/main.go
+📁 tests/CHStone/sha | hardware simulation (sim-max-cycles=4096)
+⏱️  15:04:05 | $ go run ./cmd/mygo sim --sim-max-cycles 4096 tests/CHStone/sha/main.go
 ======================================================================
 
           5
@@ -38459,11 +39359,24 @@ output_match_mode=strict
 /home/qinkejiu/mygo/tests/CHStone/sha/main.go:1268:3: warning: for loop has variable bound; lowering will use loop FSM generation
 
 ======================================================================
-✅ | End: 13:24:42
+✅ | End: 15:04:09
 ======================================================================
 
 
 [CASE RESULT]
+case=tests/CHStone/sha
+ssa_ok=True
+ssa_return_code=0
+ssa_path=tests/CHStone/sha/main.ssa
+ir_ok=True
+ir_return_code=0
+ir_path=tests/CHStone/sha/main.ir
+mlir_ok=True
+mlir_return_code=0
+mlir_path=tests/CHStone/sha/main.mlir
+verilog_ok=True
+verilog_return_code=0
+verilog_path=tests/CHStone/sha/main.sv
 software_return_code=0
 hardware_return_code=0
 software_ok=True
@@ -38500,6 +39413,10 @@ output_match_mode=none
 SUMMARY
 ======================================================================
 Total folders: 12
+SSA conversion success: 12/12
+IR conversion success: 12/12
+MLIR conversion success: 12/12
+VERILOG conversion success: 12/12
 Software simulation success: 12/12
 Hardware simulation command success: 12/12
 Behavioral match success (HW==SW): 3/12

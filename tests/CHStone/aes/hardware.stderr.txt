@@ -1,0 +1,12 @@
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:295:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:349:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:363:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:370:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:437:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:459:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:515:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:522:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:583:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:592:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:643:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/aes/main.go:651:2: warning: for loop has variable bound; lowering will use loop FSM generation

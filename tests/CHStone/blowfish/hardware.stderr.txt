@@ -1,0 +1,6 @@
+/home/qinkejiu/mygo/tests/CHStone/blowfish/main.go:351:2: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/blowfish/main.go:427:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/blowfish/main.go:463:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/blowfish/main.go:1443:2: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/blowfish/main.go:1444:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/blowfish/main.go:1452:3: warning: for loop has variable bound; lowering will use loop FSM generation

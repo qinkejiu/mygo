@@ -1,0 +1,5 @@
+/home/qinkejiu/mygo/tests/CHStone/sha/main.go:1141:2: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/sha/main.go:1153:2: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/sha/main.go:1225:2: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/sha/main.go:1254:3: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/sha/main.go:1268:3: warning: for loop has variable bound; lowering will use loop FSM generation

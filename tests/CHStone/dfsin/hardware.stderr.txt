@@ -1,0 +1,4 @@
+/home/qinkejiu/mygo/tests/CHStone/dfsin/main.go:152:2: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/dfsin/main.go:640:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/dfsin/main.go:689:2: warning: for loop is open-ended; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/dfsin/main.go:791:13: warning: fmt.Printf: unsupported verb %f

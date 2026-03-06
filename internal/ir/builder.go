@@ -78,6 +78,7 @@ type builder struct {
 }
 
 type indexedBaseState struct {
+	base     ssa.Value
 	elemType *SignalType
 	length   int
 	elements map[int]*Signal
@@ -1181,12 +1182,16 @@ func (b *builder) indexedStateForBase(base ssa.Value, pos token.Pos) *indexedBas
 		return nil
 	}
 	state := &indexedBaseState{
+		base:     base,
 		elemType: signalType(elemType),
 		length:   length,
 		elements: make(map[int]*Signal),
 	}
 	if state.elemType == nil {
 		state.elemType = &SignalType{Width: 32, Signed: true}
+	}
+	if g, ok := base.(*ssa.Global); ok {
+		b.bindGlobalIndexedInputPorts(g, state)
 	}
 	_ = pos
 	b.indexedBases[base] = state
@@ -1206,6 +1211,49 @@ func (b *builder) indexedElementSignal(state *indexedBaseState, idx int, pos tok
 	sig := b.newConstSignal(0, state.elemType, pos)
 	state.elements[idx] = sig
 	return sig
+}
+
+func (b *builder) bindGlobalIndexedInputPorts(g *ssa.Global, state *indexedBaseState) {
+	if b == nil || b.module == nil || g == nil || state == nil || state.length <= 0 {
+		return
+	}
+	base := defaultName(g.Name(), "global")
+	base = strings.ReplaceAll(base, ".", "_")
+	for i := 0; i < state.length; i++ {
+		portName := fmt.Sprintf("%s_%d", base, i)
+		if b.hasPort(portName) {
+			continue
+		}
+		typ := state.elemType.Clone()
+		if typ == nil {
+			typ = &SignalType{Width: 32, Signed: true}
+		}
+		sig := &Signal{
+			Name:   portName,
+			Type:   typ.Clone(),
+			Kind:   Wire,
+			Source: g.Pos(),
+		}
+		b.module.Signals[sig.Name] = sig
+		state.elements[i] = sig
+		b.module.Ports = append(b.module.Ports, Port{
+			Name:      portName,
+			Direction: Input,
+			Type:      typ.Clone(),
+		})
+	}
+}
+
+func (b *builder) hasPort(name string) bool {
+	if b == nil || b.module == nil || strings.TrimSpace(name) == "" {
+		return false
+	}
+	for _, port := range b.module.Ports {
+		if port.Name == name {
+			return true
+		}
+	}
+	return false
 }
 
 func unwrapIndexedBase(v ssa.Value) ssa.Value {

@@ -1,0 +1,3 @@
+/home/qinkejiu/mygo/tests/CHStone/dfdiv/main.go:143:2: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/dfdiv/main.go:403:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/dfdiv/main.go:512:13: warning: fmt.Printf: unsupported verb %f

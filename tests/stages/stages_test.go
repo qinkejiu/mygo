@@ -146,6 +146,57 @@ func TestSimulationVerilogOutWritesArtifacts(t *testing.T) {
 	}
 }
 
+func TestDynamicLoopLowersToFSMVerilog(t *testing.T) {
+	if !circtOptAvailable {
+		t.Skip("circt-opt not on PATH")
+	}
+	h := newHarness(t)
+	source := filepath.Join(workloadsRoot, "dynamic_loop_fsm", "main.go")
+	output := filepath.Join(t.TempDir(), "dynamic_loop_fsm.sv")
+	args := []string{
+		"run", "./cmd/mygo", "compile",
+		"-emit=verilog",
+		"--circt-lowering-options", compareLoweringOptions,
+		"-o", output,
+		source,
+	}
+	runGoCommand(t, h.repoRoot, args...)
+
+	data, err := os.ReadFile(output)
+	if err != nil {
+		t.Fatalf("read verilog output: %v", err)
+	}
+	top := extractTopModule(string(data))
+	if strings.TrimSpace(top) == "" {
+		t.Fatalf("missing top-level module in verilog output")
+	}
+
+	stateReg, ok := findStateRegisterName(top)
+	if !ok {
+		t.Fatalf("expected FSM state register in top module:\n%s", top)
+	}
+	if !strings.Contains(top, "case ("+stateReg) {
+		t.Fatalf("expected FSM case statement for %q in top module:\n%s", stateReg, top)
+	}
+	if strings.Count(top, stateReg+" <=") < 2 {
+		t.Fatalf("expected state transitions for %q in top module:\n%s", stateReg, top)
+	}
+
+	counter, ok := findSelfIncrementCounter(top)
+	if !ok {
+		t.Fatalf("expected loop counter self-increment in top module:\n%s", top)
+	}
+	if !strings.Contains(top, "reg [") || !strings.Contains(top, " "+counter+";") {
+		t.Fatalf("expected loop counter register declaration for %q:\n%s", counter, top)
+	}
+	if !hasLoopBoundCompare(top, counter) {
+		t.Fatalf("expected runtime loop bound compare using %q:\n%s", counter, top)
+	}
+	if !strings.Contains(top, "input_0") || !strings.Contains(top, "? input_") {
+		t.Fatalf("expected datapath to depend on global input ports (not constant-folded):\n%s", top)
+	}
+}
+
 func runStageTests(t *testing.T, fn func(*testing.T, harness, testCase)) {
 	t.Helper()
 	h := newHarness(t)
@@ -350,4 +401,78 @@ func determineRepoRoot(t *testing.T) string {
 		t.Fatalf("determine repo root: %v", err)
 	}
 	return root
+}
+
+func extractTopModule(verilog string) string {
+	start := strings.Index(verilog, "module main(")
+	if start < 0 {
+		return ""
+	}
+	rest := verilog[start:]
+	end := strings.Index(rest, "\nendmodule")
+	if end < 0 {
+		return ""
+	}
+	return rest[:end+len("\nendmodule")]
+}
+
+func findStateRegisterName(moduleText string) (string, bool) {
+	lines := strings.Split(moduleText, "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, "reg [") || !strings.HasSuffix(line, ";") {
+			continue
+		}
+		if !strings.Contains(line, " state_reg") {
+			continue
+		}
+		fields := strings.Fields(strings.TrimSuffix(line, ";"))
+		if len(fields) == 0 {
+			continue
+		}
+		return fields[len(fields)-1], true
+	}
+	return "", false
+}
+
+func findSelfIncrementCounter(moduleText string) (string, bool) {
+	lines := strings.Split(moduleText, "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if !strings.Contains(line, "<=") || !strings.Contains(line, "+ 32'h1") {
+			continue
+		}
+		parts := strings.SplitN(line, "<=", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		lhs := strings.TrimSpace(parts[0])
+		rhs := strings.TrimSpace(parts[1])
+		rhsParts := strings.SplitN(rhs, "+ 32'h1", 2)
+		if len(rhsParts) != 2 {
+			continue
+		}
+		rhsBase := strings.TrimSpace(rhsParts[0])
+		if lhs != "" && lhs == rhsBase {
+			return lhs, true
+		}
+	}
+	return "", false
+}
+
+func hasLoopBoundCompare(moduleText, counter string) bool {
+	if counter == "" {
+		return false
+	}
+	patterns := []string{
+		"$signed(" + counter + ") < 32'sh8",
+		counter + " < 32'sh8",
+		counter + " < 8",
+	}
+	for _, p := range patterns {
+		if strings.Contains(moduleText, p) {
+			return true
+		}
+	}
+	return false
 }
