@@ -38,6 +38,7 @@ func BuildDesign(prog *ssa.Program, reporter *diag.Reporter) (*Design, error) {
 		channelParamBindings: make(map[*ssa.Parameter]map[*Channel]struct{}),
 		channelUsage:         make(map[*Channel]int),
 		loopFSMs:             make(map[*ssa.Function][]*loopFSM),
+		mergedCalls:          make(map[*BasicBlock]*mergedCallInfo),
 		nextStage:            1,
 	}
 
@@ -71,10 +72,16 @@ type builder struct {
 	channelParamBindings map[*ssa.Parameter]map[*Channel]struct{}
 	channelUsage         map[*Channel]int
 	loopFSMs             map[*ssa.Function][]*loopFSM
+	mergedCalls          map[*BasicBlock]*mergedCallInfo
 	nextStage            int
 	blocks               map[*ssa.BasicBlock]*BasicBlock
 	currentBlock         *BasicBlock
 	tempID               int
+}
+
+type mergedCallInfo struct {
+	entryBlock   *BasicBlock
+	returnBlocks []*BasicBlock
 }
 
 type indexedBaseState struct {
@@ -121,6 +128,56 @@ func (b *builder) buildModule(fn *ssa.Function) *Module {
 	return mod
 }
 
+// buildReferencedProcesses scans for CallOperations and builds referenced processes
+// This ensures that modular functions (those called via CallOperation) have their processes built
+func (b *builder) buildReferencedProcesses(prog *ssa.Program) {
+	if b.module == nil {
+		return
+	}
+
+	// Collect all function names referenced by CallOperations
+	referencedFuncNames := make(map[string]struct{})
+	for _, proc := range b.module.Processes {
+		if proc == nil {
+			continue
+		}
+		for _, block := range proc.Blocks {
+			if block == nil {
+				continue
+			}
+			for _, op := range block.Ops {
+				if callOp, ok := op.(*CallOperation); ok && callOp.Callee != "" {
+					referencedFuncNames[callOp.Callee] = struct{}{}
+				}
+			}
+		}
+	}
+
+	// Build all referenced functions that haven't been built yet
+	for funcName := range referencedFuncNames {
+		// Check if already built
+		alreadyBuilt := false
+		for _, proc := range b.module.Processes {
+			if proc != nil && proc.Name == funcName {
+				alreadyBuilt = true
+				break
+			}
+		}
+		if alreadyBuilt {
+			continue
+		}
+
+		// Find the SSA function in the program
+		for _, pkg := range prog.AllPackages() {
+			fn := pkg.Func(funcName)
+			if fn != nil {
+				b.buildProcess(fn)
+				break
+			}
+		}
+	}
+}
+
 func (b *builder) buildProcess(fn *ssa.Function) *Process {
 	if proc, ok := b.processes[fn]; ok {
 		return proc
@@ -130,21 +187,26 @@ func (b *builder) buildProcess(fn *ssa.Function) *Process {
 		Source:      fn.Pos(),
 		Sensitivity: Sequential,
 		Stage:       -1,
+		Params:      make([]*Signal, 0),
 	}
 	b.processes[fn] = proc
 	b.module.Processes = append(b.module.Processes, proc)
-	b.bindFunctionParams(fn)
+	b.bindFunctionParams(fn, proc)
 
 	prevBlocks := b.blocks
 	b.blocks = make(map[*ssa.BasicBlock]*BasicBlock)
 	defer func() { b.blocks = prevBlocks }()
 
 	ordered := make([]*ssa.BasicBlock, 0, len(fn.Blocks))
+	var entryBB *BasicBlock
 	for _, block := range fn.Blocks {
 		if block == nil {
 			continue
 		}
 		bb := &BasicBlock{Label: blockComment(block)}
+		if entryBB == nil {
+			entryBB = bb
+		}
 		b.blocks[block] = bb
 		proc.Blocks = append(proc.Blocks, bb)
 		ordered = append(ordered, block)
@@ -153,8 +215,8 @@ func (b *builder) buildProcess(fn *ssa.Function) *Process {
 	for _, block := range ordered {
 		b.translateBlock(proc, block)
 	}
-	b.connectBlocks(ordered)
-	b.orderBlocks(proc)
+	b.rebuildProcessEdges(proc)
+	b.orderBlocks(proc, entryBB)
 	b.buildLoopFSMs(fn)
 	return proc
 }
@@ -170,20 +232,22 @@ func (b *builder) translateBlock(proc *Process, block *ssa.BasicBlock) {
 	prevBlock := b.currentBlock
 	b.currentBlock = bb
 	defer func() { b.currentBlock = prevBlock }()
-	for _, instr := range block.Instrs {
-		switch v := instr.(type) {
-		case *ssa.Phi:
-			b.handlePhi(block, bb, v)
-		case *ssa.If:
-			b.handleIf(block, bb, v)
-		case *ssa.Jump:
-			b.handleJump(block, bb)
-		case *ssa.Return:
-			b.handleReturn(bb)
-		default:
-			b.translateInstr(proc, bb, instr)
+		for idx, instr := range block.Instrs {
+			switch v := instr.(type) {
+			case *ssa.Phi:
+				b.handlePhi(block, bb, v)
+			case *ssa.If:
+				b.handleIf(block, bb, v)
+			case *ssa.Jump:
+				b.handleJump(block, bb)
+			case *ssa.Return:
+				b.handleReturn(proc, bb, v)
+			default:
+				if b.translateInstr(proc, block, bb, idx, instr) {
+					return
+				}
+			}
 		}
-	}
 }
 
 func (b *builder) connectBlocks(blocks []*ssa.BasicBlock) {
@@ -207,6 +271,52 @@ func (b *builder) connectBlocks(blocks []*ssa.BasicBlock) {
 			dst.Predecessors = append(dst.Predecessors, src)
 		}
 	}
+}
+
+func (b *builder) rebuildProcessEdges(proc *Process) {
+	if proc == nil {
+		return
+	}
+	for _, block := range proc.Blocks {
+		if block == nil {
+			continue
+		}
+		block.Successors = nil
+		block.Predecessors = nil
+	}
+	for _, block := range proc.Blocks {
+		if block == nil {
+			continue
+		}
+		switch term := block.Terminator.(type) {
+		case *BranchTerminator:
+			if term.True != nil {
+				block.Successors = appendUniqueBlock(block.Successors, term.True)
+				term.True.Predecessors = appendUniqueBlock(term.True.Predecessors, block)
+			}
+			if term.False != nil {
+				block.Successors = appendUniqueBlock(block.Successors, term.False)
+				term.False.Predecessors = appendUniqueBlock(term.False.Predecessors, block)
+			}
+		case *JumpTerminator:
+			if term.Target != nil {
+				block.Successors = appendUniqueBlock(block.Successors, term.Target)
+				term.Target.Predecessors = appendUniqueBlock(term.Target.Predecessors, block)
+			}
+		}
+	}
+}
+
+func appendUniqueBlock(blocks []*BasicBlock, block *BasicBlock) []*BasicBlock {
+	if block == nil {
+		return blocks
+	}
+	for _, existing := range blocks {
+		if existing == block {
+			return blocks
+		}
+	}
+	return append(blocks, block)
 }
 
 func (b *builder) finalizeProcessStages() {
@@ -285,7 +395,7 @@ func (b *builder) recordChannelDelta(ch *Channel, delta int) {
 	b.channelUsage[ch] = value
 }
 
-func (b *builder) orderBlocks(proc *Process) {
+func (b *builder) orderBlocks(proc *Process, entry *BasicBlock) {
 	if proc == nil || len(proc.Blocks) == 0 {
 		return
 	}
@@ -310,6 +420,17 @@ func (b *builder) orderBlocks(proc *Process) {
 	}
 	for i, j := 0, len(order)-1; i < j; i, j = i+1, j-1 {
 		order[i], order[j] = order[j], order[i]
+	}
+	if entry != nil {
+		for i, bb := range order {
+			if bb == entry {
+				if i > 0 {
+					copy(order[1:i+1], order[0:i])
+					order[0] = entry
+				}
+				break
+			}
+		}
 	}
 	proc.Blocks = order
 }
@@ -479,11 +600,11 @@ func (b *builder) handleIf(block *ssa.BasicBlock, bb *BasicBlock, stmt *ssa.If) 
 	if len(block.Succs) > 1 {
 		falseBB = b.blocks[block.Succs[1]]
 	}
-	bb.Terminator = &BranchTerminator{
+	b.setBlockTerminator(bb, &BranchTerminator{
 		Cond:  cond,
 		True:  trueBB,
 		False: falseBB,
-	}
+	})
 }
 
 func (b *builder) handleJump(block *ssa.BasicBlock, bb *BasicBlock) {
@@ -494,14 +615,61 @@ func (b *builder) handleJump(block *ssa.BasicBlock, bb *BasicBlock) {
 	if len(block.Succs) > 0 {
 		target = b.blocks[block.Succs[0]]
 	}
-	bb.Terminator = &JumpTerminator{Target: target}
+	b.setBlockTerminator(bb, &JumpTerminator{Target: target})
 }
 
-func (b *builder) handleReturn(bb *BasicBlock) {
+func (b *builder) handleReturn(proc *Process, bb *BasicBlock, ret *ssa.Return) {
 	if bb == nil {
 		return
 	}
-	bb.Terminator = &ReturnTerminator{}
+	b.setBlockTerminator(bb, &ReturnTerminator{})
+
+	// Extract return value if present
+	if ret != nil && len(ret.Results) > 0 {
+		returnValue := ret.Results[0]
+		if returnValue != nil {
+			sig := b.signalForValue(returnValue)
+			if sig != nil {
+				proc.Return = sig
+			}
+		}
+	}
+}
+
+func (b *builder) setBlockTerminator(bb *BasicBlock, term Terminator) {
+	if bb == nil {
+		return
+	}
+	info, ok := b.mergedCalls[bb]
+	if !ok || info == nil || info.entryBlock == nil {
+		bb.Terminator = term
+		return
+	}
+
+	bb.Terminator = &JumpTerminator{Target: info.entryBlock}
+	for _, retBlock := range info.returnBlocks {
+		if retBlock == nil {
+			continue
+		}
+		retBlock.Terminator = b.cloneContinuationTerminator(term)
+	}
+}
+
+func (b *builder) cloneContinuationTerminator(term Terminator) Terminator {
+	switch t := term.(type) {
+	case *BranchTerminator:
+		return &BranchTerminator{
+			Cond:  t.Cond,
+			True:  t.True,
+			False: t.False,
+		}
+	case *JumpTerminator:
+		return &JumpTerminator{Target: t.Target}
+	case *ReturnTerminator:
+		return &ReturnTerminator{}
+	default:
+		return term
+	}
 }
 
 func (b *builder) handlePhi(block *ssa.BasicBlock, bb *BasicBlock, phi *ssa.Phi) {
@@ -751,18 +919,18 @@ func (b *builder) tryLowerPhiToMux(block *ssa.BasicBlock, incomings []PhiIncomin
 	}
 }
 
-func (b *builder) translateInstr(proc *Process, bb *BasicBlock, instr ssa.Instruction) {
+func (b *builder) translateInstr(proc *Process, block *ssa.BasicBlock, bb *BasicBlock, instrIndex int, instr ssa.Instruction) bool {
 	switch v := instr.(type) {
 	case *ssa.Alloc:
 		b.handleAlloc(v)
 	case *ssa.Store:
 		if b.lowerIndexedStore(bb, v) {
-			return
+			return false
 		}
 		dest := b.signalForValue(v.Addr)
 		val := b.signalForValue(v.Val)
 		if dest == nil || val == nil {
-			return
+			return false
 		}
 		bb.Ops = append(bb.Ops, &AssignOperation{Dest: dest, Value: val})
 	case *ssa.BinOp:
@@ -781,9 +949,9 @@ func (b *builder) translateInstr(proc *Process, bb *BasicBlock, instr ssa.Instru
 		// Skip debug markers.
 	case *ssa.Call:
 		if b.handleFmtPrint(proc, bb, v) {
-			return
+			return false
 		}
-		b.handleCall(bb, v)
+		return b.handleCall(proc, block, bb, instrIndex, v)
 	case *ssa.Go:
 		b.handleGo(proc, bb, v)
 	case *ssa.IndexAddr:
@@ -800,6 +968,7 @@ func (b *builder) translateInstr(proc *Process, bb *BasicBlock, instr ssa.Instru
 		// For unsupported instructions we emit a warning once.
 		b.reporter.Warning(instr.Pos(), fmt.Sprintf("instruction %T ignored in IR builder", instr))
 	}
+	return false
 }
 
 func (b *builder) handleAlloc(a *ssa.Alloc) {
@@ -820,20 +989,24 @@ func (b *builder) handleAlloc(a *ssa.Alloc) {
 	b.signals[a] = sig
 }
 
-func (b *builder) bindFunctionParams(fn *ssa.Function) {
+func (b *builder) bindFunctionParams(fn *ssa.Function, proc *Process) {
 	if fn == nil {
 		return
 	}
+	// Store the SSA parameters for later remapping during inlining
+	proc.SSAParams = make([]ssa.Value, 0, len(fn.Params))
 	for _, param := range fn.Params {
 		if param == nil {
 			continue
 		}
+		proc.SSAParams = append(proc.SSAParams, param)
 		if ch, ok := b.paramChannels[param]; ok {
 			b.channels[param] = ch
 			continue
 		}
 		if sig, ok := b.paramSignals[param]; ok {
 			b.signals[param] = sig
+			proc.Params = append(proc.Params, sig)
 			continue
 		}
 		if isChannelType(param.Type()) {
@@ -852,16 +1025,71 @@ func (b *builder) bindFunctionParams(fn *ssa.Function) {
 			b.channelUsage[ch] = 0
 			continue
 		}
+
+		// Check if this is a slice parameter
+		if isSliceType(param.Type()) {
+			// For slice parameters, we don't create a single signal
+			// Instead, we create an indexedBaseState that will be used for array accesses
+			// The actual element signals will be bound when the function is inlined
+			elemType, length, ok := indexedElementInfo(param.Type())
+			if !ok {
+				b.reporter.Warning(param.Pos(), fmt.Sprintf("slice parameter %s has unknown element type", param.Name()))
+				continue
+			}
+			state := &indexedBaseState{
+				base:     param,
+				elemType: signalType(elemType),
+				length:   length,
+				elements: make(map[int]*Signal),
+			}
+			if state.elemType == nil {
+				state.elemType = &SignalType{Width: 32, Signed: true}
+			}
+
+			// Pre-create element signals for known-size slices
+			// For slices with unknown length (length == -1), we can't pre-create elements
+			// The elements will be created when the slice is bound to an argument
+			if length > 0 {
+				for i := 0; i < length; i++ {
+					elemSig := &Signal{
+						Name:   fmt.Sprintf("%s_%d", param.Name(), i),
+						Type:   state.elemType.Clone(),
+						Kind:   Wire,
+						Source: param.Pos(),
+					}
+					state.elements[i] = elemSig
+				}
+			} else {
+				// For slices with unknown length, we'll need to determine the length from the argument
+				// This will be handled during parameter binding
+			}
+
+			b.indexedBases[param] = state
+			// Create a placeholder signal for the slice parameter itself
+			sig := &Signal{
+				Name:   defaultName(param.Name(), b.uniqueName("param")),
+				Type:   signalType(elemType), // Use element type for placeholder
+				Kind:   Wire,
+				Source: param.Pos(),
+			}
+			b.signals[param] = sig
+			proc.Params = append(proc.Params, sig)
+			continue
+		}
+
 		sig := &Signal{
 			Name:   defaultName(param.Name(), b.uniqueName("param")),
 			Type:   signalType(param.Type()),
 			Kind:   Wire,
 			Source: param.Pos(),
 		}
-		b.module.Signals[sig.Name] = sig
+		// Don't add function parameters to module signals - they will be ports instead
+		// b.module.Signals[sig.Name] = sig
 		b.signals[param] = sig
+		proc.Params = append(proc.Params, sig)
 	}
 }
+
 
 func (b *builder) handleMakeChan(mc *ssa.MakeChan) {
 	chType, ok := mc.Type().Underlying().(*types.Chan)
@@ -1094,7 +1322,21 @@ func (b *builder) lowerIndexedStore(bb *BasicBlock, store *ssa.Store) bool {
 		if dest == nil {
 			return false
 		}
-		state.elements[idx] = value
+		// For internal array elements (not ports), create an assign operation to store the value
+		// Check if this element is an internal signal (not a port)
+		isInternal := false
+		if dest.Name != "" {
+			// Check if this looks like an array element that's not a test data port
+			isInternal = !strings.HasPrefix(dest.Name, "test_")
+		}
+		if isInternal {
+			// Create an assign operation to store the value in a register
+			bb.Ops = append(bb.Ops, &AssignOperation{
+				Dest:   dest,
+				Value:  value,
+			})
+		}
+		state.elements[idx] = dest
 		return true
 	}
 	index := b.signalForValue(addr.Index)
@@ -1124,7 +1366,18 @@ func (b *builder) lowerIndexedStore(bb *BasicBlock, store *ssa.Store) bool {
 			TrueValue:  value,
 			FalseValue: element,
 		})
-		state.elements[i] = next
+		// For internal array elements, create an assign operation to store the value
+		isInternal := false
+		if element.Name != "" {
+			isInternal = !strings.HasPrefix(element.Name, "test_")
+		}
+		if isInternal {
+			bb.Ops = append(bb.Ops, &AssignOperation{
+				Dest:   element,
+				Value:  next,
+			})
+		}
+		state.elements[i] = element
 	}
 	return true
 }
@@ -1217,30 +1470,64 @@ func (b *builder) bindGlobalIndexedInputPorts(g *ssa.Global, state *indexedBaseS
 	if b == nil || b.module == nil || g == nil || state == nil || state.length <= 0 {
 		return
 	}
+
+	// Determine if this global should be an input port based on naming convention.
+	// Only test input data (e.g., "test_data") should be input ports.
+	// Expected outputs (e.g., "test_compressed", "test_result") and working storage
+	// (e.g., "compressed", "result") should be internal signals.
+	shouldHavePorts := g.Name() == "test_data"
+
 	base := defaultName(g.Name(), "global")
 	base = strings.ReplaceAll(base, ".", "_")
+
 	for i := 0; i < state.length; i++ {
-		portName := fmt.Sprintf("%s_%d", base, i)
-		if b.hasPort(portName) {
-			continue
-		}
+		sigName := fmt.Sprintf("%s_%d", base, i)
 		typ := state.elemType.Clone()
 		if typ == nil {
 			typ = &SignalType{Width: 32, Signed: true}
 		}
-		sig := &Signal{
-			Name:   portName,
-			Type:   typ.Clone(),
-			Kind:   Wire,
-			Source: g.Pos(),
+
+		// Check if there's already a constant signal from bootstrapGlobalInitializers
+		constSig := state.elements[i]
+		hasConstInit := constSig != nil && constSig.Kind == Const
+
+		// Create the signal (or reuse existing)
+		var sig *Signal
+		if existingSig, ok := b.module.Signals[sigName]; ok {
+			// Signal already exists in module, reuse it
+			sig = existingSig
+			// If there's a constant init value and the signal doesn't have one, use it
+			if hasConstInit && sig.Value == nil {
+				sig.Value = constSig.Value
+			}
+		} else {
+			// Create new signal with constant value if available
+			var initValue interface{}
+			if hasConstInit {
+				initValue = constSig.Value
+			}
+
+			sig = &Signal{
+				Name:   sigName,
+				Type:   typ.Clone(),
+				Kind:   Wire,
+				Source: g.Pos(),
+				Value:  initValue,
+			}
+			b.module.Signals[sig.Name] = sig
 		}
-		b.module.Signals[sig.Name] = sig
+
+		// Update state.elements to point to the actual signal (not the constant)
 		state.elements[i] = sig
-		b.module.Ports = append(b.module.Ports, Port{
-			Name:      portName,
-			Direction: Input,
-			Type:      typ.Clone(),
-		})
+
+		// Only add as input port for read-only test input data
+		if shouldHavePorts && !b.hasPort(sigName) {
+			b.module.Ports = append(b.module.Ports, Port{
+				Name:      sigName,
+				Direction: Input,
+				Type:      typ.Clone(),
+			})
+		}
 	}
 }
 
@@ -1348,6 +1635,7 @@ func (b *builder) signalForValue(v ssa.Value) *Signal {
 	b.reporter.Warning(v.Pos(), fmt.Sprintf("no signal mapping for value %T", v))
 	return nil
 }
+
 
 func (b *builder) lowerTypeChange(bb *BasicBlock, destVal ssa.Value, srcVal ssa.Value, dstType types.Type) {
 	if bb == nil || destVal == nil || srcVal == nil {
@@ -1702,6 +1990,8 @@ func translateBinOp(tok token.Token) (BinOp, bool) {
 		return Sub, true
 	case token.MUL:
 		return Mul, true
+	case token.QUO:
+		return Div, true
 	case token.AND:
 		return And, true
 	case token.OR:
@@ -1818,6 +2108,17 @@ func channelElemType(t types.Type) *SignalType {
 		return signalType(ch.Elem())
 	}
 	return &SignalType{Width: 1, Signed: false}
+}
+
+func isSliceType(t types.Type) bool {
+	switch t.Underlying().(type) {
+	case *types.Slice:
+		return true
+	case *types.Pointer:
+		// Pointer to slice or array
+		return false
+	}
+	return false
 }
 
 func defaultName(candidate, fallback string) string {

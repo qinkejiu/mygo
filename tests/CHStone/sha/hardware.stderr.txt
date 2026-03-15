@@ -3,3 +3,10 @@
 /home/qinkejiu/mygo/tests/CHStone/sha/main.go:1225:2: warning: for loop has condition-only control; lowering will use loop FSM generation
 /home/qinkejiu/mygo/tests/CHStone/sha/main.go:1254:3: warning: for loop has variable bound; lowering will use loop FSM generation
 /home/qinkejiu/mygo/tests/CHStone/sha/main.go:1268:3: warning: for loop has variable bound; lowering will use loop FSM generation
+[DEBUG] ExtractConstants called for: tests/CHStone/sha/main.go
+[DEBUG] Read 86774 bytes from source
+[DEBUG] Parsed 22 declarations
+[DEBUG] Skipping indata due to non-constant element: not a constant value
+[DEBUG] AST walk: 13 GenDecls, 11 ValueSpecs, 3 CompositeLits, 0 ArrayTypes
+info: extracted 0 constant arrays from tests/CHStone/sha/main.go
+info: total constant arrays for testbench: 0

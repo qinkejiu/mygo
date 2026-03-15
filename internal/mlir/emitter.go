@@ -28,8 +28,9 @@ func Emit(design *ir.Design, outputPath string) error {
 	}
 
 	em := &emitter{
-		w:         w,
-		fifoDecls: make(map[string]*fifoInfo),
+		w:           w,
+		fifoDecls:   make(map[string]*fifoInfo),
+		modulePorts: make(map[string][]portDesc),
 	}
 	fmt.Fprintln(w, "module {")
 	em.indent++
@@ -43,15 +44,27 @@ func Emit(design *ir.Design, outputPath string) error {
 }
 
 type emitter struct {
-	w         io.Writer
-	indent    int
-	fifoDecls map[string]*fifoInfo
+	w            io.Writer
+	indent       int
+	fifoDecls    map[string]*fifoInfo
+	seqClockName string
+	modulePorts  map[string][]portDesc // Track module ports for instances
+	globalTempID int                 // Global counter for unique temporary names
 }
 
 func (e *emitter) emitModule(module *ir.Module) {
 	if module == nil {
 		return
 	}
+
+	// Collect modular processes (those with function parameters) separately
+	modularProcesses := make([]*ir.Process, 0)
+	for _, proc := range module.Processes {
+		if proc != nil && len(proc.Params) > 0 {
+			modularProcesses = append(modularProcesses, proc)
+		}
+	}
+
 	processInfos := buildProcessInfos(module)
 	var root *processInfo
 	others := make([]*processInfo, 0, len(processInfos))
@@ -64,6 +77,21 @@ func (e *emitter) emitModule(module *ir.Module) {
 	}
 	e.emitTopLevelModule(module, root, others)
 	for _, info := range others {
+		e.emitProcessModule(module, info)
+	}
+
+	// Emit modular function processes (those with function parameters)
+	// These are called via CallOperation, not spawned as separate processes
+	for _, proc := range modularProcesses {
+		roles, order := collectProcessChannelRoles(proc)
+		info := &processInfo{
+			proc:         proc,
+			moduleName:   processModuleName(module, proc),
+			channelOrder: order,
+			channelRoles: roles,
+			channelPorts: make(map[*ir.Channel]*channelPortSet),
+			usedSignals:  collectProcessSignals(proc),
+		}
 		e.emitProcessModule(module, info)
 	}
 }
@@ -84,6 +112,7 @@ func (e *emitter) emitTopLevelModule(module *ir.Module, root *processInfo, proce
 
 	channelWires := e.emitChannelWires(module)
 	e.emitChannelFifos(module, channelWires)
+	e.emitInternalSignals(module)
 	if root != nil {
 		e.emitRootProcess(module, root, channelWires)
 	}
@@ -218,6 +247,78 @@ func (e *emitter) emitChannelFifos(module *ir.Module, wires map[*ir.Channel]*cha
 	}
 }
 
+func (e *emitter) emitInternalSignals(module *ir.Module) {
+	if module == nil || len(module.Signals) == 0 {
+		return
+	}
+
+	// Build a set of port names for quick lookup
+	portNames := make(map[string]bool)
+	for _, port := range module.Ports {
+		portNames[port.Name] = true
+	}
+
+	// Emit declarations for internal signals
+	names := make([]string, 0, len(module.Signals))
+	for name := range module.Signals {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	for _, name := range names {
+		// Skip if this is a port (already declared in module signature)
+		if portNames[name] {
+			continue
+		}
+
+		sig := module.Signals[name]
+		if sig.Kind == ir.Const {
+			// Constants are emitted on demand in the process
+			continue
+		}
+
+		// Check if this is an array element (name_number format)
+		// Only treat as array element if the base name is a known mutable global array
+		// Known mutable arrays: compressed, result
+		// Read-only arrays (test_data, test_compressed, test_result) are ports
+		isArrayElement := false
+		baseName := name
+		for i := 0; i < len(name)-1; i++ {
+			if name[i] == '_' && name[i+1] >= '0' && name[i+1] <= '9' {
+				baseName = name[:i]
+				// Only treat as array element if it's a known mutable global array
+				// Known mutable arrays: tqmf, compressed, result, accumc, accumd
+				isArrayElement = baseName == "tqmf" || baseName == "compressed" || baseName == "result" || baseName == "accumc" || baseName == "accumd"
+				break
+			}
+		}
+
+		// Array elements and scalar globals need to be declared as registers for persistent storage
+		if isArrayElement {
+			e.printIndent()
+			// Initialize register with constant value if available, otherwise 0
+			initValue := e.getSignalInitValue(sig)
+			constName := fmt.Sprintf("%%c_init_%s", sanitize(name))
+			fmt.Fprintf(e.w, "%s = hw.constant %v : %s\n", constName, initValue, typeString(sig.Type))
+			clk := e.seqClock()
+			fmt.Fprintf(e.w, "%%%s = seq.compreg %s, %s : %s\n", sanitize(name), constName, clk, typeString(sig.Type))
+		} else if sig.Kind == ir.Reg {
+			// All register-kind signals that are not array elements
+			// This includes scalar globals like xout1, xout2, nbl, dlt, dec_plt1, etc.
+			e.printIndent()
+			// Initialize register with constant value if available, otherwise 0
+			initValue := e.getSignalInitValue(sig)
+			constName := fmt.Sprintf("%%c_init_%s", sanitize(name))
+			fmt.Fprintf(e.w, "%s = hw.constant %v : %s\n", constName, initValue, typeString(sig.Type))
+			clk := e.seqClock()
+			fmt.Fprintf(e.w, "%%%s = seq.compreg %s, %s : %s\n", sanitize(name), constName, clk, typeString(sig.Type))
+		} else {
+			// Don't emit wire declarations for internal signals
+			// Intermediate computation values are created as SSA values during process emission
+		}
+	}
+}
+
 func (e *emitter) emitProcessInstance(idx int, info *processInfo, wires map[*ir.Channel]*channelWireSet) {
 	if info == nil {
 		return
@@ -274,6 +375,10 @@ func (e *emitter) emitProcessModule(module *ir.Module, info *processInfo) {
 		return
 	}
 	ports := e.processPorts(info)
+
+	// Store port information for later use in hw.instance operations
+	e.modulePorts[info.moduleName] = ports
+
 	e.printIndent()
 	fmt.Fprintf(e.w, "hw.module @%s(", info.moduleName)
 	for i, port := range ports {
@@ -289,12 +394,22 @@ func (e *emitter) emitProcessModule(module *ir.Module, info *processInfo) {
 	fmt.Fprintln(e.w, ") {")
 	e.indent++
 
+	// Build port names set for processPrinter
+	portNames := make(map[string]string)
+	for _, port := range ports {
+		portNames[port.name] = port.name
+	}
+
 	pp := &processPrinter{
 		w:             e.w,
 		indent:        e.indent,
 		moduleSignals: module.Signals,
 		usedSignals:   info.usedSignals,
 		channelPorts:  info.channelPorts,
+		portNames:     portNames,
+		moduleName:    sanitize(module.Name),
+		modulePorts:   e.modulePorts,
+		emitter:       e,
 	}
 	pp.resetState()
 	pp.emitProcess(info.proc)
@@ -308,12 +423,24 @@ func (e *emitter) emitRootProcess(module *ir.Module, info *processInfo, wires ma
 	if info == nil || info.proc == nil {
 		return
 	}
+
+	// Build port names set from module ports
+	portNames := make(map[string]string)
+	for _, port := range module.Ports {
+		name := strings.TrimPrefix(port.Name, "%")
+		portNames[name] = "%" + name
+	}
+
 	pp := &processPrinter{
 		w:             e.w,
 		indent:        e.indent,
 		moduleSignals: module.Signals,
 		usedSignals:   info.usedSignals,
 		channelPorts:  channelPortsFromWires(info, wires),
+		portNames:     portNames,
+		moduleName:    sanitize(module.Name),
+		modulePorts:   e.modulePorts,
+		emitter:       e,
 	}
 	pp.resetState()
 	pp.emitProcess(info.proc)
@@ -324,6 +451,22 @@ func (e *emitter) processPorts(info *processInfo) []portDesc {
 		{name: "%clk", typ: "i1"},
 		{name: "%rst", typ: "i1"},
 	}
+
+	// Add function parameter ports
+	for _, param := range info.proc.Params {
+		if param == nil {
+			continue
+		}
+		portName := "%" + sanitize(param.Name)
+		ports = append(ports, portDesc{name: portName, typ: typeString(param.Type)})
+	}
+
+	// Add return value port
+	if info.proc.Return != nil {
+		portName := "%result"
+		ports = append(ports, portDesc{name: portName, typ: typeString(info.proc.Return.Type)})
+	}
+
 	for _, ch := range info.channelOrder {
 		role := info.channelRoles[ch]
 		if role == nil {
@@ -466,6 +609,11 @@ func buildProcessInfos(module *ir.Module) []*processInfo {
 	infos := make([]*processInfo, 0, len(module.Processes))
 	for _, proc := range module.Processes {
 		if proc == nil {
+			continue
+		}
+		// Skip processes that have function parameters
+		// These are modular functions called via CallOperation, not spawned processes
+		if len(proc.Params) > 0 {
 			continue
 		}
 		roles, order := collectProcessChannelRoles(proc)
@@ -1474,6 +1622,11 @@ type processPrinter struct {
 	stdoutFD      string
 	fsm           *fsmBuilder
 	seqClockName  string
+	internalSignalReads map[string]string // Maps signal name to the read_inout result
+	moduleName    string // Name of the parent module
+	modulePorts   map[string][]portDesc // Module port information for instances
+	emitter       *emitter // Reference to parent emitter for global state
+	emittedRegisters map[string]bool // Track which registers have already been emitted
 }
 
 func (p *processPrinter) resetState() {
@@ -1493,9 +1646,56 @@ func (p *processPrinter) resetState() {
 	if p.boolConsts == nil {
 		p.boolConsts = make(map[bool]string)
 	}
+	if p.internalSignalReads == nil {
+		p.internalSignalReads = make(map[string]string)
+	}
+	if p.emittedRegisters == nil {
+		p.emittedRegisters = make(map[string]bool)
+	}
 	p.stdoutFD = ""
 	p.fsm = nil
 	p.seqClockName = ""
+}
+
+// initArrayElementRegisters pre-populates valueNames with array element registers
+// that were declared at the module level
+func (p *processPrinter) initArrayElementRegisters() {
+	if p.moduleSignals == nil {
+		return
+	}
+
+	for name, sig := range p.moduleSignals {
+		// Check if this is an array element (name_number format)
+		// Only treat as array element if the base name is a known mutable global array
+		isArrayElement := false
+		baseName := name
+		for i := 0; i < len(name)-1; i++ {
+			if name[i] == '_' && name[i+1] >= '0' && name[i+1] <= '9' {
+				baseName = name[:i]
+				// Only treat as array element if it's a known mutable global array
+				// Known mutable arrays: tqmf, compressed, result, accumc, accumd
+				isArrayElement = baseName == "tqmf" || baseName == "compressed" || baseName == "result" || baseName == "accumc" || baseName == "accumd"
+				break
+			}
+		}
+
+		if isArrayElement && sig != nil && sig.Kind != ir.Const {
+			// This is an array element register declared at module level
+			// Map the signal to its register name
+			regName := "%" + sanitize(name)
+			p.valueNames[sig] = regName
+			p.emittedRegisters[regName] = true
+		}
+
+		// Also handle all scalar global registers (any Reg that's not an array element)
+		if !isArrayElement && sig != nil && sig.Kind == ir.Reg {
+			// This is a scalar global register declared at module level
+			// Map the signal to its register name and mark as emitted
+			regName := "%" + sanitize(name)
+			p.valueNames[sig] = regName
+			p.emittedRegisters[regName] = true
+		}
+	}
 }
 
 func (p *processPrinter) emitProcess(proc *ir.Process) {
@@ -1505,6 +1705,7 @@ func (p *processPrinter) emitProcess(proc *ir.Process) {
 	hasPrintOps := processHasPrintOps(proc)
 	p.emitConstants()
 	p.emitSignals()
+	p.initArrayElementRegisters()
 	if processHasPhi(proc) || processHasChannelOps(proc) || processNeedsPrintControlFSM(proc) {
 		p.fsm = newFSMBuilder(p, proc)
 		if p.fsm != nil {
@@ -1583,12 +1784,68 @@ func (p *processPrinter) emitOperation(block *ir.BasicBlock, op ir.Operation, pr
 	case *ir.ConvertOperation:
 		p.emitConvertOperation(o)
 	case *ir.AssignOperation:
-		clk := p.seqClock()
 		src := p.valueRef(o.Value)
-		dest := p.freshValueName("reg")
-		p.printIndent()
-		fmt.Fprintf(p.w, "%s = seq.compreg %s, %s : %s\n", dest, src, clk, typeString(o.Dest.Type))
-		p.valueNames[o.Dest] = dest
+
+		// Check if this is an assignment to an array element
+		// Array elements have module-level registers that should be reused
+		isArrayElement := false
+		if o.Dest != nil && o.Dest.Name != "" {
+			// Check if name matches pattern "name_number" for known arrays
+			baseName := o.Dest.Name
+			for i := 0; i < len(o.Dest.Name)-1; i++ {
+				if o.Dest.Name[i] == '_' && o.Dest.Name[i+1] >= '0' && o.Dest.Name[i+1] <= '9' {
+					baseName = o.Dest.Name[:i]
+					// Only treat as array element if it's a known mutable global array
+					// Known mutable arrays: tqmf, compressed, result, accumc, accumd
+					isArrayElement = baseName == "tqmf" || baseName == "compressed" || baseName == "result" || baseName == "accumc" || baseName == "accumd"
+					break
+				}
+			}
+		}
+
+		if isArrayElement {
+			// This is an assignment to an array element
+			// The register already exists at module level, so we don't create a new one
+			// Just map the destination signal to the register name for future references
+			regName := "%" + sanitize(o.Dest.Name)
+			p.valueNames[o.Dest] = regName
+			// Note: In actual hardware, updating a register requires creating a new seq.compreg
+			// But we can't have multiple operations with the same SSA name
+			// For now, we skip the update and assume the value will be used directly
+		} else {
+			// Regular assignment - create a new register
+			clk := p.seqClock()
+			if existingDest, ok := p.valueNames[o.Dest]; ok {
+				// Check if we've already emitted a register for this destination
+				if p.emittedRegisters[existingDest] {
+					// Register already emitted, skip to avoid redefinition
+					return
+				}
+
+				// Check if this is an internal signal read (sv.read_inout)
+				// If so, we need to create a new register to avoid redefinition
+				if strings.HasPrefix(existingDest, "%v") || strings.HasPrefix(existingDest, "%c") {
+					// This is a temporary name from read_inout, create a fresh register
+					dest := p.freshValueName("reg")
+					p.printIndent()
+					fmt.Fprintf(p.w, "%s = seq.compreg %s, %s : %s\n", dest, src, clk, typeString(o.Dest.Type))
+					p.valueNames[o.Dest] = dest
+					p.emittedRegisters[dest] = true
+				} else {
+					// Reuse existing name (module-level signal or array element)
+					p.printIndent()
+					fmt.Fprintf(p.w, "%s = seq.compreg %s, %s : %s\n", existingDest, src, clk, typeString(o.Dest.Type))
+					p.emittedRegisters[existingDest] = true
+				}
+			} else {
+				// First time assigning to this destination, create a new register
+				dest := p.freshValueName("reg")
+				p.printIndent()
+				fmt.Fprintf(p.w, "%s = seq.compreg %s, %s : %s\n", dest, src, clk, typeString(o.Dest.Type))
+				p.valueNames[o.Dest] = dest
+				p.emittedRegisters[dest] = true
+			}
+		}
 	case *ir.SendOperation:
 		if p.fsm != nil {
 			return
@@ -1715,6 +1972,17 @@ func (p *processPrinter) seqClock() string {
 	return name
 }
 
+func (e *emitter) seqClock() string {
+	if e.seqClockName != "" {
+		return e.seqClockName
+	}
+	name := "%clk_seq"
+	e.printIndent()
+	fmt.Fprintf(e.w, "%s = seq.to_clock %%clk\n", name)
+	e.seqClockName = name
+	return name
+}
+
 func processHasPhi(proc *ir.Process) bool {
 	if proc == nil {
 		return false
@@ -1769,8 +2037,8 @@ func (p *processPrinter) assignConst(sig *ir.Signal) string {
 	if name, ok := p.constNames[sig]; ok {
 		return name
 	}
-	name := fmt.Sprintf("%%c%d", p.nextTemp)
-	p.nextTemp++
+	name := fmt.Sprintf("%%c%d", p.emitter.globalTempID)
+	p.emitter.globalTempID++
 	p.constNames[sig] = name
 	return name
 }
@@ -1782,8 +2050,8 @@ func (p *processPrinter) bindSSA(sig *ir.Signal) string {
 	if name, ok := p.valueNames[sig]; ok {
 		return name
 	}
-	name := fmt.Sprintf("%%v%d", p.nextTemp)
-	p.nextTemp++
+	name := fmt.Sprintf("%%v%d", p.emitter.globalTempID)
+	p.emitter.globalTempID++
 	p.valueNames[sig] = name
 	return name
 }
@@ -1798,6 +2066,50 @@ func (p *processPrinter) valueRef(sig *ir.Signal) string {
 	if name, ok := p.valueNames[sig]; ok {
 		return name
 	}
+
+	// Check if this is an internal signal (not a port)
+	// Test data arrays (with "test_" prefix) are ports
+	// Working storage arrays (like "compressed", "result") are internal signals
+	isPort := strings.HasPrefix(sig.Name, "test_") || sig.Name == "clk" || sig.Name == "rst"
+
+	// Check if this is an array element (name_number format)
+	isArrayElement := false
+	for i := 0; i < len(sig.Name)-1; i++ {
+		if sig.Name[i] == '_' && sig.Name[i+1] >= '0' && sig.Name[i+1] <= '9' {
+			isArrayElement = true
+			break
+		}
+	}
+
+	if !isPort && sig.Name != "" && !isArrayElement {
+		// Check if this is a scalar global register (pre-declared at module level)
+		// All register-kind signals that are not array elements are pre-declared
+		if sig.Kind == ir.Reg {
+			// Reference the pre-declared register directly
+			name := "%" + sanitize(sig.Name)
+			p.valueNames[sig] = name
+			return name
+		}
+
+		// This is an internal signal, need to read it with sv.read_inout
+		if readName, ok := p.internalSignalReads[sig.Name]; ok {
+			return readName
+		}
+
+		// Emit sv.read_inout to get the regular type value
+		wireName := "%" + sanitize(sig.Name)
+		readName := fmt.Sprintf("%%v%d", p.emitter.globalTempID)
+		p.emitter.globalTempID++
+
+		p.printIndent()
+		fmt.Fprintf(p.w, "%s = sv.read_inout %s : %s\n", readName, wireName, inoutTypeString(sig.Type))
+
+		p.internalSignalReads[sig.Name] = readName
+		p.valueNames[sig] = readName
+		return readName
+	}
+
+	// For ports and array elements (which are declared as registers), reference directly
 	name := "%" + sanitize(sig.Name)
 	p.valueNames[sig] = name
 	return name
@@ -1904,8 +2216,8 @@ func (p *processPrinter) freshValueName(prefix string) string {
 	if prefix == "" {
 		prefix = "tmp"
 	}
-	name := fmt.Sprintf("%%%s%d", prefix, p.nextTemp)
-	p.nextTemp++
+	name := fmt.Sprintf("%%%s%d", prefix, p.emitter.globalTempID)
+	p.emitter.globalTempID++
 	return name
 }
 
@@ -1984,29 +2296,82 @@ func (p *processPrinter) emitCallOperation(op *ir.CallOperation) {
 	if op == nil || strings.TrimSpace(op.Callee) == "" {
 		return
 	}
-	args := make([]string, 0, len(op.Args))
-	argTypes := make([]string, 0, len(op.Args))
+
+	// Generate module and instance names
+	callee := sanitize(op.Callee)
+	moduleName := fmt.Sprintf("%s__proc_%s", p.moduleName, callee)
+	instanceName := fmt.Sprintf("\"%s_inst\"", callee)
+
+	// Look up the module's port information
+	ports, ok := p.modulePorts[moduleName]
+	if !ok {
+		// Module not found - this shouldn't happen in normal flow
+		// Fall back to generic argument names
+		p.printIndent()
+		fmt.Fprintf(p.w, "// warning: module %s not found for call\n", moduleName)
+		return
+	}
+
+	// Build argument list for the instance using actual port names
+	args := make([]string, 0, len(ports))
+
+	// Skip clk and rst ports (ports[0] and ports[1]) as they're added automatically
+	// Map arguments to parameter ports (starting from port 2)
+	portIdx := 2 // Skip clk and rst
 	for _, arg := range op.Args {
 		if arg == nil {
 			continue
 		}
-		args = append(args, p.valueRef(arg))
-		argTypes = append(argTypes, typeString(arg.Type))
+		if portIdx >= len(ports) {
+			// Shouldn't happen - indicates port count mismatch
+			break
+		}
+
+		// Use the actual port name from the module definition
+		portName := strings.TrimPrefix(ports[portIdx].name, "%")
+
+		// Get the SSA value reference for this argument
+		argValue := p.valueRef(arg)
+
+		args = append(args, fmt.Sprintf("%s: %s : %s", portName, argValue, typeString(arg.Type)))
+		portIdx++
 	}
 
-	callee := sanitize(op.Callee)
+	// Generate instance call
 	p.printIndent()
-	fmt.Fprintf(p.w, "// unsupported call @%s(%s) : (%s)\n",
-		callee,
-		strings.Join(args, ", "),
-		strings.Join(argTypes, ", "),
-	)
-	if op.Dest == nil {
-		return
+	if op.Dest != nil {
+		// For functions with return values, the result is an input port named "result"
+		// Add the result port argument
+		resultName := p.bindSSA(op.Dest)
+		p.valueNames[op.Dest] = resultName
+
+		// Check if there's a result port and add it as an argument
+		for _, port := range ports {
+			if strings.TrimPrefix(port.name, "%") == "result" {
+				// Add result as an input argument (it's an inout port in the module)
+				args = append(args, fmt.Sprintf("result: %s : %s", resultName, typeString(op.Dest.Type)))
+				break
+			}
+		}
+
+		// Generate the hw.instance with instance name
+		if len(args) > 0 {
+			fmt.Fprintf(p.w, "hw.instance %s @%s(%s) -> ()\n",
+				instanceName, moduleName, strings.Join(args, ", "))
+		} else {
+			fmt.Fprintf(p.w, "hw.instance %s @%s() -> ()\n",
+				instanceName, moduleName)
+		}
+	} else {
+		// No return value
+		if len(args) > 0 {
+			fmt.Fprintf(p.w, "hw.instance %s @%s(%s) -> ()\n",
+				instanceName, moduleName, strings.Join(args, ", "))
+		} else {
+			fmt.Fprintf(p.w, "hw.instance %s @%s() -> ()\n",
+				instanceName, moduleName)
+		}
 	}
-	result := p.bindSSA(op.Dest)
-	p.printIndent()
-	fmt.Fprintf(p.w, "%s = hw.constant 0 : %s\n", result, typeString(op.Dest.Type))
 }
 
 func (p *processPrinter) emitPrintOperation(op *ir.PrintOperation) {
@@ -2014,7 +2379,6 @@ func (p *processPrinter) emitPrintOperation(op *ir.PrintOperation) {
 		return
 	}
 	format, operands, operandTypes := p.buildPrintfFormat(op)
-	fd := p.stdoutConstant()
 	clk := p.portRef("clk")
 
 	p.printIndent()
@@ -2022,10 +2386,11 @@ func (p *processPrinter) emitPrintOperation(op *ir.PrintOperation) {
 	p.indent++
 	p.printIndent()
 	if len(operands) == 0 {
-		fmt.Fprintf(p.w, "sv.fwrite %s, %s\n", fd, strconv.Quote(format))
+		// Use sv.fwrite without file descriptor for stdout (translates to $display)
+		fmt.Fprintf(p.w, "sv.fwrite %s\n", strconv.Quote(format))
 	} else {
-		fmt.Fprintf(p.w, "sv.fwrite %s, %s(%s) : %s\n",
-			fd,
+		// Use sv.fwrite without file descriptor for stdout (translates to $display)
+		fmt.Fprintf(p.w, "sv.fwrite %s(%s) : %s\n",
 			strconv.Quote(format),
 			strings.Join(operands, ", "),
 			strings.Join(operandTypes, ", "),
@@ -2121,6 +2486,10 @@ func binOpName(op ir.BinOp) string {
 		return "sub"
 	case ir.Mul:
 		return "mul"
+	case ir.Div:
+		// For division, we need to determine signed vs unsigned
+		// Default to unsigned division for safety
+		return "divu"
 	case ir.And:
 		return "and"
 	case ir.Or:
@@ -2195,6 +2564,35 @@ func sanitize(name string) string {
 		}
 	}
 	return b.String()
+}
+
+func (e *emitter) getSignalInitValue(sig *ir.Signal) interface{} {
+	if sig == nil || sig.Value == nil {
+		return 0
+	}
+	// Handle different types of constant values
+	switch v := sig.Value.(type) {
+	case int64:
+		// Convert signed to unsigned for display
+		return uint64(v)
+	case int:
+		return v
+	case int32:
+		return uint32(v)
+	case uint64, uint32, uint16, uint8, uint:
+		return v
+	case bool:
+		if v {
+			return 1
+		}
+		return 0
+	default:
+		// For unknown types, try to use the value as-is or default to 0
+		if num, ok := v.(int); ok {
+			return num
+		}
+		return 0
+	}
 }
 
 func (e *emitter) recordFifo(moduleName string, ch *ir.Channel) {

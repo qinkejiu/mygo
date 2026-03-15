@@ -2,18 +2,6 @@ module main
   ports:
     in  clk 1bu
     in  rst 1bu
-    in  in_i_0 32bs
-    in  in_i_1 32bs
-    in  outData_0 32bu
-    in  outData_1 32bu
-    in  outData_2 32bu
-    in  outData_3 32bu
-    in  outData_4 32bu
-    in  sha_info_digest_0 32bu
-    in  sha_info_digest_1 32bu
-    in  sha_info_digest_2 32bu
-    in  sha_info_digest_3 32bu
-    in  sha_info_digest_4 32bu
   signals:
     const_0  const 1bu = true
     const_1  const 8bu = 75
@@ -7125,23 +7113,21 @@ module main
     const_16398 const 32bs = 5
     const_164 const 8bu = 99
     const_1640 const 8bu = 116
-    const_16400 const 32bs = 0
-    const_16402 const 32bs = 1
-    const_16405 const 32bs = 2
-    const_16408 const 32bs = 3
+    const_16401 const 32bs = 1
+    const_16404 const 32bs = 2
+    const_16407 const 32bs = 3
     const_1641 const 8bu = 109
-    const_16411 const 32bs = 4
-    const_16413 const 32bs = 0
-    const_16415 const 32bs = 1
-    const_16418 const 32bs = 2
+    const_16410 const 32bs = 4
+    const_16413 const 32bs = 1
+    const_16416 const 32bs = 2
+    const_16419 const 32bs = 3
     const_1642 const 8bu = 101
-    const_16421 const 32bs = 3
-    const_16424 const 32bs = 4
-    const_16427 const 32bs = 0
-    const_16428 const 32bs = 0
+    const_16422 const 32bs = 4
+    const_16425 const 32bs = 0
+    const_16426 const 32bs = 0
+    const_16427 const 32bs = 1
     const_16429 const 32bs = 1
     const_1643 const 8bu = 105
-    const_16431 const 32bs = 1
     const_1644 const 8bu = 110
     const_1645 const 8bu = 50
     const_1646 const 8bu = 48
@@ -16424,41 +16410,43 @@ module main
     const_9997 const 8bu = 100
     const_9998 const 8bu = 101
     const_9999 const 8bu = 114
-    idxeq_16401 wire  1bu
-    idxeq_16404 wire  1bu
-    idxeq_16407 wire  1bu
-    idxeq_16410 wire  1bu
-    idxeq_16414 wire  1bu
-    idxeq_16417 wire  1bu
-    idxeq_16420 wire  1bu
-    idxeq_16423 wire  1bu
-    idxload_16403 wire  32bu
-    idxload_16406 wire  32bu
-    idxload_16409 wire  32bu
-    idxload_16412 wire  32bu
-    idxload_16416 wire  32bu
-    idxload_16419 wire  32bu
-    idxload_16422 wire  32bu
-    idxload_16425 wire  32bu
+    idxeq_16400 wire  1bu
+    idxeq_16403 wire  1bu
+    idxeq_16406 wire  1bu
+    idxeq_16409 wire  1bu
+    idxeq_16412 wire  1bu
+    idxeq_16415 wire  1bu
+    idxeq_16418 wire  1bu
+    idxeq_16421 wire  1bu
+    idxload_16402 wire  32bu
+    idxload_16405 wire  32bu
+    idxload_16408 wire  32bu
+    idxload_16411 wire  32bu
+    idxload_16414 wire  32bu
+    idxload_16417 wire  32bu
+    idxload_16420 wire  32bu
+    idxload_16423 wire  32bu
     in_i_0   wire  32bs
     in_i_1   wire  32bs
-    outData_0 wire  32bu
-    outData_1 wire  32bu
-    outData_2 wire  32bu
-    outData_3 wire  32bu
-    outData_4 wire  32bu
-    sha_info_digest_0 wire  32bu
-    sha_info_digest_1 wire  32bu
-    sha_info_digest_2 wire  32bu
-    sha_info_digest_3 wire  32bu
-    sha_info_digest_4 wire  32bu
-    t14_16430 wire  32bs
+    outData  reg   32bu
+    outData_0 reg   32bu
+    outData_1 reg   32bu
+    outData_2 reg   32bu
+    outData_3 reg   32bu
+    outData_4 reg   32bu
+    sha_info_digest reg   32bu
+    sha_info_digest_0 reg   32bu
+    sha_info_digest_1 reg   32bu
+    sha_info_digest_2 reg   32bu
+    sha_info_digest_3 reg   32bu
+    sha_info_digest_4 reg   32bu
+    t14_16428 wire  32bs
     t15_16394 wire  32bs
     t16_16397 wire  32bs
     t1_16392 wire  32bs
     t2_16395 wire  32bs
     t3_16399 wire  1bu
-    t8_16426 wire  1bu
+    t8_16424 wire  1bu
     varargs  reg   32bs
   process 0 main (stage=0, sequential)
     block entry
@@ -16472,29 +16460,29 @@ module main
       print %d(t1_16392)"\n"
       return
     block for.body
-      idxeq_16401 := cmp(t2_16395 == const_16402)
-      idxload_16403 := mux(idxeq_16401 ? sha_info_digest_1 : sha_info_digest_0)
-      idxeq_16404 := cmp(t2_16395 == const_16405)
-      idxload_16406 := mux(idxeq_16404 ? sha_info_digest_2 : idxload_16403)
-      idxeq_16407 := cmp(t2_16395 == const_16408)
-      idxload_16409 := mux(idxeq_16407 ? sha_info_digest_3 : idxload_16406)
-      idxeq_16410 := cmp(t2_16395 == const_16411)
-      idxload_16412 := mux(idxeq_16410 ? sha_info_digest_4 : idxload_16409)
-      idxeq_16414 := cmp(t2_16395 == const_16415)
-      idxload_16416 := mux(idxeq_16414 ? const_16388 : const_16387)
-      idxeq_16417 := cmp(t2_16395 == const_16418)
-      idxload_16419 := mux(idxeq_16417 ? const_16389 : idxload_16416)
-      idxeq_16420 := cmp(t2_16395 == const_16421)
-      idxload_16422 := mux(idxeq_16420 ? const_16390 : idxload_16419)
-      idxeq_16423 := cmp(t2_16395 == const_16424)
-      idxload_16425 := mux(idxeq_16423 ? const_16391 : idxload_16422)
-      t8_16426 := cmp(idxload_16412 != idxload_16425)
-      br t8_16426 ? if.then : if.done
+      idxeq_16400 := cmp(t2_16395 == const_16401)
+      idxload_16402 := mux(idxeq_16400 ? sha_info_digest_1 : sha_info_digest_0)
+      idxeq_16403 := cmp(t2_16395 == const_16404)
+      idxload_16405 := mux(idxeq_16403 ? sha_info_digest_2 : idxload_16402)
+      idxeq_16406 := cmp(t2_16395 == const_16407)
+      idxload_16408 := mux(idxeq_16406 ? sha_info_digest_3 : idxload_16405)
+      idxeq_16409 := cmp(t2_16395 == const_16410)
+      idxload_16411 := mux(idxeq_16409 ? sha_info_digest_4 : idxload_16408)
+      idxeq_16412 := cmp(t2_16395 == const_16413)
+      idxload_16414 := mux(idxeq_16412 ? outData_1 : outData_0)
+      idxeq_16415 := cmp(t2_16395 == const_16416)
+      idxload_16417 := mux(idxeq_16415 ? outData_2 : idxload_16414)
+      idxeq_16418 := cmp(t2_16395 == const_16419)
+      idxload_16420 := mux(idxeq_16418 ? outData_3 : idxload_16417)
+      idxeq_16421 := cmp(t2_16395 == const_16422)
+      idxload_16423 := mux(idxeq_16421 ? outData_4 : idxload_16420)
+      t8_16424 := cmp(idxload_16411 != idxload_16423)
+      br t8_16424 ? if.then : if.done
     block if.then
-      t14_16430 := t1_16392 + const_16429
+      t14_16428 := t1_16392 + const_16427
       jump if.done
     block if.done
-      t15_16394 := phi[for.body:t1_16392, if.then:t14_16430]
-      t16_16397 := t2_16395 + const_16431
+      t15_16394 := phi[for.body:t1_16392, if.then:t14_16428]
+      t16_16397 := t2_16395 + const_16429
       jump for.loop
 

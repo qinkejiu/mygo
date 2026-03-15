@@ -1,4 +1,4 @@
-generated=2026-03-06 15:02:52
+generated=2026-03-15 10:39:57
 case=tests/CHStone/mips
 ssa_ok=True
 ssa_return_code=0
@@ -16,8 +16,8 @@ software_return_code=0
 hardware_return_code=0
 software_ok=True
 hardware_ok=True
-hardware_cycles_used=714
-output_match=True
-output_match_mode=strict
+hardware_cycles_used=120000
+output_match=False
+output_match_mode=none
 software_stdout_path=tests/CHStone/mips/software.stdout.txt
 hardware_stdout_path=tests/CHStone/mips/hardware.stdout.txt

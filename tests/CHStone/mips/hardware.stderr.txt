@@ -1,2 +1,8 @@
 /home/qinkejiu/mygo/tests/CHStone/mips/main.go:148:2: warning: for loop is open-ended; lowering will use loop FSM generation
 /home/qinkejiu/mygo/tests/CHStone/mips/main.go:174:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+[DEBUG] ExtractConstants called for: tests/CHStone/mips/main.go
+[DEBUG] Read 10132 bytes from source
+[DEBUG] Parsed 9 declarations
+[DEBUG] AST walk: 7 GenDecls, 5 ValueSpecs, 3 CompositeLits, 0 ArrayTypes
+info: extracted 0 constant arrays from tests/CHStone/mips/main.go
+info: total constant arrays for testbench: 0

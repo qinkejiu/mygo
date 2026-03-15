@@ -3,6 +3,8 @@ package ir
 import (
 	"fmt"
 	"go/token"
+
+	"golang.org/x/tools/go/ssa"
 )
 
 // Design is the top-level hardware description consisting of one or more modules.
@@ -242,6 +244,9 @@ type Process struct {
 	Sensitivity Sensitivity
 	Blocks      []*BasicBlock
 	Stage       int
+	Params      []*Signal // Function parameters (for non-main processes)
+	SSAParams   []ssa.Value // Original SSA parameter values (for remapping during inlining)
+	Return      *Signal   // Return value signal (for non-main processes)
 }
 
 // Sensitivity indicates whether process is combinational or sequential.
@@ -426,6 +431,7 @@ const (
 	Add BinOp = iota
 	Sub
 	Mul
+	Div
 	And
 	Or
 	Xor

@@ -1,2 +1,105 @@
 /home/qinkejiu/mygo/tests/CHStone/gsm/main.go:292:4: warning: for loop has variable bound; lowering will use loop FSM generation
 /home/qinkejiu/mygo/tests/CHStone/gsm/main.go:312:3: warning: for loop has variable bound; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:355:4: warning: instruction *ssa.FieldAddr ignored in IR builder
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:355:11: warning: instruction *ssa.FieldAddr ignored in IR builder
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:355:14: warning: instruction *ssa.FieldAddr ignored in IR builder
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:355:18: warning: instruction *ssa.FieldAddr ignored in IR builder
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:355:4: warning: no signal mapping for value *ssa.FieldAddr
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:355:11: warning: no signal mapping for value *ssa.FieldAddr
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:355:14: warning: no signal mapping for value *ssa.FieldAddr
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:355:18: warning: no signal mapping for value *ssa.FieldAddr
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:356:4: warning: instruction *ssa.FieldAddr ignored in IR builder
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:356:11: warning: instruction *ssa.FieldAddr ignored in IR builder
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:356:14: warning: instruction *ssa.FieldAddr ignored in IR builder
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:356:18: warning: instruction *ssa.FieldAddr ignored in IR builder
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:356:4: warning: no signal mapping for value *ssa.FieldAddr
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:356:11: warning: no signal mapping for value *ssa.FieldAddr
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:356:14: warning: no signal mapping for value *ssa.FieldAddr
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:356:18: warning: no signal mapping for value *ssa.FieldAddr
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:357:4: warning: instruction *ssa.FieldAddr ignored in IR builder
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:357:11: warning: instruction *ssa.FieldAddr ignored in IR builder
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:357:17: warning: instruction *ssa.FieldAddr ignored in IR builder
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:357:21: warning: instruction *ssa.FieldAddr ignored in IR builder
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:357:4: warning: no signal mapping for value *ssa.FieldAddr
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:357:11: warning: no signal mapping for value *ssa.FieldAddr
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:357:17: warning: no signal mapping for value *ssa.FieldAddr
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:357:21: warning: no signal mapping for value *ssa.FieldAddr
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:358:4: warning: instruction *ssa.FieldAddr ignored in IR builder
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:358:11: warning: instruction *ssa.FieldAddr ignored in IR builder
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:358:18: warning: instruction *ssa.FieldAddr ignored in IR builder
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:358:22: warning: instruction *ssa.FieldAddr ignored in IR builder
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:358:4: warning: no signal mapping for value *ssa.FieldAddr
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:358:11: warning: no signal mapping for value *ssa.FieldAddr
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:358:18: warning: no signal mapping for value *ssa.FieldAddr
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:358:22: warning: no signal mapping for value *ssa.FieldAddr
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:359:4: warning: instruction *ssa.FieldAddr ignored in IR builder
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:359:11: warning: instruction *ssa.FieldAddr ignored in IR builder
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:359:15: warning: instruction *ssa.FieldAddr ignored in IR builder
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:359:18: warning: instruction *ssa.FieldAddr ignored in IR builder
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:359:4: warning: no signal mapping for value *ssa.FieldAddr
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:359:11: warning: no signal mapping for value *ssa.FieldAddr
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:359:15: warning: no signal mapping for value *ssa.FieldAddr
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:359:18: warning: no signal mapping for value *ssa.FieldAddr
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:360:4: warning: instruction *ssa.FieldAddr ignored in IR builder
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:360:11: warning: instruction *ssa.FieldAddr ignored in IR builder
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:360:18: warning: instruction *ssa.FieldAddr ignored in IR builder
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:360:21: warning: instruction *ssa.FieldAddr ignored in IR builder
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:360:4: warning: no signal mapping for value *ssa.FieldAddr
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:360:11: warning: no signal mapping for value *ssa.FieldAddr
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:360:18: warning: no signal mapping for value *ssa.FieldAddr
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:360:21: warning: no signal mapping for value *ssa.FieldAddr
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:361:4: warning: instruction *ssa.FieldAddr ignored in IR builder
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:361:10: warning: instruction *ssa.FieldAddr ignored in IR builder
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:361:16: warning: instruction *ssa.FieldAddr ignored in IR builder
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:361:19: warning: instruction *ssa.FieldAddr ignored in IR builder
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:361:4: warning: no signal mapping for value *ssa.FieldAddr
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:361:10: warning: no signal mapping for value *ssa.FieldAddr
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:361:16: warning: no signal mapping for value *ssa.FieldAddr
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:361:19: warning: no signal mapping for value *ssa.FieldAddr
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:362:4: warning: instruction *ssa.FieldAddr ignored in IR builder
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:362:10: warning: instruction *ssa.FieldAddr ignored in IR builder
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:362:17: warning: instruction *ssa.FieldAddr ignored in IR builder
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:362:20: warning: instruction *ssa.FieldAddr ignored in IR builder
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:362:4: warning: no signal mapping for value *ssa.FieldAddr
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:362:10: warning: no signal mapping for value *ssa.FieldAddr
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:362:17: warning: no signal mapping for value *ssa.FieldAddr
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:362:20: warning: no signal mapping for value *ssa.FieldAddr
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:367:22: warning: instruction *ssa.FieldAddr ignored in IR builder
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:367:22: warning: no signal mapping for value *ssa.FieldAddr
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:367:22: warning: unresolved dereference *ssa.FieldAddr; using zero value fallback
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:368:26: warning: instruction *ssa.FieldAddr ignored in IR builder
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:368:26: warning: no signal mapping for value *ssa.FieldAddr
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:368:26: warning: unresolved dereference *ssa.FieldAddr; using zero value fallback
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:372:15: warning: instruction *ssa.FieldAddr ignored in IR builder
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:372:15: warning: no signal mapping for value *ssa.FieldAddr
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:372:15: warning: unresolved dereference *ssa.FieldAddr; using zero value fallback
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:373:15: warning: instruction *ssa.FieldAddr ignored in IR builder
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:373:15: warning: no signal mapping for value *ssa.FieldAddr
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:373:15: warning: unresolved dereference *ssa.FieldAddr; using zero value fallback
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:373:23: warning: instruction *ssa.FieldAddr ignored in IR builder
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:373:23: warning: no signal mapping for value *ssa.FieldAddr
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:373:23: warning: unresolved dereference *ssa.FieldAddr; using zero value fallback
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:374:22: warning: instruction *ssa.FieldAddr ignored in IR builder
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:374:22: warning: no signal mapping for value *ssa.FieldAddr
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:374:22: warning: unresolved dereference *ssa.FieldAddr; using zero value fallback
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:377:22: warning: instruction *ssa.FieldAddr ignored in IR builder
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:377:22: warning: no signal mapping for value *ssa.FieldAddr
+/home/qinkejiu/mygo/tests/CHStone/gsm/main.go:377:22: warning: unresolved dereference *ssa.FieldAddr; using zero value fallback
+/usr/local/go/src/os/proc.go:67:8: warning: instruction *ssa.Panic ignored in IR builder
+/usr/local/go/src/os/proc.go:75:20: warning: call to runtime_beforeExit could not be inlined - call will be ignored
+/usr/local/go/src/os/proc.go:77:14: warning: call to Exit could not be inlined - call will be ignored
+/usr/local/go/src/internal/testlog/exit.go:18:15: warning: instruction *ssa.FieldAddr ignored in IR builder
+/usr/local/go/src/internal/testlog/exit.go:18:15: warning: no signal mapping for value *ssa.FieldAddr
+/usr/local/go/src/internal/testlog/exit.go:19:21: warning: instruction *ssa.FieldAddr ignored in IR builder
+/usr/local/go/src/internal/testlog/exit.go:19:2: warning: instruction *ssa.Defer ignored in IR builder
+/usr/local/go/src/internal/testlog/exit.go:20:22: warning: instruction *ssa.FieldAddr ignored in IR builder
+/usr/local/go/src/internal/testlog/exit.go:20:22: warning: no signal mapping for value *ssa.FieldAddr
+/usr/local/go/src/internal/testlog/exit.go:20:22: warning: unresolved dereference *ssa.FieldAddr; using zero value fallback
+warning: instruction *ssa.RunDefers ignored in IR builder
+warning: if condition has no signal mapping; treating as false
+[DEBUG] ExtractConstants called for: tests/CHStone/gsm/main.go
+[DEBUG] Read 10813 bytes from source
+[DEBUG] Parsed 23 declarations
+[DEBUG] AST walk: 15 GenDecls, 9 ValueSpecs, 4 CompositeLits, 0 ArrayTypes
+info: extracted 0 constant arrays from tests/CHStone/gsm/main.go
+info: total constant arrays for testbench: 0

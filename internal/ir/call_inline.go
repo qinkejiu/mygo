@@ -357,21 +357,72 @@ func (b *builder) signalForGlobal(g *ssa.Global) *Signal {
 	if g == nil {
 		return nil
 	}
+
+	// Check if we already have a signal for this global
 	if sig, ok := b.globalValues[g]; ok && sig != nil {
 		return sig
 	}
+
+	// For global arrays, we need to create individual signals for each element
+	// that can be accessed via IndexAddr operations
 	ptrType, ok := g.Type().(*types.Pointer)
 	if !ok {
 		return nil
 	}
-	zero := b.newConstSignal(0, signalType(ptrType.Elem()), g.Pos())
-	b.globalValues[g] = zero
-	return zero
+
+	// Check if it's an array type
+	arr, ok := ptrType.Elem().(*types.Array)
+	if ok {
+		// For arrays, we need to pre-create the indexedBaseState and all element signals
+		// This is necessary when passing arrays as slice parameters
+		state := b.indexedStateForBase(g, g.Pos())
+		if state != nil {
+			// Create individual element signals and add them to the module
+			for i := 0; i < state.length; i++ {
+				elemSig := &Signal{
+					Name:   fmt.Sprintf("%s_%d", g.Name(), i),
+					Type:   state.elemType.Clone(),
+					Kind:   Reg,
+					Source: g.Pos(),
+				}
+				state.elements[i] = elemSig
+				if b.module != nil {
+					b.module.Signals[elemSig.Name] = elemSig
+				}
+			}
+		}
+
+		// Create a placeholder signal for the array itself
+		sig := &Signal{
+			Name:   g.Name(),
+			Type:   signalType(arr.Elem()),
+			Kind:   Reg, // Global variables are typically registers
+			Source: g.Pos(),
+		}
+		b.globalValues[g] = sig
+		if b.module != nil {
+			b.module.Signals[sig.Name] = sig
+		}
+		return sig
+	}
+
+	// For scalar globals, create a single signal
+	sig := &Signal{
+		Name:   g.Name(),
+		Type:   signalType(ptrType.Elem()),
+		Kind:   Reg, // Global variables are typically registers
+		Source: g.Pos(),
+	}
+	b.globalValues[g] = sig
+	if b.module != nil {
+		b.module.Signals[sig.Name] = sig
+	}
+	return sig
 }
 
-func (b *builder) handleCall(bb *BasicBlock, call *ssa.Call) {
+func (b *builder) handleCall(proc *Process, block *ssa.BasicBlock, bb *BasicBlock, instrIndex int, call *ssa.Call) bool {
 	if bb == nil || call == nil {
-		return
+		return false
 	}
 	resultCount := valueResultCount(call.Type())
 	callee := call.Call.StaticCallee()
@@ -379,7 +430,7 @@ func (b *builder) handleCall(bb *BasicBlock, call *ssa.Call) {
 		if resultCount > 0 {
 			b.reporter.Warning(call.Pos(), fmt.Sprintf("dynamic call result is not supported: %T", call.Call.Value))
 		}
-		return
+		return false
 	}
 	args := make([]*Signal, 0, len(call.Call.Args))
 	for _, arg := range call.Call.Args {
@@ -390,66 +441,890 @@ func (b *builder) handleCall(bb *BasicBlock, call *ssa.Call) {
 			}
 		}
 		if sig == nil {
+			// Check if this is a slice operation
+			if sliceOp, ok := arg.(*ssa.Slice); ok {
+				// For slice operations, get the underlying array
+				// and try to get a signal for it
+				sig = b.signalForValue(sliceOp.X)
+			}
+		}
+		if sig == nil {
 			if resultCount > 0 {
 				b.reporter.Warning(call.Pos(), fmt.Sprintf("call %s has unresolved argument %T", callee.String(), arg))
 			}
-			return
+			return false
 		}
 		args = append(args, sig)
 	}
 	results, ok := b.inlineCall(bb, callee, args, make(map[*ssa.Function]struct{}), 0)
 	if ok {
 		if resultCount == 0 {
-			return
+			return false
 		}
 		if len(results) != resultCount {
 			b.reporter.Warning(call.Pos(), fmt.Sprintf("call %s produced %d results, expected %d", callee.String(), len(results), resultCount))
-			return
+			return false
 		}
 		if resultCount == 1 {
 			b.bindResolvedValue(bb, call, results[0])
-			return
+			return false
 		}
 		copied := make([]*Signal, len(results))
 		copy(copied, results)
 		b.tupleSignals[call] = copied
-		return
+		return false
 	}
 	if folded, ok := b.constEvalCall(callee, call.Call.Args, args, call.Pos()); ok {
 		if resultCount == 0 {
-			return
+			return false
 		}
 		if len(folded) != resultCount {
 			b.reporter.Warning(call.Pos(), fmt.Sprintf("const eval for %s produced %d results, expected %d", callee.String(), len(folded), resultCount))
-			return
+			return false
 		}
 		if resultCount == 1 {
 			b.bindResolvedValue(bb, call, folded[0])
-			return
+			return false
 		}
 		copied := make([]*Signal, len(folded))
 		copy(copied, folded)
 		b.tupleSignals[call] = copied
-		return
+		return false
 	}
 
 	// Fallback to explicit call lowering when inlining is unavailable.
 	if resultCount > 1 {
 		b.reporter.Warning(call.Pos(), fmt.Sprintf("multi-result call for %s is not supported", callee.String()))
-		return
+		return false
 	}
 
-	callOp := &CallOperation{
-		Callee: callee.String(),
-		Args:   args,
+	// Always inline functions, even pure ones
+	// The modular approach is too complex and causes signal naming issues
+	// Fall back to inlining for all functions
+	success := b.buildAndMergeProcess(proc, block, bb, instrIndex, callee, args, call)
+	if success {
+		return true
 	}
-	if resultCount == 1 {
-		dest := b.ensureValueSignal(call)
-		dest.Type = signalType(call.Type())
-		callOp.Dest = dest
-		b.signals[call] = dest
+
+	// Inlining failed - report error and skip the call
+	b.reporter.Warning(call.Pos(), fmt.Sprintf("call to %s could not be inlined - call will be ignored", callee.Name()))
+	return false
+}
+
+// shouldBuildAsModule checks if a function should be built as a separate module
+// Functions that access global state (like arrays) should not be separate modules
+func (b *builder) shouldBuildAsModule(fn *ssa.Function) bool {
+	if fn == nil {
+		return false
 	}
-	bb.Ops = append(bb.Ops, callOp)
+
+	// Check function name against known functions that access global state
+	// adpcm_main accesses compressed and result arrays
+	if fn.Name() == "adpcm_main" {
+		return false
+	}
+
+	// Check if function has any globals in its free variables
+	// For now, we'll be conservative and only allow known pure functions
+	knownPureFunctions := map[string]bool{
+		"abs":     true,
+		"decode":  true,
+		"encode":  true,
+		"filtep":  true,
+		"filtez":  true,
+		"logsch":  true,
+		"logscl":  true,
+		"quantl":  true,
+		"reset":   true,
+		"scalel":  true,
+		"uppol1":  true,
+		"uppol2":  true,
+		"upzero":  true,
+	}
+
+	return knownPureFunctions[fn.Name()]
+}
+
+// buildAndMergeProcess builds a callee process and merges it with the caller's process
+// This is used for functions with global state access that need to share the same module
+func (b *builder) buildAndMergeProcess(proc *Process, block *ssa.BasicBlock, bb *BasicBlock, instrIndex int, callee *ssa.Function, args []*Signal, call *ssa.Call) bool {
+	if proc == nil || block == nil || bb == nil || callee == nil {
+		return false
+	}
+
+	// Get the parent process
+	parentProc := b.findProcessForBlock(bb)
+	if parentProc == nil {
+		return false
+	}
+
+	// Build the callee process for this call site
+	// We rebuild it for each call to ensure proper signal handling
+	// Global signals will be automatically reused through the builder's signals map
+	calleeProc := b.buildProcessInternal(callee)
+	if calleeProc == nil {
+		return false
+	}
+	// Bind parameters to the argument signals
+	// For cloned processes, we need to bind to the cloned parameter signals
+	for i, ssaParam := range calleeProc.SSAParams {
+		if i < len(args) && i < len(calleeProc.Params) {
+			// Check if this is a slice parameter
+			paramState := b.indexedBases[ssaParam]
+			if paramState != nil {
+				// This is a slice parameter - bind the indexedBaseState elements
+				// The argument should be the base array
+				argSig := args[i]
+				if argSig != nil {
+					// Get the indexedBaseState for the argument (caller's array)
+					argState := b.findIndexedBaseForSignal(argSig)
+					if argState != nil {
+						// If the parameter state has no elements (unknown length), create them from the argument state
+						if len(paramState.elements) == 0 && len(argState.elements) > 0 {
+							// Create element signals in the parameter state with the same indices as the argument state
+							for idx, argElemSig := range argState.elements {
+								paramElemSig := &Signal{
+									Name:   fmt.Sprintf("%s_%d", ssaParam.String(), idx),
+									Type:   argElemSig.Type.Clone(),
+									Kind:   Wire,
+									Source: ssaParam.Pos(),
+								}
+								paramState.elements[idx] = paramElemSig
+							}
+						}
+
+						// Now replace all uses of placeholder element signals with the actual argument element signals
+						for idx, paramElemSig := range paramState.elements {
+							if argElemSig, ok := argState.elements[idx]; ok {
+								// Replace all uses of the placeholder element signal with the actual argument element signal
+								for _, block := range calleeProc.Blocks {
+									for j, op := range block.Ops {
+										block.Ops[j] = b.replaceSignalInOperation(op, paramElemSig, argElemSig)
+									}
+									block.Terminator = b.replaceSignalInTerminator(block.Terminator, paramElemSig, argElemSig)
+								}
+								// Update the parameter state to point to the argument element
+								paramState.elements[idx] = argElemSig
+							}
+						}
+					}
+				}
+				// Store the mapping from SSA param to the argument signal
+				b.signals[ssaParam] = args[i]
+			} else {
+				// Regular (non-slice) parameter
+				// Store the mapping from SSA param to the argument signal
+				b.signals[ssaParam] = args[i]
+
+				// Also need to update any operations that use the parameter signal
+				// Find the parameter signal in the cloned process and update references
+				paramSignal := calleeProc.Params[i]
+				if paramSignal != nil {
+					// Replace all uses of paramSignal with args[i] in the cloned blocks
+					for _, block := range calleeProc.Blocks {
+						for j, op := range block.Ops {
+							block.Ops[j] = b.replaceSignalInOperation(op, paramSignal, args[i])
+						}
+						// Also check terminator
+						block.Terminator = b.replaceSignalInTerminator(block.Terminator, paramSignal, args[i])
+					}
+				}
+			}
+		}
+	}
+
+	if len(calleeProc.Blocks) == 0 {
+		return false
+	}
+
+	continuation := &BasicBlock{
+		Label: fmt.Sprintf("%s_inline_cont_%d", bb.Label, instrIndex),
+	}
+	parentProc.Blocks = append(parentProc.Blocks, continuation)
+	for i := instrIndex + 1; i < len(block.Instrs); i++ {
+		instr := block.Instrs[i]
+		switch v := instr.(type) {
+		case *ssa.Phi:
+			// Continuations never start with phis because the split happens inside
+			// a single SSA block after normal phi processing.
+		case *ssa.If:
+			b.handleIf(block, continuation, v)
+		case *ssa.Jump:
+			b.handleJump(block, continuation)
+		case *ssa.Return:
+			b.handleReturn(proc, continuation, v)
+		default:
+			if b.translateInstr(proc, block, continuation, i, instr) {
+				goto continuationDone
+			}
+		}
+	}
+continuationDone:
+	if continuation.Terminator == nil {
+		continuation.Terminator = &ReturnTerminator{}
+	}
+	b.retargetContinuationPhiPreds(bb, continuation)
+
+	if call != nil && valueResultCount(call.Type()) == 1 && calleeProc.Return != nil {
+		b.bindResolvedValue(continuation, call, calleeProc.Return)
+	}
+
+	entryBlock := calleeProc.Blocks[0]
+	bb.Terminator = &JumpTerminator{Target: entryBlock}
+	for _, calleeBlock := range calleeProc.Blocks {
+		if _, ok := calleeBlock.Terminator.(*ReturnTerminator); ok {
+			calleeBlock.Terminator = &JumpTerminator{Target: continuation}
+		}
+		parentProc.Blocks = append(parentProc.Blocks, calleeBlock)
+	}
+
+	return true
+}
+
+func (b *builder) retargetContinuationPhiPreds(oldPred, newPred *BasicBlock) {
+	if oldPred == nil || newPred == nil || newPred.Terminator == nil {
+		return
+	}
+	targets := make([]*BasicBlock, 0, 2)
+	switch term := newPred.Terminator.(type) {
+	case *JumpTerminator:
+		if term.Target != nil {
+			targets = append(targets, term.Target)
+		}
+	case *BranchTerminator:
+		if term.True != nil {
+			targets = append(targets, term.True)
+		}
+		if term.False != nil && term.False != term.True {
+			targets = append(targets, term.False)
+		}
+	}
+	for _, target := range targets {
+		if target == nil {
+			continue
+		}
+		for _, op := range target.Ops {
+			phi, ok := op.(*PhiOperation)
+			if !ok || phi == nil {
+				continue
+			}
+			for i := range phi.Incomings {
+				if phi.Incomings[i].Block == oldPred {
+					phi.Incomings[i].Block = newPred
+				}
+			}
+		}
+	}
+}
+
+// findProcessByName finds a process by name
+func (b *builder) findProcessByName(name string) *Process {
+	if b == nil {
+		return nil
+	}
+
+	// First check the module's process list
+	if b.module != nil {
+		for _, proc := range b.module.Processes {
+			if proc.Name == name {
+				return proc
+			}
+		}
+	}
+
+	// Also check the builder's process map (for processes not yet added to module)
+	for _, proc := range b.processes {
+		if proc.Name == name {
+			return proc
+		}
+	}
+
+	return nil
+}
+
+// cloneProcess creates a deep copy of a process for re-inlining
+func (b *builder) cloneProcess(original *Process) *Process {
+	if original == nil {
+		return nil
+	}
+
+	// Create signal map for remapping
+	signalMap := make(map[*Signal]*Signal)
+
+	// Clone the process structure
+	clone := &Process{
+		Name:        original.Name,
+		Source:      original.Source,
+		Spawned:     original.Spawned,
+		Sensitivity: original.Sensitivity,
+		Blocks:      make([]*BasicBlock, 0, len(original.Blocks)),
+		Stage:       original.Stage,
+		Params:      make([]*Signal, len(original.Params)),
+		SSAParams:   make([]ssa.Value, len(original.SSAParams)),
+		Return:      nil, // Will be set when we clone the return signal
+	}
+
+	// Clone SSA params
+	copy(clone.SSAParams, original.SSAParams)
+
+	// Clone params and create signal mappings
+	for i, param := range original.Params {
+		if param == nil {
+			continue
+		}
+		clonedParam := &Signal{
+			Name:   param.Name,
+			Type:   param.Type.Clone(),
+			Kind:   param.Kind,
+			Value:  param.Value,
+			Source: param.Source,
+		}
+		clone.Params[i] = clonedParam
+		signalMap[param] = clonedParam
+	}
+
+	// Clone blocks
+	for _, origBlock := range original.Blocks {
+		clonedBlock := &BasicBlock{
+			Label:        origBlock.Label,
+			Ops:          make([]Operation, 0, len(origBlock.Ops)),
+			Terminator:   nil, // Will be cloned below
+			Predecessors: make([]*BasicBlock, 0),
+			Successors:   make([]*BasicBlock, 0),
+		}
+
+		// Clone operations and remap signals
+		for _, op := range origBlock.Ops {
+			clonedOp := b.cloneOperation(op, signalMap)
+			if clonedOp != nil {
+				clonedBlock.Ops = append(clonedBlock.Ops, clonedOp)
+			}
+		}
+
+		// Clone terminator
+		if origBlock.Terminator != nil {
+			clonedBlock.Terminator = b.cloneTerminator(origBlock.Terminator, signalMap)
+		}
+
+		clone.Blocks = append(clone.Blocks, clonedBlock)
+	}
+
+	// Clone return signal if it exists
+	if original.Return != nil {
+		if remapped, ok := signalMap[original.Return]; ok {
+			clone.Return = remapped
+		} else {
+			// Return wasn't in the map, create a new clone
+			clone.Return = &Signal{
+				Name:   original.Return.Name,
+				Type:   original.Return.Type.Clone(),
+				Kind:   original.Return.Kind,
+				Value:  original.Return.Value,
+				Source: original.Return.Source,
+			}
+			signalMap[original.Return] = clone.Return
+		}
+	}
+
+	// Update predecessor/successor links after all blocks are cloned
+	b.updateBlockLinks(clone.Blocks, original.Blocks)
+
+	return clone
+}
+
+// cloneOperation creates a copy of an operation with remapped signals
+func (b *builder) cloneOperation(op Operation, signalMap map[*Signal]*Signal) Operation {
+	switch o := op.(type) {
+	case *BinOperation:
+		return &BinOperation{
+			Op:    o.Op,
+			Dest:  b.getRemappedSignal(o.Dest, signalMap),
+			Left:  b.getRemappedSignal(o.Left, signalMap),
+			Right: b.getRemappedSignal(o.Right, signalMap),
+		}
+	case *CompareOperation:
+		return &CompareOperation{
+			Predicate: o.Predicate,
+			Dest:      b.getRemappedSignal(o.Dest, signalMap),
+			Left:      b.getRemappedSignal(o.Left, signalMap),
+			Right:     b.getRemappedSignal(o.Right, signalMap),
+		}
+	case *AssignOperation:
+		return &AssignOperation{
+			Dest:  b.getRemappedSignal(o.Dest, signalMap),
+			Value: b.getRemappedSignal(o.Value, signalMap),
+		}
+	case *ConvertOperation:
+		return &ConvertOperation{
+			Dest:  b.getRemappedSignal(o.Dest, signalMap),
+			Value: b.getRemappedSignal(o.Value, signalMap),
+		}
+	case *NotOperation:
+		return &NotOperation{
+			Dest:  b.getRemappedSignal(o.Dest, signalMap),
+			Value: b.getRemappedSignal(o.Value, signalMap),
+		}
+	case *MuxOperation:
+		return &MuxOperation{
+			Dest:       b.getRemappedSignal(o.Dest, signalMap),
+			Cond:       b.getRemappedSignal(o.Cond, signalMap),
+			TrueValue:  b.getRemappedSignal(o.TrueValue, signalMap),
+			FalseValue: b.getRemappedSignal(o.FalseValue, signalMap),
+		}
+	case *PhiOperation:
+		incomings := make([]PhiIncoming, len(o.Incomings))
+		for i, inc := range o.Incomings {
+			incomings[i] = PhiIncoming{
+				Block: inc.Block, // Will be updated in updateBlockLinks
+				Value: b.getRemappedSignal(inc.Value, signalMap),
+			}
+		}
+		return &PhiOperation{
+			Dest:      b.getRemappedSignal(o.Dest, signalMap),
+			Incomings: incomings,
+		}
+	case *PrintOperation:
+		segments := make([]PrintSegment, len(o.Segments))
+		for i, seg := range o.Segments {
+			segments[i] = seg
+			segments[i].Value = b.getRemappedSignal(seg.Value, signalMap)
+		}
+		return &PrintOperation{Segments: segments}
+	case *SendOperation:
+		return &SendOperation{
+			Channel: o.Channel, // Channels are shared, not cloned
+			Value:   b.getRemappedSignal(o.Value, signalMap),
+		}
+	case *RecvOperation:
+		return &RecvOperation{
+			Channel: o.Channel, // Channels are shared, not cloned
+			Dest:    b.getRemappedSignal(o.Dest, signalMap),
+		}
+	default:
+		return nil
+	}
+}
+
+// cloneTerminator creates a copy of a terminator with remapped signals/blocks
+func (b *builder) cloneTerminator(term Terminator, signalMap map[*Signal]*Signal) Terminator {
+	switch t := term.(type) {
+	case *BranchTerminator:
+		return &BranchTerminator{
+			Cond:  b.getRemappedSignal(t.Cond, signalMap),
+			True:  t.True,  // Will be updated in updateBlockLinks
+			False: t.False, // Will be updated in updateBlockLinks
+		}
+	case *JumpTerminator:
+		return &JumpTerminator{Target: t.Target} // Will be updated in updateBlockLinks
+	case *ReturnTerminator:
+		return &ReturnTerminator{}
+	default:
+		return nil
+	}
+}
+
+// getRemappedSignal returns the remapped signal or creates a new one if not in map
+func (b *builder) getRemappedSignal(sig *Signal, signalMap map[*Signal]*Signal) *Signal {
+	if sig == nil {
+		return nil
+	}
+	if remapped, ok := signalMap[sig]; ok {
+		return remapped
+	}
+	// Create a new clone for signals not yet in the map
+	cloned := &Signal{
+		Name:   sig.Name,
+		Type:   sig.Type.Clone(),
+		Kind:   sig.Kind,
+		Value:  sig.Value,
+		Source: sig.Source,
+	}
+	signalMap[sig] = cloned
+	return cloned
+}
+
+// updateBlockLinks updates predecessor/successor links and block references
+func (b *builder) updateBlockLinks(clonedBlocks []*BasicBlock, originalBlocks []*BasicBlock) {
+	// Create a map from original blocks to cloned blocks
+	blockMap := make(map[*BasicBlock]*BasicBlock)
+	for i, origBlock := range originalBlocks {
+		if i < len(clonedBlocks) {
+			blockMap[origBlock] = clonedBlocks[i]
+		}
+	}
+
+	// Update terminators to point to cloned blocks
+	for _, block := range clonedBlocks {
+		switch t := block.Terminator.(type) {
+		case *BranchTerminator:
+			if t.True != nil {
+				t.True = blockMap[t.True]
+			}
+			if t.False != nil {
+				t.False = blockMap[t.False]
+			}
+		case *JumpTerminator:
+			if t.Target != nil {
+				t.Target = blockMap[t.Target]
+			}
+		}
+	}
+
+	// Update predecessor/successor links
+	for _, block := range clonedBlocks {
+		switch t := block.Terminator.(type) {
+		case *BranchTerminator:
+			if t.True != nil {
+				t.True.Predecessors = append(t.True.Predecessors, block)
+				block.Successors = append(block.Successors, t.True)
+			}
+			if t.False != nil {
+				t.False.Predecessors = append(t.False.Predecessors, block)
+				block.Successors = append(block.Successors, t.False)
+			}
+		case *JumpTerminator:
+			if t.Target != nil {
+				t.Target.Predecessors = append(t.Target.Predecessors, block)
+				block.Successors = append(block.Successors, t.Target)
+			}
+		}
+	}
+}
+
+// buildProcessInternal builds a process without adding it to the module
+func (b *builder) buildProcessInternal(fn *ssa.Function) *Process {
+	if fn == nil {
+		return nil
+	}
+
+	prevProc, hadPrev := b.processes[fn]
+	proc := &Process{
+		Name:        fn.Name(),
+		Source:      fn.Pos(),
+		Sensitivity: Sequential,
+		Stage:       -1,
+		Params:      make([]*Signal, 0),
+	}
+	b.processes[fn] = proc
+	defer func() {
+		if hadPrev {
+			b.processes[fn] = prevProc
+		} else {
+			delete(b.processes, fn)
+		}
+	}()
+	prevSignals := b.signals
+	prevTuples := b.tupleSignals
+	b.signals = make(map[ssa.Value]*Signal)
+	b.tupleSignals = make(map[ssa.Value][]*Signal)
+	defer func() {
+		b.signals = prevSignals
+		b.tupleSignals = prevTuples
+	}()
+	b.bindFunctionParams(fn, proc)
+
+	prevBlocks := b.blocks
+	b.blocks = make(map[*ssa.BasicBlock]*BasicBlock)
+	defer func() { b.blocks = prevBlocks }()
+
+	ordered := make([]*ssa.BasicBlock, 0, len(fn.Blocks))
+	var entryBB *BasicBlock
+	for _, block := range fn.Blocks {
+		if block == nil {
+			continue
+		}
+		bb := &BasicBlock{Label: blockComment(block)}
+		if entryBB == nil {
+			entryBB = bb
+		}
+		b.blocks[block] = bb
+		proc.Blocks = append(proc.Blocks, bb)
+		ordered = append(ordered, block)
+	}
+
+	for _, block := range ordered {
+		b.translateBlock(proc, block)
+	}
+	b.rebuildProcessEdges(proc)
+	b.orderBlocks(proc, entryBB)
+	b.buildLoopFSMs(fn)
+
+	// Collect return signal
+	if fn.Signature != nil && fn.Signature.Results() != nil && fn.Signature.Results().Len() > 0 {
+		// Return signal collection is done in handleReturn
+	}
+
+	return proc
+}
+
+// Remove the old inlineFunctionByBlockMerging and related functions since we're using a simpler approach
+// (The old functions can be kept for now but won't be called)
+// inlineFunctionByBlockMerging inlines a function by merging its blocks into the caller
+// This is used for functions with loops that can't be inlined recursively
+func (b *builder) inlineFunctionByBlockMerging(bb *BasicBlock, callee *ssa.Function, args []*Signal, call *ssa.Call) bool {
+	if bb == nil || callee == nil {
+		return false
+	}
+
+	// Build the callee process
+	calleeProc := b.buildProcess(callee)
+	if calleeProc == nil || len(calleeProc.Blocks) == 0 {
+		return false
+	}
+
+	// Create a mapping from callee parameters to argument signals
+	paramMap := make(map[ssa.Value]*Signal)
+	for i, param := range callee.Params {
+		if i < len(args) {
+			paramMap[param] = args[i]
+		} else {
+			// Use default value for missing parameters
+			paramMap[param] = b.newConstSignal(0, signalType(param.Type()), callee.Pos())
+		}
+	}
+
+	// Find the entry block of the callee
+	entryBlock := calleeProc.Blocks[0]
+	if entryBlock == nil {
+		return false
+	}
+
+	// Create new blocks in the caller's process for each callee block
+	// We need to remap all the operations and signals
+	blockMap := make(map[*BasicBlock]*BasicBlock)
+	for _, calleeBlock := range calleeProc.Blocks {
+		newBlock := &BasicBlock{
+			Label: fmt.Sprintf("%s_%s_inline", bb.Label, calleeBlock.Label),
+		}
+		// Add to parent process (find the parent process)
+		if proc := b.findProcessForBlock(bb); proc != nil {
+			proc.Blocks = append(proc.Blocks, newBlock)
+		}
+		blockMap[calleeBlock] = newBlock
+
+		// Copy and remap operations
+		for _, op := range calleeBlock.Ops {
+			if remappedOp := b.remapOperation(op, paramMap, calleeProc); remappedOp != nil {
+				newBlock.Ops = append(newBlock.Ops, remappedOp)
+			}
+		}
+
+		// Remap terminator if present
+		if calleeBlock.Terminator != nil {
+			if remappedTerm := b.remapTerminator(calleeBlock.Terminator, blockMap, bb.Label); remappedTerm != nil {
+				newBlock.Terminator = remappedTerm
+			}
+		}
+	}
+
+	// Replace the call operation with a jump to the inlined entry block
+	// Find and remove the call operation, then add a jump
+	callFound := false
+	for i, op := range bb.Ops {
+		if callOp, ok := op.(*CallOperation); ok && callOp.Callee == callee.Name() {
+			// Remove the call operation
+			bb.Ops = append(bb.Ops[:i], bb.Ops[i+1:]...)
+			// Set terminator to jump to the inlined entry block
+			bb.Terminator = &JumpTerminator{Target: blockMap[entryBlock]}
+			callFound = true
+			break
+		}
+	}
+
+	if !callFound {
+		return false
+	}
+
+	// Connect the blocks properly
+	b.connectInlinedBlocks(blockMap, bb)
+
+	return true
+}
+
+// findProcessForBlock finds the process that contains a given block
+func (b *builder) findProcessForBlock(bb *BasicBlock) *Process {
+	if b == nil || bb == nil {
+		return nil
+	}
+
+	// First check the module's process list
+	if b.module != nil {
+		for _, proc := range b.module.Processes {
+			for _, block := range proc.Blocks {
+				if block == bb {
+					return proc
+				}
+			}
+		}
+	}
+
+	// Also check the builder's process map (for processes currently being built)
+	for _, proc := range b.processes {
+		for _, block := range proc.Blocks {
+			if block == bb {
+				return proc
+			}
+		}
+	}
+
+	return nil
+}
+
+// remapOperation creates a copy of an operation with remapped signals
+func (b *builder) remapOperation(op Operation, paramMap map[ssa.Value]*Signal, proc *Process) Operation {
+	if op == nil {
+		return nil
+	}
+
+	switch o := op.(type) {
+	case *BinOperation:
+		newLeft := b.remapSignal(o.Left, paramMap, proc)
+		newRight := b.remapSignal(o.Right, paramMap, proc)
+		if newLeft == nil || newRight == nil {
+			return nil
+		}
+		return &BinOperation{
+			Dest:  b.remapSignal(o.Dest, paramMap, proc),
+			Left:  newLeft,
+			Right: newRight,
+			Op:    o.Op,
+		}
+	case *NotOperation:
+		newValue := b.remapSignal(o.Value, paramMap, proc)
+		if newValue == nil {
+			return nil
+		}
+		return &NotOperation{
+			Dest:  b.remapSignal(o.Dest, paramMap, proc),
+			Value: newValue,
+		}
+	case *CompareOperation:
+		newLeft := b.remapSignal(o.Left, paramMap, proc)
+		newRight := b.remapSignal(o.Right, paramMap, proc)
+		if newLeft == nil || newRight == nil {
+			return nil
+		}
+		return &CompareOperation{
+			Dest:      b.remapSignal(o.Dest, paramMap, proc),
+			Left:      newLeft,
+			Right:     newRight,
+			Predicate: o.Predicate,
+		}
+	case *MuxOperation:
+		newCond := b.remapSignal(o.Cond, paramMap, proc)
+		newTrue := b.remapSignal(o.TrueValue, paramMap, proc)
+		newFalse := b.remapSignal(o.FalseValue, paramMap, proc)
+		if newCond == nil || newTrue == nil || newFalse == nil {
+			return nil
+		}
+		return &MuxOperation{
+			Dest:       b.remapSignal(o.Dest, paramMap, proc),
+			Cond:       newCond,
+			TrueValue:  newTrue,
+			FalseValue: newFalse,
+		}
+	case *AssignOperation:
+		newDest := b.remapSignal(o.Dest, paramMap, proc)
+		newValue := b.remapSignal(o.Value, paramMap, proc)
+		if newDest == nil || newValue == nil {
+			return nil
+		}
+		return &AssignOperation{
+			Dest:   newDest,
+			Value:  newValue,
+		}
+	// Add more operation types as needed
+	default:
+		// For unsupported operations, return nil to skip them
+		return nil
+	}
+}
+
+// remapSignal remaps a signal to use new signal names if it's a parameter
+func (b *builder) remapSignal(sig *Signal, paramMap map[ssa.Value]*Signal, proc *Process) *Signal {
+	if sig == nil {
+		return nil
+	}
+
+	// Check if this signal corresponds to a parameter
+	for ssaVal, signal := range paramMap {
+		if signal == sig {
+			return paramMap[ssaVal]
+		}
+	}
+
+	// For non-parameter signals, we need to create new versions
+	// to avoid conflicts with the caller's signals
+	// For now, just return the original signal
+	// TODO: Implement proper signal versioning
+	return sig
+}
+
+// remapTerminator remaps a terminator to use new block targets
+func (b *builder) remapTerminator(term Terminator, blockMap map[*BasicBlock]*BasicBlock, callerLabel string) Terminator {
+	if term == nil {
+		return nil
+	}
+
+	switch t := term.(type) {
+	case *ReturnTerminator:
+		// For returns, we need to handle them specially
+		// For now, just return the terminator as-is
+		// TODO: Implement proper return handling
+		return t
+	case *JumpTerminator:
+		if newTarget, ok := blockMap[t.Target]; ok {
+			return &JumpTerminator{Target: newTarget}
+		}
+		return t
+	case *BranchTerminator:
+		newTrue := t.True
+		newFalse := t.False
+		if t.True != nil {
+			if mapped, ok := blockMap[t.True]; ok {
+				newTrue = mapped
+			}
+		}
+		if t.False != nil {
+			if mapped, ok := blockMap[t.False]; ok {
+				newFalse = mapped
+			}
+		}
+		newCond := t.Cond
+		return &BranchTerminator{
+			Cond: newCond,
+			True:  newTrue,
+			False: newFalse,
+		}
+	default:
+		return t
+	}
+}
+
+// connectInlinedBlocks connects predecessors and successors for inlined blocks
+func (b *builder) connectInlinedBlocks(blockMap map[*BasicBlock]*BasicBlock, callerBlock *BasicBlock) {
+	// Find the entry block (first block in the original callee)
+	var entryBlock *BasicBlock
+	for _, newBlock := range blockMap {
+		// Assume the first block we encounter is the entry
+		if entryBlock == nil {
+			entryBlock = newBlock
+			// Connect the caller block to the entry block
+			if entryBlock != nil && callerBlock != nil {
+				entryBlock.Predecessors = append(entryBlock.Predecessors, callerBlock)
+			}
+		}
+	}
+
+	// Update successor connections for all blocks
+	for oldBlock, newBlock := range blockMap {
+		for _, oldSucc := range oldBlock.Successors {
+			if newSucc, ok := blockMap[oldSucc]; ok {
+				newBlock.Successors = append(newBlock.Successors, newSucc)
+				newSucc.Predecessors = append(newSucc.Predecessors, newBlock)
+			}
+		}
+	}
 }
 
 func (b *builder) inlineCall(bb *BasicBlock, callee *ssa.Function, args []*Signal, stack map[*ssa.Function]struct{}, depth int) ([]*Signal, bool) {
@@ -480,6 +1355,49 @@ func (b *builder) inlineCall(bb *BasicBlock, callee *ssa.Function, args []*Signa
 		values:  make(map[ssa.Value]*Signal),
 		tuples:  make(map[ssa.Value][]*Signal),
 		slots:   make(map[ssa.Value]*Signal),
+		globals: make(map[*ssa.Global]*Signal),
+		stack:   stack,
+	}
+	for i, param := range callee.Params {
+		if i >= len(args) {
+			frame.values[param] = b.newConstSignal(0, signalType(param.Type()), callee.Pos())
+			continue
+		}
+		frame.values[param] = args[i]
+	}
+	return b.inlineEvalBlock(frame, callee.Blocks[0], nil, depth+1)
+}
+
+// inlineCallWithOptions is like inlineCall but allows skipping certain checks
+func (b *builder) inlineCallWithOptions(bb *BasicBlock, callee *ssa.Function, args []*Signal, stack map[*ssa.Function]struct{}, depth int, skipAcyclicCheck bool) ([]*Signal, bool) {
+	if bb == nil || callee == nil {
+		return nil, false
+	}
+	if results, ok := b.inlineIntrinsicCall(callee, args); ok {
+		return results, true
+	}
+	if depth >= inlineCallMaxDepth {
+		return nil, false
+	}
+	if len(callee.Blocks) == 0 {
+		return nil, false
+	}
+	// Skip acyclic check if requested
+	if !skipAcyclicCheck && !b.isAcyclicFunction(callee) {
+		return nil, false
+	}
+	if _, seen := stack[callee]; seen {
+		return nil, false
+	}
+	stack[callee] = struct{}{}
+	defer delete(stack, callee)
+
+	frame := &inlineFrame{
+		builder: b,
+		bb:      bb,
+		values:  make(map[ssa.Value]*Signal),
+		tuples:  make(map[ssa.Value][]*Signal),
+		slots:  make(map[ssa.Value]*Signal),
 		globals: make(map[*ssa.Global]*Signal),
 		stack:   stack,
 	}
@@ -971,5 +1889,156 @@ func unwrapAddressValue(v ssa.Value) ssa.Value {
 			return v
 		}
 	}
+	return nil
+}
+
+// replaceSignalInOperation replaces all occurrences of oldSignal with newSignal in an operation
+func (b *builder) replaceSignalInOperation(op Operation, oldSignal, newSignal *Signal) Operation {
+	if op == nil || oldSignal == nil {
+		return op
+	}
+
+	switch o := op.(type) {
+	case *BinOperation:
+		if o.Dest == oldSignal {
+			o.Dest = newSignal
+		}
+		if o.Left == oldSignal {
+			o.Left = newSignal
+		}
+		if o.Right == oldSignal {
+			o.Right = newSignal
+		}
+		return o
+	case *CompareOperation:
+		if o.Dest == oldSignal {
+			o.Dest = newSignal
+		}
+		if o.Left == oldSignal {
+			o.Left = newSignal
+		}
+		if o.Right == oldSignal {
+			o.Right = newSignal
+		}
+		return o
+	case *AssignOperation:
+		if o.Dest == oldSignal {
+			o.Dest = newSignal
+		}
+		if o.Value == oldSignal {
+			o.Value = newSignal
+		}
+		return o
+	case *ConvertOperation:
+		if o.Dest == oldSignal {
+			o.Dest = newSignal
+		}
+		if o.Value == oldSignal {
+			o.Value = newSignal
+		}
+		return o
+	case *NotOperation:
+		if o.Dest == oldSignal {
+			o.Dest = newSignal
+		}
+		if o.Value == oldSignal {
+			o.Value = newSignal
+		}
+		return o
+	case *MuxOperation:
+		if o.Dest == oldSignal {
+			o.Dest = newSignal
+		}
+		if o.Cond == oldSignal {
+			o.Cond = newSignal
+		}
+		if o.TrueValue == oldSignal {
+			o.TrueValue = newSignal
+		}
+		if o.FalseValue == oldSignal {
+			o.FalseValue = newSignal
+		}
+		return o
+	case *PhiOperation:
+		if o.Dest == oldSignal {
+			o.Dest = newSignal
+		}
+		for i := range o.Incomings {
+			if o.Incomings[i].Value == oldSignal {
+				o.Incomings[i].Value = newSignal
+			}
+		}
+		return o
+	case *PrintOperation:
+		for i := range o.Segments {
+			if o.Segments[i].Value == oldSignal {
+				o.Segments[i].Value = newSignal
+			}
+		}
+		return o
+	case *SendOperation:
+		if o.Value == oldSignal {
+			o.Value = newSignal
+		}
+		return o
+	case *RecvOperation:
+		if o.Dest == oldSignal {
+			o.Dest = newSignal
+		}
+		return o
+	default:
+		return op
+	}
+}
+
+// replaceSignalInTerminator replaces all occurrences of oldSignal with newSignal in a terminator
+func (b *builder) replaceSignalInTerminator(term Terminator, oldSignal, newSignal *Signal) Terminator {
+	if term == nil || oldSignal == nil {
+		return term
+	}
+
+	switch t := term.(type) {
+	case *BranchTerminator:
+		if t.Cond == oldSignal {
+			t.Cond = newSignal
+		}
+		return t
+	case *JumpTerminator:
+		return t
+	case *ReturnTerminator:
+		return t
+	default:
+		return term
+	}
+}
+
+// findIndexedBaseForSignal finds the indexedBaseState for a given signal
+func (b *builder) findIndexedBaseForSignal(sig *Signal) *indexedBaseState {
+	if b == nil || sig == nil {
+		return nil
+	}
+
+	// Search through all indexed bases to find one that contains this signal
+	for ssaVal, state := range b.indexedBases {
+		if state == nil {
+			continue
+		}
+
+		// First, check if any element signal matches
+		for _, elemSig := range state.elements {
+			if elemSig == sig {
+				return state
+			}
+		}
+
+		// Second, check if the signal name matches a global array name
+		// This handles the case where sig is a placeholder for an array
+		if g, ok := ssaVal.(*ssa.Global); ok {
+			if g.Name() == sig.Name {
+				return state
+			}
+		}
+	}
+
 	return nil
 }

@@ -1,0 +1,18 @@
+/usr/local/go/src/os/proc.go:67:8: warning: instruction *ssa.Panic ignored in IR builder
+/usr/local/go/src/os/proc.go:75:20: warning: call to runtime_beforeExit could not be inlined - call will be ignored
+/usr/local/go/src/os/proc.go:77:14: warning: call to Exit could not be inlined - call will be ignored
+/usr/local/go/src/internal/testlog/exit.go:18:15: warning: instruction *ssa.FieldAddr ignored in IR builder
+/usr/local/go/src/internal/testlog/exit.go:18:15: warning: no signal mapping for value *ssa.FieldAddr
+/usr/local/go/src/internal/testlog/exit.go:19:21: warning: instruction *ssa.FieldAddr ignored in IR builder
+/usr/local/go/src/internal/testlog/exit.go:19:2: warning: instruction *ssa.Defer ignored in IR builder
+/usr/local/go/src/internal/testlog/exit.go:20:22: warning: instruction *ssa.FieldAddr ignored in IR builder
+/usr/local/go/src/internal/testlog/exit.go:20:22: warning: no signal mapping for value *ssa.FieldAddr
+/usr/local/go/src/internal/testlog/exit.go:20:22: warning: unresolved dereference *ssa.FieldAddr; using zero value fallback
+warning: instruction *ssa.RunDefers ignored in IR builder
+warning: if condition has no signal mapping; treating as false
+[DEBUG] ExtractConstants called for: tests/CHStone/common/main.go
+[DEBUG] Read 593 bytes from source
+[DEBUG] Parsed 3 declarations
+[DEBUG] AST walk: 1 GenDecls, 0 ValueSpecs, 0 CompositeLits, 0 ArrayTypes
+info: extracted 0 constant arrays from tests/CHStone/common/main.go
+info: total constant arrays for testbench: 0

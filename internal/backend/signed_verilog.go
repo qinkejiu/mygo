@@ -207,11 +207,30 @@ func rewriteFwriteCalls(src string, prints []printInfo) (string, map[string]stru
 		if err != nil {
 			return "", nil, err
 		}
+		// Check if this is an $fwrite to stdout (32'h80000001)
+		// If so, convert to $display by removing the file descriptor argument
+		isStdout := false
+		if len(args) > 0 {
+			firstArg := strings.TrimSpace(args[0])
+			if firstArg == "32'h80000001" || firstArg == "0x80000001" {
+				isStdout = true
+				// Remove the first argument (file descriptor)
+				args = args[1:]
+				seps = seps[1:]
+			}
+		}
+
 		if idx < len(prints) {
 			args, signedNames = rewriteFwriteArgs(args, prints[idx], signedNames)
 			idx++
 		}
-		out.WriteString("$fwrite(")
+
+		// Use $display for stdout, $fwrite for other file descriptors
+		if isStdout {
+			out.WriteString("$display(")
+		} else {
+			out.WriteString("$fwrite(")
+		}
 		for k, arg := range args {
 			if k > 0 {
 				out.WriteString(seps[k-1])

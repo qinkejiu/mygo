@@ -1,4 +1,4 @@
-generated=2026-03-06 15:04:00
+generated=2026-03-15 10:41:01
 case=tests/CHStone/motion
 ssa_ok=True
 ssa_return_code=0
@@ -16,7 +16,7 @@ software_return_code=0
 hardware_return_code=0
 software_ok=True
 hardware_ok=True
-hardware_cycles_used=99
+hardware_cycles_used=101
 output_match=True
 output_match_mode=strict
 software_stdout_path=tests/CHStone/motion/software.stdout.txt

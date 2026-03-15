@@ -15,6 +15,7 @@ import (
 	"golang.org/x/tools/go/ssa"
 
 	"mygo/internal/backend"
+	"mygo/internal/constdata"
 	"mygo/internal/diag"
 	"mygo/internal/frontend"
 	"mygo/internal/ir"
@@ -324,7 +325,23 @@ func runSim(args []string) error {
 	auxFiles := append([]string{}, res.AuxPaths...)
 
 	if *simulator == "" {
-		return runBuiltinVerilator(svPath, auxFiles, *expectPath, *simMaxCycles, *simResetCycles, tempRoot, *keepArtifacts)
+		// Extract constant arrays from source files for testbench initialization
+		constants := []constdata.ArrayConstant{}
+		for _, input := range inputs {
+		 consts, err := constdata.ExtractConstants(input)
+			if err != nil {
+				// Non-fatal: just log and continue
+				fmt.Fprintf(os.Stderr, "warning: could not extract constants from %s: %v\n", input, err)
+				continue
+			}
+			fmt.Fprintf(os.Stderr, "info: extracted %d constant arrays from %s\n", len(consts), input)
+			for _, c := range consts {
+				fmt.Fprintf(os.Stderr, "  - %s: %d values\n", c.Name, len(c.Values))
+			}
+			constants = append(constants, consts...)
+		}
+		fmt.Fprintf(os.Stderr, "info: total constant arrays for testbench: %d\n", len(constants))
+		return runBuiltinVerilator(svPath, auxFiles, *expectPath, *simMaxCycles, *simResetCycles, tempRoot, *keepArtifacts, constants)
 	}
 
 	simulatorArgs := parseSimArgs(*simArgs)
@@ -444,7 +461,7 @@ func ensureArtifactRoot(base string) string {
 	return root
 }
 
-func runBuiltinVerilator(mainPath string, auxPaths []string, expectPath string, maxCycles, resetCycles int, tempRoot string, keepArtifacts bool) error {
+func runBuiltinVerilator(mainPath string, auxPaths []string, expectPath string, maxCycles, resetCycles int, tempRoot string, keepArtifacts bool, constants []constdata.ArrayConstant) error {
 	if maxCycles <= 0 {
 		return fmt.Errorf("default simulator requires --sim-max-cycles > 0 (got %d)", maxCycles)
 	}
@@ -469,7 +486,7 @@ func runBuiltinVerilator(mainPath string, auxPaths []string, expectPath string, 
 		return fmt.Errorf("create verilator build dir: %w", err)
 	}
 	driverPath := filepath.Join(buildDir, "sim_main.cpp")
-	driver, err := renderVerilatorDriver(maxCycles, resetCycles)
+	driver, err := renderVerilatorDriver(maxCycles, resetCycles, constants)
 	if err != nil {
 		return fmt.Errorf("render verilator driver: %w", err)
 	}

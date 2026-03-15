@@ -1,4 +1,15 @@
 /home/qinkejiu/mygo/tests/CHStone/motion/main.go:90:3: warning: for loop has condition-only control; lowering will use loop FSM generation
 /home/qinkejiu/mygo/tests/CHStone/motion/main.go:97:3: warning: for loop has condition-only control; lowering will use loop FSM generation
 /home/qinkejiu/mygo/tests/CHStone/motion/main.go:131:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+/home/qinkejiu/mygo/tests/CHStone/motion/main.go:468:6: warning: dynamic call result is not supported: *ssa.Builtin
 /home/qinkejiu/mygo/tests/CHStone/motion/main.go:512:52: warning: multi-result call for mygo/tests/CHStone/motion.motion_vectors is not supported
+[DEBUG] ExtractConstants called for: tests/CHStone/motion/main.go
+[DEBUG] Read 18824 bytes from source
+[DEBUG] Parsed 21 declarations
+[DEBUG] Skipping MVtab0 due to non-constant element: not a constant value
+[DEBUG] Skipping MVtab1 due to non-constant element: not a constant value
+[DEBUG] Skipping MVtab2 due to non-constant element: not a constant value
+[DEBUG] Skipping inPMV due to non-constant element: not a constant value
+[DEBUG] AST walk: 11 GenDecls, 16 ValueSpecs, 4 CompositeLits, 0 ArrayTypes
+info: extracted 0 constant arrays from tests/CHStone/motion/main.go
+info: total constant arrays for testbench: 0

@@ -1,4 +1,4 @@
-generated=2026-03-06 15:04:09
+generated=2026-03-15 10:42:00
 case=tests/CHStone/sha
 ssa_ok=True
 ssa_return_code=0
@@ -16,8 +16,8 @@ software_return_code=0
 hardware_return_code=0
 software_ok=True
 hardware_ok=True
-hardware_cycles_used=4096
-output_match=False
-output_match_mode=none
+hardware_cycles_used=20
+output_match=True
+output_match_mode=strict
 software_stdout_path=tests/CHStone/sha/software.stdout.txt
 hardware_stdout_path=tests/CHStone/sha/hardware.stdout.txt

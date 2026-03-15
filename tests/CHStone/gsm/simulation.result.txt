@@ -1,4 +1,4 @@
-generated=2026-03-06 15:00:46
+generated=2026-03-15 10:39:25
 case=tests/CHStone/gsm
 ssa_ok=True
 ssa_return_code=0
@@ -15,7 +15,7 @@ verilog_path=tests/CHStone/gsm/main.sv
 software_return_code=0
 hardware_return_code=0
 software_ok=True
-hardware_ok=True
+hardware_ok=False
 hardware_cycles_used=4096
 output_match=False
 output_match_mode=none

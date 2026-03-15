@@ -6,6 +6,15 @@ int main(int argc, char** argv) {
   Vmain top;
   const vluint64_t kMaxCycles = {{ .MaxCycles }}ULL;
   const vluint64_t kResetCycles = {{ .ResetCycles }}ULL;
+
+  // Initialize constant array input ports
+  {{ range $constant := .Constants }}
+  // Initialize {{ $constant.Name }}
+  {{ range $idx, $val := $constant.Values }}
+  top.{{ $constant.Name }}_{{ $idx }} = {{ $val }};
+  {{ end }}
+  {{ end }}
+
   top.clk = 0;
   top.rst = 1;
   for (vluint64_t cycle = 0; cycle < kMaxCycles; ++cycle) {
