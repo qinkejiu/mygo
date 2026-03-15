@@ -1,4 +1,4 @@
-generated=2026-03-15 10:41:01
+generated=2026-03-16 01:04:58
 case=tests/CHStone/motion
 ssa_ok=True
 ssa_return_code=0

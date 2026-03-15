@@ -49,7 +49,7 @@ type emitter struct {
 	fifoDecls    map[string]*fifoInfo
 	seqClockName string
 	modulePorts  map[string][]portDesc // Track module ports for instances
-	globalTempID int                 // Global counter for unique temporary names
+	globalTempID int                   // Global counter for unique temporary names
 }
 
 func (e *emitter) emitModule(module *ir.Module) {
@@ -112,7 +112,7 @@ func (e *emitter) emitTopLevelModule(module *ir.Module, root *processInfo, proce
 
 	channelWires := e.emitChannelWires(module)
 	e.emitChannelFifos(module, channelWires)
-	e.emitInternalSignals(module)
+	e.emitInternalSignals(module, moduleUsesFSM(module))
 	if root != nil {
 		e.emitRootProcess(module, root, channelWires)
 	}
@@ -247,7 +247,7 @@ func (e *emitter) emitChannelFifos(module *ir.Module, wires map[*ir.Channel]*cha
 	}
 }
 
-func (e *emitter) emitInternalSignals(module *ir.Module) {
+func (e *emitter) emitInternalSignals(module *ir.Module, useInoutRegs bool) {
 	if module == nil || len(module.Signals) == 0 {
 		return
 	}
@@ -293,25 +293,52 @@ func (e *emitter) emitInternalSignals(module *ir.Module) {
 			}
 		}
 
-		// Array elements and scalar globals need to be declared as registers for persistent storage
+		// Array elements and scalar globals need to be declared as registers for persistent storage.
+		// FSM-driven processes require inout regs so per-state updates can use sv.passign.
 		if isArrayElement {
 			e.printIndent()
 			// Initialize register with constant value if available, otherwise 0
-			initValue := e.getSignalInitValue(sig)
+			initValue := formatHWConstant(e.getSignalInitValue(sig), sig.Type)
 			constName := fmt.Sprintf("%%c_init_%s", sanitize(name))
-			fmt.Fprintf(e.w, "%s = hw.constant %v : %s\n", constName, initValue, typeString(sig.Type))
-			clk := e.seqClock()
-			fmt.Fprintf(e.w, "%%%s = seq.compreg %s, %s : %s\n", sanitize(name), constName, clk, typeString(sig.Type))
+			fmt.Fprintf(e.w, "%s = hw.constant %s : %s\n", constName, initValue, typeString(sig.Type))
+			if useInoutRegs {
+				e.printIndent()
+				fmt.Fprintf(e.w, "%%%s = sv.reg : !hw.inout<%s>\n", sanitize(name), typeString(sig.Type))
+				e.printIndent()
+				fmt.Fprintln(e.w, "sv.initial {")
+				e.indent++
+				e.printIndent()
+				fmt.Fprintf(e.w, "sv.bpassign %%%s, %s : %s\n", sanitize(name), constName, typeString(sig.Type))
+				e.indent--
+				e.printIndent()
+				fmt.Fprintln(e.w, "}")
+			} else {
+				clk := e.seqClock()
+				fmt.Fprintf(e.w, "%%%s = seq.compreg %s, %s : %s\n", sanitize(name), constName, clk, typeString(sig.Type))
+			}
 		} else if sig.Kind == ir.Reg {
 			// All register-kind signals that are not array elements
 			// This includes scalar globals like xout1, xout2, nbl, dlt, dec_plt1, etc.
 			e.printIndent()
 			// Initialize register with constant value if available, otherwise 0
-			initValue := e.getSignalInitValue(sig)
+			initValue := formatHWConstant(e.getSignalInitValue(sig), sig.Type)
 			constName := fmt.Sprintf("%%c_init_%s", sanitize(name))
-			fmt.Fprintf(e.w, "%s = hw.constant %v : %s\n", constName, initValue, typeString(sig.Type))
-			clk := e.seqClock()
-			fmt.Fprintf(e.w, "%%%s = seq.compreg %s, %s : %s\n", sanitize(name), constName, clk, typeString(sig.Type))
+			fmt.Fprintf(e.w, "%s = hw.constant %s : %s\n", constName, initValue, typeString(sig.Type))
+			if useInoutRegs {
+				e.printIndent()
+				fmt.Fprintf(e.w, "%%%s = sv.reg : !hw.inout<%s>\n", sanitize(name), typeString(sig.Type))
+				e.printIndent()
+				fmt.Fprintln(e.w, "sv.initial {")
+				e.indent++
+				e.printIndent()
+				fmt.Fprintf(e.w, "sv.bpassign %%%s, %s : %s\n", sanitize(name), constName, typeString(sig.Type))
+				e.indent--
+				e.printIndent()
+				fmt.Fprintln(e.w, "}")
+			} else {
+				clk := e.seqClock()
+				fmt.Fprintf(e.w, "%%%s = seq.compreg %s, %s : %s\n", sanitize(name), constName, clk, typeString(sig.Type))
+			}
 		} else {
 			// Don't emit wire declarations for internal signals
 			// Intermediate computation values are created as SSA values during process emission
@@ -1439,12 +1466,30 @@ func (f *fsmBuilder) emitBlockSideEffects(block *ir.BasicBlock) {
 		return
 	}
 	for _, op := range block.Ops {
-		printOp, ok := op.(*ir.PrintOperation)
-		if !ok {
-			continue
+		switch typed := op.(type) {
+		case *ir.AssignOperation:
+			f.emitAssignUpdate(typed)
+		case *ir.PrintOperation:
+			f.emitInlinePrint(typed)
 		}
-		f.emitInlinePrint(printOp)
 	}
+}
+
+func (f *fsmBuilder) emitAssignUpdate(op *ir.AssignOperation) {
+	if f == nil || f.printer == nil || op == nil || op.Dest == nil || op.Value == nil {
+		return
+	}
+	moduleSig, ok := f.printer.moduleSignals[op.Dest.Name]
+	if !ok || moduleSig == nil || moduleSig.Kind != ir.Reg {
+		return
+	}
+	dest := "%" + sanitize(op.Dest.Name)
+	value := f.printer.valueRef(op.Value)
+	if dest == "" || dest == "%unknown" || value == "" || value == "%unknown" {
+		return
+	}
+	f.printer.printIndent()
+	fmt.Fprintf(f.printer.w, "sv.passign %s, %s : %s\n", dest, value, typeString(op.Dest.Type))
 }
 
 func (f *fsmBuilder) emitInlinePrint(op *ir.PrintOperation) {
@@ -1609,34 +1654,41 @@ func (f *fsmBuilder) emitTransition(pred, succ *ir.BasicBlock) {
 }
 
 type processPrinter struct {
-	w             io.Writer
-	indent        int
-	nextTemp      int
-	constNames    map[*ir.Signal]string
-	valueNames    map[*ir.Signal]string
-	portNames     map[string]string
-	channelPorts  map[*ir.Channel]*channelPortSet
-	moduleSignals map[string]*ir.Signal
-	usedSignals   map[*ir.Signal]struct{}
-	boolConsts    map[bool]string
-	stdoutFD      string
-	fsm           *fsmBuilder
-	seqClockName  string
-	internalSignalReads map[string]string // Maps signal name to the read_inout result
-	moduleName    string // Name of the parent module
-	modulePorts   map[string][]portDesc // Module port information for instances
-	emitter       *emitter // Reference to parent emitter for global state
-	emittedRegisters map[string]bool // Track which registers have already been emitted
+	w                   io.Writer
+	indent              int
+	nextTemp            int
+	constNames          map[*ir.Signal]string
+	valueNames          map[*ir.Signal]string
+	portNames           map[string]string
+	channelPorts        map[*ir.Channel]*channelPortSet
+	moduleSignals       map[string]*ir.Signal
+	usedSignals         map[*ir.Signal]struct{}
+	boolConsts          map[bool]string
+	stdoutFD            string
+	fsm                 *fsmBuilder
+	seqClockName        string
+	internalSignalReads map[string]string     // Maps signal name to the read_inout result
+	moduleName          string                // Name of the parent module
+	modulePorts         map[string][]portDesc // Module port information for instances
+	emitter             *emitter              // Reference to parent emitter for global state
+	emittedRegisters    map[string]bool       // Track which registers have already been emitted
 }
 
 func (p *processPrinter) resetState() {
 	p.nextTemp = 0
 	p.constNames = make(map[*ir.Signal]string)
 	p.valueNames = make(map[*ir.Signal]string)
-	p.portNames = map[string]string{
-		"clk": "%clk",
-		"rst": "%rst",
+	portNames := make(map[string]string)
+	for name, value := range p.portNames {
+		portNames[name] = value
 	}
+	if _, ok := portNames["clk"]; !ok {
+		portNames["clk"] = "%clk"
+	}
+	if _, ok := portNames["rst"]; !ok {
+		portNames["rst"] = "%rst"
+	}
+	p.portNames = portNames
 	if p.channelPorts == nil {
 		p.channelPorts = make(map[*ir.Channel]*channelPortSet)
 	}
@@ -1754,16 +1806,7 @@ func (p *processPrinter) emitConstants() {
 		}
 		ssaName := p.assignConst(sig)
 		p.printIndent()
-		val := sig.Value
-		switch v := val.(type) {
-		case bool:
-			if v {
-				val = 1
-			} else {
-				val = 0
-			}
-		}
-		fmt.Fprintf(p.w, "%s = hw.constant %v : %s\n", ssaName, val, typeString(sig.Type))
+		fmt.Fprintf(p.w, "%s = hw.constant %s : %s\n", ssaName, formatHWConstant(sig.Value, sig.Type), typeString(sig.Type))
 	}
 }
 
@@ -1784,6 +1827,17 @@ func (p *processPrinter) emitOperation(block *ir.BasicBlock, op ir.Operation, pr
 	case *ir.ConvertOperation:
 		p.emitConvertOperation(o)
 	case *ir.AssignOperation:
+		if p.fsm != nil {
+			moduleSig, ok := p.moduleSignals[o.Dest.Name]
+			if ok && moduleSig != nil && moduleSig.Kind == ir.Reg {
+				return
+			}
+			src := p.valueRef(o.Value)
+			if src != "" && src != "%unknown" {
+				p.valueNames[o.Dest] = src
+			}
+			return
+		}
 		src := p.valueRef(o.Value)
 
 		// Check if this is an assignment to an array element
@@ -2027,10 +2081,9 @@ func processHasPrintOps(proc *ir.Process) bool {
 }
 
 func processNeedsPrintControlFSM(proc *ir.Process) bool {
-	// Non-FSM lowering emits each print operation directly, ignoring block
-	// terminators. For multi-block control flow this would execute prints from
-	// all branches, so route those processes through the FSM lowering.
-	return processHasPrintOps(proc) && len(proc.Blocks) > 1
+	// Route all print-bearing processes through the FSM lowering so stdout side
+	// effects execute once per logical control path instead of on every clock.
+	return processHasPrintOps(proc)
 }
 
 func (p *processPrinter) assignConst(sig *ir.Signal) string {
@@ -2062,6 +2115,22 @@ func (p *processPrinter) valueRef(sig *ir.Signal) string {
 	}
 	if sig.Kind == ir.Const {
 		return p.assignConst(sig)
+	}
+	if sig.Name != "" {
+		if portName, ok := p.portNames[sig.Name]; ok {
+			p.valueNames[sig] = portName
+			return portName
+		}
+	}
+	if p.fsm != nil && sig.Name != "" && sig.Name != "clk" && sig.Name != "rst" {
+		if moduleSig, ok := p.moduleSignals[sig.Name]; ok && moduleSig != nil && moduleSig.Kind == ir.Reg {
+			wireName := "%" + sanitize(sig.Name)
+			readName := fmt.Sprintf("%%v%d", p.emitter.globalTempID)
+			p.emitter.globalTempID++
+			p.printIndent()
+			fmt.Fprintf(p.w, "%s = sv.read_inout %s : !hw.inout<%s>\n", readName, wireName, typeString(sig.Type))
+			return readName
+		}
 	}
 	if name, ok := p.valueNames[sig]; ok {
 		return name
@@ -2141,6 +2210,21 @@ func (p *processPrinter) boolConst(val bool) string {
 	}
 	fmt.Fprintf(p.w, "%s = hw.constant %d : i1\n", name, intVal)
 	return name
+}
+
+func moduleUsesFSM(module *ir.Module) bool {
+	if module == nil {
+		return false
+	}
+	for _, proc := range module.Processes {
+		if proc == nil {
+			continue
+		}
+		if processHasPhi(proc) || processHasChannelOps(proc) || processNeedsPrintControlFSM(proc) {
+			return true
+		}
+	}
+	return false
 }
 
 func (p *processPrinter) typedZeroConst(t *ir.SignalType) string {
@@ -2380,17 +2464,17 @@ func (p *processPrinter) emitPrintOperation(op *ir.PrintOperation) {
 	}
 	format, operands, operandTypes := p.buildPrintfFormat(op)
 	clk := p.portRef("clk")
+	fd := p.stdoutConstant()
 
 	p.printIndent()
 	fmt.Fprintf(p.w, "sv.always posedge %s {\n", clk)
 	p.indent++
 	p.printIndent()
 	if len(operands) == 0 {
-		// Use sv.fwrite without file descriptor for stdout (translates to $display)
-		fmt.Fprintf(p.w, "sv.fwrite %s\n", strconv.Quote(format))
+		fmt.Fprintf(p.w, "sv.fwrite %s, %s\n", fd, strconv.Quote(format))
 	} else {
-		// Use sv.fwrite without file descriptor for stdout (translates to $display)
-		fmt.Fprintf(p.w, "sv.fwrite %s(%s) : %s\n",
+		fmt.Fprintf(p.w, "sv.fwrite %s, %s(%s) : %s\n",
+			fd,
 			strconv.Quote(format),
 			strings.Join(operands, ", "),
 			strings.Join(operandTypes, ", "),
@@ -2436,8 +2520,14 @@ func printVerbSpecifier(seg ir.PrintSegment) string {
 		builder.WriteByte('x')
 	case ir.PrintVerbBin:
 		builder.WriteByte('b')
+	case ir.PrintVerbFloat:
+		builder.WriteByte('f')
 	default:
-		builder.WriteByte('d')
+		if seg.Width == 0 {
+			builder.WriteString("0d")
+		} else {
+			builder.WriteByte('d')
+		}
 	}
 	return builder.String()
 }
@@ -2490,6 +2580,10 @@ func binOpName(op ir.BinOp) string {
 		// For division, we need to determine signed vs unsigned
 		// Default to unsigned division for safety
 		return "divu"
+	case ir.Rem:
+		// Current lowering treats integer arithmetic as unsigned in comb.
+		// This matches the existing division path and covers positive CHStone indices.
+		return "modu"
 	case ir.And:
 		return "and"
 	case ir.Or:
@@ -2570,29 +2664,63 @@ func (e *emitter) getSignalInitValue(sig *ir.Signal) interface{} {
 	if sig == nil || sig.Value == nil {
 		return 0
 	}
-	// Handle different types of constant values
-	switch v := sig.Value.(type) {
-	case int64:
-		// Convert signed to unsigned for display
-		return uint64(v)
-	case int:
-		return v
-	case int32:
-		return uint32(v)
-	case uint64, uint32, uint16, uint8, uint:
-		return v
+	return sig.Value
+}
+
+func formatHWConstant(value interface{}, typ *ir.SignalType) string {
+	if value == nil {
+		return "0"
+	}
+	switch v := value.(type) {
 	case bool:
 		if v {
-			return 1
+			return "1"
 		}
-		return 0
+		return "0"
+	case int:
+		return normalizeHWConstantBits(uint64(int64(v)), signalWidth(typ))
+	case int8:
+		return normalizeHWConstantBits(uint64(int64(v)), signalWidth(typ))
+	case int16:
+		return normalizeHWConstantBits(uint64(int64(v)), signalWidth(typ))
+	case int32:
+		return normalizeHWConstantBits(uint64(int64(v)), signalWidth(typ))
+	case int64:
+		return normalizeHWConstantBits(uint64(v), signalWidth(typ))
+	case uint:
+		return normalizeHWConstantBits(uint64(v), signalWidth(typ))
+	case uint8:
+		return normalizeHWConstantBits(uint64(v), signalWidth(typ))
+	case uint16:
+		return normalizeHWConstantBits(uint64(v), signalWidth(typ))
+	case uint32:
+		return normalizeHWConstantBits(uint64(v), signalWidth(typ))
+	case uint64:
+		return normalizeHWConstantBits(v, signalWidth(typ))
+	case string:
+		return v
 	default:
-		// For unknown types, try to use the value as-is or default to 0
-		if num, ok := v.(int); ok {
-			return num
-		}
-		return 0
+		return fmt.Sprintf("%v", value)
 	}
+}
+
+func normalizeHWConstantBits(bits uint64, width int) string {
+	if width <= 0 {
+		return strconv.FormatUint(bits, 10)
+	}
+	if width == 1 {
+		return strconv.FormatUint(bits&1, 10)
+	}
+	if width >= 64 {
+		return strconv.FormatInt(int64(bits), 10)
+	}
+	mask := (uint64(1) << width) - 1
+	bits &= mask
+	signBit := uint64(1) << (width - 1)
+	if bits&signBit != 0 {
+		return strconv.FormatInt(int64(bits|^mask), 10)
+	}
+	return strconv.FormatUint(bits, 10)
 }
 
 func (e *emitter) recordFifo(moduleName string, ch *ir.Channel) {

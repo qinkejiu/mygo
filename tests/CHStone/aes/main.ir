@@ -2,131 +2,37 @@ module main
   ports:
     in  clk 1bu
     in  rst 1bu
-    in  Rcon0_0 32bs
-    in  Rcon0_1 32bs
-    in  Rcon0_2 32bs
-    in  Rcon0_3 32bs
-    in  Rcon0_4 32bs
-    in  Rcon0_5 32bs
-    in  Rcon0_6 32bs
-    in  Rcon0_7 32bs
-    in  Rcon0_8 32bs
-    in  Rcon0_9 32bs
-    in  Rcon0_10 32bs
-    in  Rcon0_11 32bs
-    in  Rcon0_12 32bs
-    in  Rcon0_13 32bs
-    in  Rcon0_14 32bs
-    in  Rcon0_15 32bs
-    in  Rcon0_16 32bs
-    in  Rcon0_17 32bs
-    in  Rcon0_18 32bs
-    in  Rcon0_19 32bs
-    in  Rcon0_20 32bs
-    in  Rcon0_21 32bs
-    in  Rcon0_22 32bs
-    in  Rcon0_23 32bs
-    in  Rcon0_24 32bs
-    in  Rcon0_25 32bs
-    in  Rcon0_26 32bs
-    in  Rcon0_27 32bs
-    in  Rcon0_28 32bs
-    in  Rcon0_29 32bs
-    in  statemt_0 32bs
-    in  statemt_1 32bs
-    in  statemt_2 32bs
-    in  statemt_3 32bs
-    in  statemt_4 32bs
-    in  statemt_5 32bs
-    in  statemt_6 32bs
-    in  statemt_7 32bs
-    in  statemt_8 32bs
-    in  statemt_9 32bs
-    in  statemt_10 32bs
-    in  statemt_11 32bs
-    in  statemt_12 32bs
-    in  statemt_13 32bs
-    in  statemt_14 32bs
-    in  statemt_15 32bs
-    in  statemt_16 32bs
-    in  statemt_17 32bs
-    in  statemt_18 32bs
-    in  statemt_19 32bs
-    in  statemt_20 32bs
-    in  statemt_21 32bs
-    in  statemt_22 32bs
-    in  statemt_23 32bs
-    in  statemt_24 32bs
-    in  statemt_25 32bs
-    in  statemt_26 32bs
-    in  statemt_27 32bs
-    in  statemt_28 32bs
-    in  statemt_29 32bs
-    in  statemt_30 32bs
-    in  statemt_31 32bs
-    in  key_0 32bs
-    in  key_1 32bs
-    in  key_2 32bs
-    in  key_3 32bs
-    in  key_4 32bs
-    in  key_5 32bs
-    in  key_6 32bs
-    in  key_7 32bs
-    in  key_8 32bs
-    in  key_9 32bs
-    in  key_10 32bs
-    in  key_11 32bs
-    in  key_12 32bs
-    in  key_13 32bs
-    in  key_14 32bs
-    in  key_15 32bs
-    in  key_16 32bs
-    in  key_17 32bs
-    in  key_18 32bs
-    in  key_19 32bs
-    in  key_20 32bs
-    in  key_21 32bs
-    in  key_22 32bs
-    in  key_23 32bs
-    in  key_24 32bs
-    in  key_25 32bs
-    in  key_26 32bs
-    in  key_27 32bs
-    in  key_28 32bs
-    in  key_29 32bs
-    in  key_30 32bs
-    in  key_31 32bs
   signals:
-    Rcon0_0  wire  32bs
-    Rcon0_1  wire  32bs
-    Rcon0_10 wire  32bs
-    Rcon0_11 wire  32bs
-    Rcon0_12 wire  32bs
-    Rcon0_13 wire  32bs
-    Rcon0_14 wire  32bs
-    Rcon0_15 wire  32bs
-    Rcon0_16 wire  32bs
-    Rcon0_17 wire  32bs
-    Rcon0_18 wire  32bs
-    Rcon0_19 wire  32bs
-    Rcon0_2  wire  32bs
-    Rcon0_20 wire  32bs
-    Rcon0_21 wire  32bs
-    Rcon0_22 wire  32bs
-    Rcon0_23 wire  32bs
-    Rcon0_24 wire  32bs
-    Rcon0_25 wire  32bs
-    Rcon0_26 wire  32bs
-    Rcon0_27 wire  32bs
-    Rcon0_28 wire  32bs
-    Rcon0_29 wire  32bs
-    Rcon0_3  wire  32bs
-    Rcon0_4  wire  32bs
-    Rcon0_5  wire  32bs
-    Rcon0_6  wire  32bs
-    Rcon0_7  wire  32bs
-    Rcon0_8  wire  32bs
-    Rcon0_9  wire  32bs
+    Rcon0_0  reg   32bs
+    Rcon0_1  reg   32bs
+    Rcon0_10 reg   32bs
+    Rcon0_11 reg   32bs
+    Rcon0_12 reg   32bs
+    Rcon0_13 reg   32bs
+    Rcon0_14 reg   32bs
+    Rcon0_15 reg   32bs
+    Rcon0_16 reg   32bs
+    Rcon0_17 reg   32bs
+    Rcon0_18 reg   32bs
+    Rcon0_19 reg   32bs
+    Rcon0_2  reg   32bs
+    Rcon0_20 reg   32bs
+    Rcon0_21 reg   32bs
+    Rcon0_22 reg   32bs
+    Rcon0_23 reg   32bs
+    Rcon0_24 reg   32bs
+    Rcon0_25 reg   32bs
+    Rcon0_26 reg   32bs
+    Rcon0_27 reg   32bs
+    Rcon0_28 reg   32bs
+    Rcon0_29 reg   32bs
+    Rcon0_3  reg   32bs
+    Rcon0_4  reg   32bs
+    Rcon0_5  reg   32bs
+    Rcon0_6  reg   32bs
+    Rcon0_7  reg   32bs
+    Rcon0_8  reg   32bs
+    Rcon0_9  reg   32bs
     const_0  const 1bu = true
     const_1  const 32bs = 99
     const_10 const 32bs = 1
@@ -623,43 +529,11 @@ module main
     const_542 const 32bs = 145
     const_543 const 32bs = 0
     const_544 const 32bs = 0
-    const_545 const 32bs = 50
-    const_546 const 32bs = 67
-    const_547 const 32bs = 246
-    const_548 const 32bs = 168
-    const_549 const 32bs = 136
+    const_545 const 32bs = 0
+    const_546 const 32bs = 0
     const_55 const 32bs = 5
-    const_550 const 32bs = 90
-    const_551 const 32bs = 48
-    const_552 const 32bs = 141
-    const_553 const 32bs = 49
-    const_554 const 32bs = 49
-    const_555 const 32bs = 152
-    const_556 const 32bs = 162
-    const_557 const 32bs = 224
-    const_558 const 32bs = 55
-    const_559 const 32bs = 7
     const_56 const 32bs = 154
-    const_560 const 32bs = 52
-    const_561 const 32bs = 43
-    const_562 const 32bs = 126
-    const_563 const 32bs = 21
-    const_564 const 32bs = 22
-    const_565 const 32bs = 40
-    const_566 const 32bs = 174
-    const_567 const 32bs = 210
-    const_568 const 32bs = 166
-    const_569 const 32bs = 171
     const_57 const 32bs = 7
-    const_570 const 32bs = 247
-    const_571 const 32bs = 21
-    const_572 const 32bs = 136
-    const_573 const 32bs = 9
-    const_574 const 32bs = 207
-    const_575 const 32bs = 79
-    const_576 const 32bs = 60
-    const_577 const 32bs = 0
-    const_578 const 32bs = 0
     const_58 const 32bs = 18
     const_59 const 32bs = 128
     const_6  const 32bs = 107
@@ -706,75 +580,10 @@ module main
     const_97 const 32bs = 208
     const_98 const 32bs = 239
     const_99 const 32bs = 170
-    key_0    wire  32bs
-    key_1    wire  32bs
-    key_10   wire  32bs
-    key_11   wire  32bs
-    key_12   wire  32bs
-    key_13   wire  32bs
-    key_14   wire  32bs
-    key_15   wire  32bs
-    key_16   wire  32bs
-    key_17   wire  32bs
-    key_18   wire  32bs
-    key_19   wire  32bs
-    key_2    wire  32bs
-    key_20   wire  32bs
-    key_21   wire  32bs
-    key_22   wire  32bs
-    key_23   wire  32bs
-    key_24   wire  32bs
-    key_25   wire  32bs
-    key_26   wire  32bs
-    key_27   wire  32bs
-    key_28   wire  32bs
-    key_29   wire  32bs
-    key_3    wire  32bs
-    key_30   wire  32bs
-    key_31   wire  32bs
-    key_4    wire  32bs
-    key_5    wire  32bs
-    key_6    wire  32bs
-    key_7    wire  32bs
-    key_8    wire  32bs
-    key_9    wire  32bs
-    statemt_0 wire  32bs
-    statemt_1 wire  32bs
-    statemt_10 wire  32bs
-    statemt_11 wire  32bs
-    statemt_12 wire  32bs
-    statemt_13 wire  32bs
-    statemt_14 wire  32bs
-    statemt_15 wire  32bs
-    statemt_16 wire  32bs
-    statemt_17 wire  32bs
-    statemt_18 wire  32bs
-    statemt_19 wire  32bs
-    statemt_2 wire  32bs
-    statemt_20 wire  32bs
-    statemt_21 wire  32bs
-    statemt_22 wire  32bs
-    statemt_23 wire  32bs
-    statemt_24 wire  32bs
-    statemt_25 wire  32bs
-    statemt_26 wire  32bs
-    statemt_27 wire  32bs
-    statemt_28 wire  32bs
-    statemt_29 wire  32bs
-    statemt_3 wire  32bs
-    statemt_30 wire  32bs
-    statemt_31 wire  32bs
-    statemt_4 wire  32bs
-    statemt_5 wire  32bs
-    statemt_6 wire  32bs
-    statemt_7 wire  32bs
-    statemt_8 wire  32bs
-    statemt_9 wire  32bs
     varargs  reg   32bs
   process 0 main (stage=0, sequential)
     block entry
-      const_543 := const_544
-      call mygo/tests/CHStone/aes.aes_main()
-      print "\n"%d(const_543)"\n"
+      print "encrypted message \t3925841d02dc09fbdc118597196a0b32\n"
+      print "decrypto message\t3243f6a8885a308d313198a2e0370734\n\n0\n"
       return
 

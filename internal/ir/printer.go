@@ -184,8 +184,14 @@ func printVerbSpecifier(seg PrintSegment) string {
 		builder.WriteByte('x')
 	case PrintVerbBin:
 		builder.WriteByte('b')
+	case PrintVerbFloat:
+		builder.WriteByte('f')
 	default:
-		builder.WriteByte('d')
+		if seg.Width == 0 {
+			builder.WriteString("0d")
+		} else {
+			builder.WriteByte('d')
+		}
 	}
 	return builder.String()
 }
@@ -211,6 +217,10 @@ func binOpSymbol(op BinOp) string {
 		return "-"
 	case Mul:
 		return "*"
+	case Div:
+		return "/"
+	case Rem:
+		return "%"
 	case And:
 		return "&"
 	case Or:

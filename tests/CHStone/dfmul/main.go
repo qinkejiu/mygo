@@ -6,9 +6,11 @@ import (
 	"math/bits"
 )
 
-/*----------------------------------------------------------------------------
+/*
+----------------------------------------------------------------------------
 | 类型定义 (对应 SPARC-GCC.h 和 softfloat.h)
-*----------------------------------------------------------------------------*/
+*----------------------------------------------------------------------------
+*/
 type flag = uint8
 type int8_t = int8   // 改名为 int8_t 避免与内置 int8 冲突
 type int16_t = int16 // 改名为 int16_t 避免与内置 int16 冲突
@@ -221,9 +223,9 @@ func roundAndPackFloat64(zSign flag, zExp int16_t, zSig bits64) float64_t {
 	}
 
 	zSig = (zSig + uint64(roundIncrement)) >> 10
-	
+
 	// 修复：使用条件判断代替布尔值移位
-	if ((roundBits^0x200) == 0) && roundNearestEven {
+	if ((roundBits ^ 0x200) == 0) && roundNearestEven {
 		zSig &^= 1 // 清除最低位（实现偶数舍入）
 	}
 
@@ -233,7 +235,6 @@ func roundAndPackFloat64(zSign flag, zExp int16_t, zSig bits64) float64_t {
 
 	return packFloat64(zSign, zExp, zSig)
 }
-
 
 // float64Mul 双精度浮点乘法
 func float64Mul(a, b float64_t) float64_t {
@@ -423,8 +424,8 @@ func main() {
 			mainResult++
 		}
 
-		fmt.Printf("a_input=%016x b_input=%016x expected=%016x output=%016x (%f)\n",
-			aInput[i], bInput[i], zOutput[i], result, ullongToDouble(result))
+		fmt.Printf("a_input=%016x b_input=%016x expected=%016x output=%016x\n",
+			aInput[i], bInput[i], zOutput[i], result)
 	}
 
 	fmt.Printf("Errors: %d\n", mainResult)

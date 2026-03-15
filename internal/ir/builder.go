@@ -31,6 +31,8 @@ func BuildDesign(prog *ssa.Program, reporter *diag.Reporter) (*Design, error) {
 		tupleSignals:         make(map[ssa.Value][]*Signal),
 		indexedBases:         make(map[ssa.Value]*indexedBaseState),
 		globalValues:         make(map[*ssa.Global]*Signal),
+		globalStorage:        make(map[*ssa.Global]*Signal),
+		blockGlobalValues:    make(map[*BasicBlock]map[*ssa.Global]*Signal),
 		processes:            make(map[*ssa.Function]*Process),
 		channels:             make(map[ssa.Value]*Channel),
 		paramSignals:         make(map[*ssa.Parameter]*Signal),
@@ -65,6 +67,8 @@ type builder struct {
 	tupleSignals         map[ssa.Value][]*Signal
 	indexedBases         map[ssa.Value]*indexedBaseState
 	globalValues         map[*ssa.Global]*Signal
+	globalStorage        map[*ssa.Global]*Signal
+	blockGlobalValues    map[*BasicBlock]map[*ssa.Global]*Signal
 	processes            map[*ssa.Function]*Process
 	channels             map[ssa.Value]*Channel
 	paramSignals         map[*ssa.Parameter]*Signal
@@ -89,6 +93,7 @@ type indexedBaseState struct {
 	elemType *SignalType
 	length   int
 	elements map[int]*Signal
+	storage  map[int]*Signal
 }
 
 const defaultDynamicSliceIndexMax = 16
@@ -216,6 +221,7 @@ func (b *builder) buildProcess(fn *ssa.Function) *Process {
 		b.translateBlock(proc, block)
 	}
 	b.rebuildProcessEdges(proc)
+	b.repairPhiPredecessors(proc)
 	b.orderBlocks(proc, entryBB)
 	b.buildLoopFSMs(fn)
 	return proc
@@ -232,22 +238,22 @@ func (b *builder) translateBlock(proc *Process, block *ssa.BasicBlock) {
 	prevBlock := b.currentBlock
 	b.currentBlock = bb
 	defer func() { b.currentBlock = prevBlock }()
-		for idx, instr := range block.Instrs {
-			switch v := instr.(type) {
-			case *ssa.Phi:
-				b.handlePhi(block, bb, v)
-			case *ssa.If:
-				b.handleIf(block, bb, v)
-			case *ssa.Jump:
-				b.handleJump(block, bb)
-			case *ssa.Return:
-				b.handleReturn(proc, bb, v)
-			default:
-				if b.translateInstr(proc, block, bb, idx, instr) {
-					return
-				}
+	for idx, instr := range block.Instrs {
+		switch v := instr.(type) {
+		case *ssa.Phi:
+			b.handlePhi(block, bb, v)
+		case *ssa.If:
+			b.handleIf(block, bb, v)
+		case *ssa.Jump:
+			b.handleJump(block, bb)
+		case *ssa.Return:
+			b.handleReturn(proc, bb, v)
+		default:
+			if b.translateInstr(proc, block, bb, idx, instr) {
+				return
 			}
 		}
+	}
 }
 
 func (b *builder) connectBlocks(blocks []*ssa.BasicBlock) {
@@ -305,6 +311,60 @@ func (b *builder) rebuildProcessEdges(proc *Process) {
 			}
 		}
 	}
+}
+
+func (b *builder) repairPhiPredecessors(proc *Process) {
+	if proc == nil {
+		return
+	}
+	for _, block := range proc.Blocks {
+		if block == nil || len(block.Predecessors) == 0 {
+			continue
+		}
+		for _, op := range block.Ops {
+			phi, ok := op.(*PhiOperation)
+			if !ok || phi == nil {
+				continue
+			}
+			for i := range phi.Incomings {
+				incoming := phi.Incomings[i].Block
+				if incoming == nil || containsBlock(block.Predecessors, incoming) {
+					continue
+				}
+				replacement := matchPhiPredecessor(block.Predecessors, incoming)
+				if replacement != nil {
+					phi.Incomings[i].Block = replacement
+				}
+			}
+		}
+	}
+}
+
+func containsBlock(blocks []*BasicBlock, target *BasicBlock) bool {
+	for _, block := range blocks {
+		if block == target {
+			return true
+		}
+	}
+	return false
+}
+
+func matchPhiPredecessor(preds []*BasicBlock, incoming *BasicBlock) *BasicBlock {
+	if incoming == nil {
+		return nil
+	}
+	for _, pred := range preds {
+		if pred == nil {
+			continue
+		}
+		if pred.Label == incoming.Label {
+			return pred
+		}
+		if strings.HasPrefix(pred.Label, incoming.Label+"_inline_cont") {
+			return pred
+		}
+	}
+	return nil
 }
 
 func appendUniqueBlock(blocks []*BasicBlock, block *BasicBlock) []*BasicBlock {
@@ -927,6 +987,16 @@ func (b *builder) translateInstr(proc *Process, block *ssa.BasicBlock, bb *Basic
 		if b.lowerIndexedStore(bb, v) {
 			return false
 		}
+		if g, ok := unwrapAddressValue(v.Addr).(*ssa.Global); ok {
+			dest := b.signalForGlobalStorage(g)
+			val := b.signalForValue(v.Val)
+			if dest == nil || val == nil {
+				return false
+			}
+			bb.Ops = append(bb.Ops, &AssignOperation{Dest: dest, Value: val})
+			b.setBlockGlobalValue(bb, g, val)
+			return false
+		}
 		dest := b.signalForValue(v.Addr)
 		val := b.signalForValue(v.Val)
 		if dest == nil || val == nil {
@@ -1041,6 +1111,7 @@ func (b *builder) bindFunctionParams(fn *ssa.Function, proc *Process) {
 				elemType: signalType(elemType),
 				length:   length,
 				elements: make(map[int]*Signal),
+				storage:  make(map[int]*Signal),
 			}
 			if state.elemType == nil {
 				state.elemType = &SignalType{Width: 32, Signed: true}
@@ -1058,6 +1129,7 @@ func (b *builder) bindFunctionParams(fn *ssa.Function, proc *Process) {
 						Source: param.Pos(),
 					}
 					state.elements[i] = elemSig
+					state.storage[i] = elemSig
 				}
 			} else {
 				// For slices with unknown length, we'll need to determine the length from the argument
@@ -1089,7 +1161,6 @@ func (b *builder) bindFunctionParams(fn *ssa.Function, proc *Process) {
 		proc.Params = append(proc.Params, sig)
 	}
 }
-
 
 func (b *builder) handleMakeChan(mc *ssa.MakeChan) {
 	chType, ok := mc.Type().Underlying().(*types.Chan)
@@ -1318,7 +1389,7 @@ func (b *builder) lowerIndexedStore(bb *BasicBlock, store *ssa.Store) bool {
 		return false
 	}
 	if idx, ok := constIndexValue(addr.Index); ok {
-		dest := b.indexedElementSignal(state, idx, store.Pos())
+		dest := b.indexedElementStorageSignal(state, idx, store.Pos())
 		if dest == nil {
 			return false
 		}
@@ -1332,11 +1403,11 @@ func (b *builder) lowerIndexedStore(bb *BasicBlock, store *ssa.Store) bool {
 		if isInternal {
 			// Create an assign operation to store the value in a register
 			bb.Ops = append(bb.Ops, &AssignOperation{
-				Dest:   dest,
-				Value:  value,
+				Dest:  dest,
+				Value: value,
 			})
 		}
-		state.elements[idx] = dest
+		state.elements[idx] = value
 		return true
 	}
 	index := b.signalForValue(addr.Index)
@@ -1348,8 +1419,9 @@ func (b *builder) lowerIndexedStore(bb *BasicBlock, store *ssa.Store) bool {
 		indexType = signalType(addr.Index.Type())
 	}
 	for i := 0; i < state.length; i++ {
-		element := b.indexedElementSignal(state, i, store.Pos())
-		if element == nil {
+		current := b.indexedElementSignal(state, i, store.Pos())
+		dest := b.indexedElementStorageSignal(state, i, store.Pos())
+		if current == nil || dest == nil {
 			continue
 		}
 		cond := b.newAnonymousSignal("idxeq", &SignalType{Width: 1, Signed: false}, store.Pos())
@@ -1359,25 +1431,25 @@ func (b *builder) lowerIndexedStore(bb *BasicBlock, store *ssa.Store) bool {
 			Left:      index,
 			Right:     b.newConstSignal(int64(i), indexType, store.Pos()),
 		})
-		next := b.newAnonymousSignal("idxstore", element.Type, store.Pos())
+		next := b.newAnonymousSignal("idxstore", current.Type, store.Pos())
 		bb.Ops = append(bb.Ops, &MuxOperation{
 			Dest:       next,
 			Cond:       cond,
 			TrueValue:  value,
-			FalseValue: element,
+			FalseValue: current,
 		})
 		// For internal array elements, create an assign operation to store the value
 		isInternal := false
-		if element.Name != "" {
-			isInternal = !strings.HasPrefix(element.Name, "test_")
+		if dest.Name != "" {
+			isInternal = !strings.HasPrefix(dest.Name, "test_")
 		}
 		if isInternal {
 			bb.Ops = append(bb.Ops, &AssignOperation{
-				Dest:   element,
-				Value:  next,
+				Dest:  dest,
+				Value: next,
 			})
 		}
-		state.elements[i] = element
+		state.elements[i] = next
 	}
 	return true
 }
@@ -1439,6 +1511,7 @@ func (b *builder) indexedStateForBase(base ssa.Value, pos token.Pos) *indexedBas
 		elemType: signalType(elemType),
 		length:   length,
 		elements: make(map[int]*Signal),
+		storage:  make(map[int]*Signal),
 	}
 	if state.elemType == nil {
 		state.elemType = &SignalType{Width: 32, Signed: true}
@@ -1461,8 +1534,29 @@ func (b *builder) indexedElementSignal(state *indexedBaseState, idx int, pos tok
 	if sig, ok := state.elements[idx]; ok {
 		return sig
 	}
+	if sig, ok := state.storage[idx]; ok && sig != nil {
+		state.elements[idx] = sig
+		return sig
+	}
 	sig := b.newConstSignal(0, state.elemType, pos)
 	state.elements[idx] = sig
+	return sig
+}
+
+func (b *builder) indexedElementStorageSignal(state *indexedBaseState, idx int, pos token.Pos) *Signal {
+	if state == nil || idx < 0 {
+		return nil
+	}
+	if state.length >= 0 && idx >= state.length {
+		return nil
+	}
+	if sig, ok := state.storage[idx]; ok && sig != nil {
+		return sig
+	}
+	sig := b.indexedElementSignal(state, idx, pos)
+	if sig != nil {
+		state.storage[idx] = sig
+	}
 	return sig
 }
 
@@ -1491,11 +1585,19 @@ func (b *builder) bindGlobalIndexedInputPorts(g *ssa.Global, state *indexedBaseS
 		constSig := state.elements[i]
 		hasConstInit := constSig != nil && constSig.Kind == Const
 
+		kind := Wire
+		if !shouldHavePorts {
+			kind = Reg
+		}
+
 		// Create the signal (or reuse existing)
 		var sig *Signal
 		if existingSig, ok := b.module.Signals[sigName]; ok {
 			// Signal already exists in module, reuse it
 			sig = existingSig
+			if !shouldHavePorts {
+				sig.Kind = Reg
+			}
 			// If there's a constant init value and the signal doesn't have one, use it
 			if hasConstInit && sig.Value == nil {
 				sig.Value = constSig.Value
@@ -1510,15 +1612,17 @@ func (b *builder) bindGlobalIndexedInputPorts(g *ssa.Global, state *indexedBaseS
 			sig = &Signal{
 				Name:   sigName,
 				Type:   typ.Clone(),
-				Kind:   Wire,
+				Kind:   kind,
 				Source: g.Pos(),
 				Value:  initValue,
 			}
 			b.module.Signals[sig.Name] = sig
 		}
 
-		// Update state.elements to point to the actual signal (not the constant)
-		state.elements[i] = sig
+		state.storage[i] = sig
+		if state.elements[i] == nil || state.elements[i].Kind == Const {
+			state.elements[i] = sig
+		}
 
 		// Only add as input port for read-only test input data
 		if shouldHavePorts && !b.hasPort(sigName) {
@@ -1636,7 +1740,6 @@ func (b *builder) signalForValue(v ssa.Value) *Signal {
 	return nil
 }
 
-
 func (b *builder) lowerTypeChange(bb *BasicBlock, destVal ssa.Value, srcVal ssa.Value, dstType types.Type) {
 	if bb == nil || destVal == nil || srcVal == nil {
 		return
@@ -1705,7 +1808,7 @@ func (b *builder) handleFmtPrint(proc *Process, bb *BasicBlock, call *ssa.Call) 
 			return true
 		}
 		formatConst, ok := call.Call.Args[0].(*ssa.Const)
-		if !ok {
+		if !ok || formatConst.Value == nil || formatConst.Value.Kind() != constant.String {
 			b.reporter.Warning(call.Pos(), "fmt.Printf format must be a constant string")
 			return true
 		}
@@ -1793,6 +1896,8 @@ func (b *builder) buildPrintfSegments(format string, args []ssa.Value) ([]PrintS
 			verb = PrintVerbHex
 		case 'b':
 			verb = PrintVerbBin
+		case 'f':
+			verb = PrintVerbFloat
 		case 't':
 			verb = PrintVerbDec
 		default:
@@ -1835,28 +1940,36 @@ func parsePrintfSpecifier(format string, start int) (verb byte, width int, zeroP
 
 func (b *builder) buildPrintSegments(args []ssa.Value, newline bool) ([]PrintSegment, error) {
 	var segments []PrintSegment
-	appendValueSegments := func(v ssa.Value) error {
+	buildValueSegments := func(v ssa.Value) ([]PrintSegment, bool, error) {
 		switch val := v.(type) {
 		case *ssa.Const:
-			if val.Value.Kind() == constant.String {
-				segments = appendLiteralSegment(segments, constant.StringVal(val.Value))
-				return nil
+			if val.IsNil() || val.Value == nil {
+				return nil, false, nil
+			}
+			if val.Value != nil && val.Value.Kind() == constant.String {
+				return []PrintSegment{{Text: constant.StringVal(val.Value)}}, true, nil
 			}
 		}
 		sig := b.signalForValue(v)
 		if sig == nil {
-			return fmt.Errorf("unsupported argument %T", v)
+			return nil, false, fmt.Errorf("unsupported argument %T", v)
 		}
-		segments = append(segments, PrintSegment{Value: sig, Verb: PrintVerbDec})
-		return nil
+		return []PrintSegment{{Value: sig, Verb: PrintVerbDec}}, true, nil
 	}
-	for idx, arg := range args {
-		if idx > 0 {
-			segments = appendLiteralSegment(segments, " ")
-		}
-		if err := appendValueSegments(arg); err != nil {
+	emittedCount := 0
+	for _, arg := range args {
+		argSegments, emitted, err := buildValueSegments(arg)
+		if err != nil {
 			return nil, err
 		}
+		if !emitted {
+			continue
+		}
+		if emittedCount > 0 {
+			segments = appendLiteralSegment(segments, " ")
+		}
+		segments = append(segments, argSegments...)
+		emittedCount++
 	}
 	if newline {
 		segments = appendLiteralSegment(segments, "\n")
@@ -1992,6 +2105,8 @@ func translateBinOp(tok token.Token) (BinOp, bool) {
 		return Mul, true
 	case token.QUO:
 		return Div, true
+	case token.REM:
+		return Rem, true
 	case token.AND:
 		return And, true
 	case token.OR:

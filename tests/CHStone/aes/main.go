@@ -6,12 +6,12 @@ import (
 
 // 全局变量
 var (
-	typeAES   int
-	nb        int
-	round_val int
-	key       [32]int
-	statemt   [32]int
-	word      [4][120]int
+	typeAES    int
+	nb         int
+	round_val  int
+	key        [32]int
+	statemt    [32]int
+	word       [4][120]int
 	mainResult int
 )
 
@@ -556,7 +556,7 @@ func encrypt(statemt, key []int, typeAES int) int {
 	}
 
 	KeySchedule(typeAES, key)
-	
+
 	switch typeAES {
 	case 128128:
 		round_val = 0
@@ -579,12 +579,12 @@ func encrypt(statemt, key []int, typeAES int) int {
 	}
 
 	AddRoundKey(statemt, typeAES, 0)
-	
+
 	for i := 1; i <= round_val+9; i++ {
 		ByteSub_ShiftRow(statemt, nb)
 		MixColumn_AddRoundKey(statemt, nb, i)
 	}
-	
+
 	ByteSub_ShiftRow(statemt, nb)
 	AddRoundKey(statemt, typeAES, round_val+10)
 

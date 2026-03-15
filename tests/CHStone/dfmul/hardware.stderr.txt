@@ -1,6 +1,5 @@
-/home/qinkejiu/mygo/tests/CHStone/dfmul/main.go:426:13: warning: fmt.Printf: unsupported verb %f
 [DEBUG] ExtractConstants called for: tests/CHStone/dfmul/main.go
-[DEBUG] Read 10647 bytes from source
+[DEBUG] Read 10620 bytes from source
 [DEBUG] Parsed 41 declarations
 [DEBUG] Skipping aInput due to non-constant element: parse int constant: strconv.ParseInt: parsing "0x8000000000000000": value out of range
 [DEBUG] Skipping bInput due to non-constant element: parse int constant: strconv.ParseInt: parsing "0xFFFFFFFFFFFFFFFF": value out of range

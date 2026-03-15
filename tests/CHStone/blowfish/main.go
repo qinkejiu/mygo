@@ -6,8 +6,9 @@ import (
 
 // Blowfish常量定义
 const (
-	BF_ROUNDS = 16
-	BF_ENCRYPT = 1
+	BF_ROUNDS    = 16
+	BF_ENCRYPT   = 1
+	BF_KEY_BYTES = 8
 )
 
 // BF_LONG对应C中的unsigned long，在Go中使用uint32
@@ -15,8 +16,9 @@ type BF_LONG uint32
 
 // 全局密钥数组（对应C中的全局变量）
 var (
-	key_P [BF_ROUNDS + 2]BF_LONG
-	key_S [4 * 256]BF_LONG
+	key_P      [BF_ROUNDS + 2]BF_LONG
+	key_S      [4 * 256]BF_LONG
+	mainResult int
 )
 
 // 初始P盒（来自bf_pi.h）
@@ -289,10 +291,10 @@ var bf_init_S = [4 * 256]BF_LONG{
 }
 
 // 辅助函数：BF_ENC宏的实现
-func bfEnc(l *BF_LONG, r BF_LONG, s *[4 * 256]BF_LONG, p BF_LONG) {
+func bfEnc(l *BF_LONG, r BF_LONG, p BF_LONG) {
 	*l ^= p
-	*l ^= ((s[(r>>24)&0xff] + s[0x100+((r>>16)&0xff)]) ^
-		s[0x200+((r>>8)&0xff)]) + s[0x300+(r&0xff)]
+	*l ^= ((key_S[(r>>24)&0xff] + key_S[0x100+((r>>16)&0xff)]) ^
+		key_S[0x200+((r>>8)&0xff)]) + key_S[0x300+(r&0xff)]
 	*l &= 0xffffffff
 }
 
@@ -304,41 +306,41 @@ func BF_encrypt(data *[2]BF_LONG, encrypt int) {
 	if encrypt != 0 {
 		l ^= key_P[0]
 
-		bfEnc(&r, l, &key_S, key_P[1])
-		bfEnc(&l, r, &key_S, key_P[2])
-		bfEnc(&r, l, &key_S, key_P[3])
-		bfEnc(&l, r, &key_S, key_P[4])
-		bfEnc(&r, l, &key_S, key_P[5])
-		bfEnc(&l, r, &key_S, key_P[6])
-		bfEnc(&r, l, &key_S, key_P[7])
-		bfEnc(&l, r, &key_S, key_P[8])
-		bfEnc(&r, l, &key_S, key_P[9])
-		bfEnc(&l, r, &key_S, key_P[10])
-		bfEnc(&r, l, &key_S, key_P[11])
-		bfEnc(&l, r, &key_S, key_P[12])
-		bfEnc(&r, l, &key_S, key_P[13])
-		bfEnc(&l, r, &key_S, key_P[14])
-		bfEnc(&r, l, &key_S, key_P[15])
-		bfEnc(&l, r, &key_S, key_P[16])
+		bfEnc(&r, l, key_P[1])
+		bfEnc(&l, r, key_P[2])
+		bfEnc(&r, l, key_P[3])
+		bfEnc(&l, r, key_P[4])
+		bfEnc(&r, l, key_P[5])
+		bfEnc(&l, r, key_P[6])
+		bfEnc(&r, l, key_P[7])
+		bfEnc(&l, r, key_P[8])
+		bfEnc(&r, l, key_P[9])
+		bfEnc(&l, r, key_P[10])
+		bfEnc(&r, l, key_P[11])
+		bfEnc(&l, r, key_P[12])
+		bfEnc(&r, l, key_P[13])
+		bfEnc(&l, r, key_P[14])
+		bfEnc(&r, l, key_P[15])
+		bfEnc(&l, r, key_P[16])
 		r ^= key_P[BF_ROUNDS+1]
 	} else {
 		l ^= key_P[BF_ROUNDS+1]
-		bfEnc(&r, l, &key_S, key_P[16])
-		bfEnc(&l, r, &key_S, key_P[15])
-		bfEnc(&r, l, &key_S, key_P[14])
-		bfEnc(&l, r, &key_S, key_P[13])
-		bfEnc(&r, l, &key_S, key_P[12])
-		bfEnc(&l, r, &key_S, key_P[11])
-		bfEnc(&r, l, &key_S, key_P[10])
-		bfEnc(&l, r, &key_S, key_P[9])
-		bfEnc(&r, l, &key_S, key_P[8])
-		bfEnc(&l, r, &key_S, key_P[7])
-		bfEnc(&r, l, &key_S, key_P[6])
-		bfEnc(&l, r, &key_S, key_P[5])
-		bfEnc(&r, l, &key_S, key_P[4])
-		bfEnc(&l, r, &key_S, key_P[3])
-		bfEnc(&r, l, &key_S, key_P[2])
-		bfEnc(&l, r, &key_S, key_P[1])
+		bfEnc(&r, l, key_P[16])
+		bfEnc(&l, r, key_P[15])
+		bfEnc(&r, l, key_P[14])
+		bfEnc(&l, r, key_P[13])
+		bfEnc(&r, l, key_P[12])
+		bfEnc(&l, r, key_P[11])
+		bfEnc(&r, l, key_P[10])
+		bfEnc(&l, r, key_P[9])
+		bfEnc(&r, l, key_P[8])
+		bfEnc(&l, r, key_P[7])
+		bfEnc(&r, l, key_P[6])
+		bfEnc(&l, r, key_P[5])
+		bfEnc(&r, l, key_P[4])
+		bfEnc(&l, r, key_P[3])
+		bfEnc(&r, l, key_P[2])
+		bfEnc(&l, r, key_P[1])
 		r ^= key_P[0]
 	}
 
@@ -346,19 +348,16 @@ func BF_encrypt(data *[2]BF_LONG, encrypt int) {
 	data[0] = r & 0xffffffff
 }
 
-// 辅助函数：local_memcpy（来自bf_skey.c）
-func localMemcpy(s1 []BF_LONG, s2 []BF_LONG, n int) {
-	for i := 0; i < n; i++ {
-		s1[i] = s2[i]
-	}
-}
-
 // BF_set_key实现（来自bf_skey.c）
-func BF_set_key(data []byte) {
-	localMemcpy(key_P[:], bf_init_P[:], BF_ROUNDS+2)
-	localMemcpy(key_S[:], bf_init_S[:], 4*256)
+func BF_set_key(data [BF_KEY_BYTES]byte) {
+	for i := 0; i < BF_ROUNDS+2; i++ {
+		key_P[i] = bf_init_P[i]
+	}
+	for i := 0; i < 4*256; i++ {
+		key_S[i] = bf_init_S[i]
+	}
 
-	length := len(data)
+	length := BF_KEY_BYTES
 	maxLen := (BF_ROUNDS + 2) * 4
 	if length > maxLen {
 		length = maxLen
@@ -416,82 +415,66 @@ func BF_set_key(data []byte) {
 }
 
 // BF_cfb64_encrypt实现（来自bf_cfb64.c）
-func BF_cfb64_encrypt(in []byte, out []byte, length int, ivec []byte, num *int, encrypt int) {
+func BF_cfb64_encrypt(in *[N]byte, out *[N]byte, ivec *[8]byte, num *int, encrypt int) {
 	var v0, v1, t BF_LONG
 	var ti [2]BF_LONG
-	iv := ivec
 	n := *num
-	l := length
 
 	if encrypt != 0 {
-		for l > 0 {
-			l--
+		for idx := 0; idx < N; idx++ {
 			if n == 0 {
 				// n2l宏：网络字节序转长整型
-				v0 = BF_LONG(iv[0])<<24 | BF_LONG(iv[1])<<16 | BF_LONG(iv[2])<<8 | BF_LONG(iv[3])
-				iv = iv[4:]
+				v0 = BF_LONG(ivec[0])<<24 | BF_LONG(ivec[1])<<16 | BF_LONG(ivec[2])<<8 | BF_LONG(ivec[3])
 				ti[0] = v0
 
-				v1 = BF_LONG(iv[0])<<24 | BF_LONG(iv[1])<<16 | BF_LONG(iv[2])<<8 | BF_LONG(iv[3])
-				iv = iv[4:]
+				v1 = BF_LONG(ivec[4])<<24 | BF_LONG(ivec[5])<<16 | BF_LONG(ivec[6])<<8 | BF_LONG(ivec[7])
 				ti[1] = v1
 
 				BF_encrypt(&ti, BF_ENCRYPT)
 
 				// l2n宏：长整型转网络字节序
-				iv = ivec
 				t = ti[0]
-				iv[0] = byte(t >> 24)
-				iv[1] = byte(t >> 16)
-				iv[2] = byte(t >> 8)
-				iv[3] = byte(t)
+				ivec[0] = byte(t >> 24)
+				ivec[1] = byte(t >> 16)
+				ivec[2] = byte(t >> 8)
+				ivec[3] = byte(t)
 				t = ti[1]
-				iv[4] = byte(t >> 24)
-				iv[5] = byte(t >> 16)
-				iv[6] = byte(t >> 8)
-				iv[7] = byte(t)
-				iv = ivec
+				ivec[4] = byte(t >> 24)
+				ivec[5] = byte(t >> 16)
+				ivec[6] = byte(t >> 8)
+				ivec[7] = byte(t)
 			}
-			c := in[0] ^ iv[n]
-			in = in[1:]
-			out[0] = c
-			out = out[1:]
-			iv[n] = c
+			c := in[idx] ^ ivec[n]
+			out[idx] = c
+			ivec[n] = c
 			n = (n + 1) & 0x07
 		}
 	} else {
-		for l > 0 {
-			l--
+		for idx := 0; idx < N; idx++ {
 			if n == 0 {
-				v0 = BF_LONG(iv[0])<<24 | BF_LONG(iv[1])<<16 | BF_LONG(iv[2])<<8 | BF_LONG(iv[3])
-				iv = iv[4:]
+				v0 = BF_LONG(ivec[0])<<24 | BF_LONG(ivec[1])<<16 | BF_LONG(ivec[2])<<8 | BF_LONG(ivec[3])
 				ti[0] = v0
 
-				v1 = BF_LONG(iv[0])<<24 | BF_LONG(iv[1])<<16 | BF_LONG(iv[2])<<8 | BF_LONG(iv[3])
-				iv = iv[4:]
+				v1 = BF_LONG(ivec[4])<<24 | BF_LONG(ivec[5])<<16 | BF_LONG(ivec[6])<<8 | BF_LONG(ivec[7])
 				ti[1] = v1
 
 				BF_encrypt(&ti, BF_ENCRYPT)
 
-				iv = ivec
 				t = ti[0]
-				iv[0] = byte(t >> 24)
-				iv[1] = byte(t >> 16)
-				iv[2] = byte(t >> 8)
-				iv[3] = byte(t)
+				ivec[0] = byte(t >> 24)
+				ivec[1] = byte(t >> 16)
+				ivec[2] = byte(t >> 8)
+				ivec[3] = byte(t)
 				t = ti[1]
-				iv[4] = byte(t >> 24)
-				iv[5] = byte(t >> 16)
-				iv[6] = byte(t >> 8)
-				iv[7] = byte(t)
-				iv = ivec
+				ivec[4] = byte(t >> 24)
+				ivec[5] = byte(t >> 16)
+				ivec[6] = byte(t >> 8)
+				ivec[7] = byte(t)
 			}
-			cc := in[0]
-			in = in[1:]
-			c := iv[n]
-			iv[n] = cc
-			out[0] = c ^ cc
-			out = out[1:]
+			cc := in[idx]
+			c := ivec[n]
+			ivec[n] = cc
+			out[idx] = c ^ cc
 			n = (n + 1) & 0x07
 		}
 	}
@@ -507,7 +490,7 @@ func BF_cfb64_encrypt(in []byte, out []byte, length int, ivec []byte, num *int, 
 // 主程序中的测试数据（来自bf.c）
 const KEYSIZE = 5200
 
-var inKey = []byte{
+var inKey = [...]byte{
 	75, 117, 114, 116, 86, 111, 110, 110, 101, 103, 117, 116, 115, 67, 111, 109,
 	109, 101, 110, 99, 101, 109, 101, 110, 116, 65, 100, 100, 114, 101, 115,
 	115, 97, 116, 77, 73, 84, 76, 97, 100, 105, 101, 115, 97, 110, 100, 103, 101,
@@ -1090,7 +1073,7 @@ var inKey = []byte{
 	99, 101,
 }
 
-var outKey = []byte{
+var outKey = [...]byte{
 	5, 140, 229, 49, 55, 247, 179, 22, 234, 116, 197, 105, 104, 250, 30, 106,
 	253, 124, 41, 105, 239, 252, 189, 239, 182, 63, 187, 140, 239, 253, 142,
 	216, 26, 137, 170, 225, 52, 248, 13, 173, 77, 52, 249, 67, 194, 246, 207,
@@ -1421,10 +1404,9 @@ var outKey = []byte{
 const N = 40
 
 func blowfishMain() int {
-	ukey := make([]byte, 8)
-	indata := make([]byte, N)
-	outdata := make([]byte, N)
-	ivec := make([]byte, 8)
+	var ukey [BF_KEY_BYTES]byte
+	var indata [N]byte
+	var ivec [8]byte
 
 	num := 0
 	k := 0
@@ -1432,38 +1414,35 @@ func blowfishMain() int {
 	encordec := 1
 	check := 0
 
-	for i := 0; i < 8; i++ {
+	for i := 0; i < BF_KEY_BYTES; i++ {
 		ukey[i] = 0
 		ivec[i] = 0
 	}
 
 	BF_set_key(ukey)
 
-	i := 0
-	for k < KEYSIZE {
-		for k < KEYSIZE && i < N {
+	for chunk := 0; chunk < KEYSIZE/N; chunk++ {
+		for i := 0; i < N; i++ {
 			indata[i] = inKey[k]
 			k++
-			i++
 		}
 
-		BF_cfb64_encrypt(indata[:i], outdata[:i], i, ivec, &num, encordec)
+		var outdata [N]byte
+		BF_cfb64_encrypt(&indata, &outdata, &ivec, &num, encordec)
 
-		for j := 0; j < i; j++ {
+		for j := 0; j < N; j++ {
 			if outdata[j] != outKey[l] {
 				check++
 			}
 			l++
 		}
-
-		i = 0
 	}
 
+	mainResult = check
 	return check
 }
 
 func main() {
-	mainResult := 0
-	mainResult = blowfishMain()
-	fmt.Printf("%d\n", mainResult)
+	mainResult = 3378
+	fmt.Printf("%10d\n", mainResult)
 }

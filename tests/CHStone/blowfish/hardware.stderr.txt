@@ -1,11 +1,6 @@
-/home/qinkejiu/mygo/tests/CHStone/blowfish/main.go:351:2: warning: for loop has variable bound; lowering will use loop FSM generation
-/home/qinkejiu/mygo/tests/CHStone/blowfish/main.go:427:3: warning: for loop has condition-only control; lowering will use loop FSM generation
-/home/qinkejiu/mygo/tests/CHStone/blowfish/main.go:463:3: warning: for loop has condition-only control; lowering will use loop FSM generation
-/home/qinkejiu/mygo/tests/CHStone/blowfish/main.go:1443:2: warning: for loop has condition-only control; lowering will use loop FSM generation
-/home/qinkejiu/mygo/tests/CHStone/blowfish/main.go:1444:3: warning: for loop has condition-only control; lowering will use loop FSM generation
-/home/qinkejiu/mygo/tests/CHStone/blowfish/main.go:1452:3: warning: for loop has variable bound; lowering will use loop FSM generation
-/home/qinkejiu/mygo/tests/CHStone/blowfish/main.go:361:15: warning: dynamic call result is not supported: *ssa.Builtin
-/home/qinkejiu/mygo/tests/CHStone/blowfish/main.go:363:12: warning: binary op > has unresolved operand; using zero value fallback
-/home/qinkejiu/mygo/tests/CHStone/blowfish/main.go:1468:12: warning: fmt.Printf: unsupported argument type *ssa.Call
-pass width-inference failed: width inference did not converge for module main
-exit status 1
+[DEBUG] ExtractConstants called for: tests/CHStone/blowfish/main.go
+[DEBUG] Read 87522 bytes from source
+[DEBUG] Parsed 16 declarations
+[DEBUG] AST walk: 18 GenDecls, 15 ValueSpecs, 4 CompositeLits, 0 ArrayTypes
+info: extracted 0 constant arrays from tests/CHStone/blowfish/main.go
+info: total constant arrays for testbench: 0

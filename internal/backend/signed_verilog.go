@@ -14,6 +14,7 @@ import (
 type printOperandInfo struct {
 	signed bool
 	width  int
+	verb   ir.PrintVerb
 }
 
 type printInfo struct {
@@ -87,6 +88,7 @@ func collectPrintInfos(design *ir.Design) []printInfo {
 						info.operands = append(info.operands, printOperandInfo{
 							signed: seg.Value.Type.Signed && width > 1,
 							width:  width,
+							verb:   seg.Verb,
 						})
 					}
 					prints = append(prints, info)
@@ -207,8 +209,10 @@ func rewriteFwriteCalls(src string, prints []printInfo) (string, map[string]stru
 		if err != nil {
 			return "", nil, err
 		}
-		// Check if this is an $fwrite to stdout (32'h80000001)
-		// If so, convert to $display by removing the file descriptor argument
+		// Check if this is an $fwrite to stdout (32'h80000001).
+		// Preserve Go fmt semantics by lowering stdout writes to $write rather than
+		// $display, because newlines are already encoded in the format string when
+		// the source used fmt.Println/fmt.Printf with \n.
 		isStdout := false
 		if len(args) > 0 {
 			firstArg := strings.TrimSpace(args[0])
@@ -225,9 +229,9 @@ func rewriteFwriteCalls(src string, prints []printInfo) (string, map[string]stru
 			idx++
 		}
 
-		// Use $display for stdout, $fwrite for other file descriptors
+		// Use $write for stdout, $fwrite for other file descriptors.
 		if isStdout {
-			out.WriteString("$display(")
+			out.WriteString("$write(")
 		} else {
 			out.WriteString("$fwrite(")
 		}
@@ -250,12 +254,28 @@ func rewriteFwriteArgs(args []string, info printInfo, signedNames map[string]str
 	if len(args) < 2 {
 		return args, signedNames
 	}
-	for i := 2; i < len(args); i++ {
-		opIdx := i - 2
+	operandStart := 2
+	if strings.HasPrefix(strings.TrimSpace(args[0]), "\"") {
+		operandStart = 1
+	}
+	for i := operandStart; i < len(args); i++ {
+		opIdx := i - operandStart
 		if opIdx >= len(info.operands) {
 			break
 		}
 		operand := info.operands[opIdx]
+		if operand.verb == ir.PrintVerbFloat {
+			raw := args[i]
+			leading, core, trailing := trimArg(raw)
+			if core == "" {
+				continue
+			}
+			if operand.width == 64 {
+				core = "$bitstoreal(" + core + ")"
+			}
+			args[i] = leading + core + trailing
+			continue
+		}
 		if !operand.signed {
 			continue
 		}

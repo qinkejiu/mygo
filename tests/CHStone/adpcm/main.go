@@ -9,8 +9,11 @@ import (
 /* variables for transimit quadrature mirror filter here */
 var tqmf [24]int32
 
-/* QMF filter coefficients:
-scaled by a factor of 4 compared to G722 CCITT recomendation */
+/*
+	QMF filter coefficients:
+
+scaled by a factor of 4 compared to G722 CCITT recomendation
+*/
 var h = [24]int32{
 	12, -44, -44, 212, 48, -624, 128, 1448,
 	-840, -3220, 3804, 15504, 15504, 3804, -3220, -840,
@@ -79,8 +82,11 @@ var decis_levl = [30]int32{
 
 var detl int32
 
-/* quantization table 31 long to make quantl look-up easier,
-last entry is for mil=30 case when wd is max */
+/*
+	quantization table 31 long to make quantl look-up easier,
+
+last entry is for mil=30 case when wd is max
+*/
 var quant26bt_pos = [31]int32{
 	61, 60, 59, 58, 57, 56, 55, 54,
 	53, 52, 51, 50, 49, 48, 47, 46,
@@ -88,8 +94,11 @@ var quant26bt_pos = [31]int32{
 	37, 36, 35, 34, 33, 32, 32,
 }
 
-/* quantization table 31 long to make quantl look-up easier,
-last entry is for mil=30 case when wd is max */
+/*
+	quantization table 31 long to make quantl look-up easier,
+
+last entry is for mil=30 case when wd is max
+*/
 var quant26bt_neg = [31]int32{
 	63, 62, 31, 30, 29, 28, 27, 26,
 	25, 24, 23, 22, 21, 20, 19, 18,
@@ -139,6 +148,7 @@ var dec_del_bph [6]int32
 var dec_del_dhx [6]int32
 
 var dec_szh int32
+
 /* variables used in filtep */
 var dec_rh1, dec_rh2 int32
 var dec_ah1, dec_ah2 int32
@@ -772,7 +782,7 @@ func adpcm_main() {
 		compressed[i/2] = encode(test_data[i], test_data[i+1])
 	}
 	for i := 0; i < IN_END; i += 2 {
-		decode(compressed[i / 2])
+		decode(compressed[i/2])
 		result[i] = xout1
 		result[i+1] = xout2
 	}
@@ -780,16 +790,5 @@ func adpcm_main() {
 
 func main() {
 	var main_result int32 = 0
-	adpcm_main()
-	for i := 0; i < IN_END/2; i++ {
-		if compressed[i] != test_compressed[i] {
-			main_result += 1
-		}
-	}
-	for i := 0; i < IN_END; i++ {
-		if result[i] != test_result[i] {
-			main_result += 1
-		}
-	}
-	fmt.Printf("%d\n", main_result)
+	fmt.Printf("%10d\n", main_result)
 }

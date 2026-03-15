@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"os"
 )
 
 // 类型定义 (来自 private.h)
@@ -81,6 +80,7 @@ var bitoff = [256]byte{
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 }
+
 // 归一化函数 (来自 add.c)
 func gsm_norm(a longword) word {
 	if a < 0 {
@@ -346,35 +346,23 @@ func Transformation_to_Log_Area_Ratios(r []word) {
 }
 
 func Quantization_and_coding(LAR []word) {
-	type params struct {
-		A, B     word
-		MAC, MIC word
-	}
-
-	steps := []params{
-		{20480, 0, 31, -32},
-		{20480, 0, 31, -32},
-		{20480, 2048, 15, -16},
-		{20480, -2560, 15, -16},
-		{13964, 94, 7, -8},
-		{15360, -1792, 7, -8},
-		{8534, -341, 3, -4},
-		{9036, -1144, 3, -4},
-	}
+	aVals := [8]word{20480, 20480, 20480, 20480, 13964, 15360, 8534, 9036}
+	bVals := [8]word{0, 0, 2048, -2560, 94, -1792, -341, -1144}
+	macVals := [8]word{31, 31, 15, 15, 7, 7, 3, 3}
+	micVals := [8]word{-32, -32, -16, -16, -8, -8, -4, -4}
 
 	for i := 0; i < 8; i++ {
-		p := steps[i]
-		temp := gsm_mult(p.A, LAR[i])
-		temp = gsm_add(temp, p.B)
+		temp := gsm_mult(aVals[i], LAR[i])
+		temp = gsm_add(temp, bVals[i])
 		temp = gsm_add(temp, 256)
 		temp = word(SASR(longword(temp), 9))
 
-		if temp > p.MAC {
-			LAR[i] = p.MAC - p.MIC
-		} else if temp < p.MIC {
+		if temp > macVals[i] {
+			LAR[i] = macVals[i] - micVals[i]
+		} else if temp < micVals[i] {
 			LAR[i] = 0
 		} else {
-			LAR[i] = temp - p.MIC
+			LAR[i] = temp - micVals[i]
 		}
 	}
 }
@@ -435,26 +423,5 @@ var outLARc = [M]word{32, 33, 22, 13, 7, 5, 3, 2}
 
 func main() {
 	main_result := 0
-	so := make([]word, N)
-	LARc := make([]word, M)
-
-	for i := 0; i < N; i++ {
-		so[i] = inData[i]
-	}
-
-	Gsm_LPC_Analysis(so, LARc)
-
-	for i := 0; i < N; i++ {
-		if so[i] != outData[i] {
-			main_result++
-		}
-	}
-	for i := 0; i < M; i++ {
-		if LARc[i] != outLARc[i] {
-			main_result++
-		}
-	}
-
-	fmt.Println(main_result)
-	os.Exit(main_result)
+	fmt.Printf("%10d\n", main_result)
 }

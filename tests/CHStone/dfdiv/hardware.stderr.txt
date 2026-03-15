@@ -2,6 +2,5 @@
 /home/qinkejiu/mygo/tests/CHStone/dfdiv/main.go:403:3: warning: for loop has condition-only control; lowering will use loop FSM generation
 /home/qinkejiu/mygo/tests/CHStone/dfdiv/main.go:400:11: warning: binary op & has unresolved operand; using zero value fallback
 /home/qinkejiu/mygo/tests/CHStone/dfdiv/main.go:508:13: warning: binary op != has unresolved operand; using zero value fallback
-/home/qinkejiu/mygo/tests/CHStone/dfdiv/main.go:512:13: warning: fmt.Printf: unsupported verb %f
 pass width-inference failed: width inference did not converge for module main
 exit status 1

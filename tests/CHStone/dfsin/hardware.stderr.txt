@@ -2,7 +2,6 @@
 /home/qinkejiu/mygo/tests/CHStone/dfsin/main.go:640:3: warning: for loop has condition-only control; lowering will use loop FSM generation
 /home/qinkejiu/mygo/tests/CHStone/dfsin/main.go:689:2: warning: for loop is open-ended; lowering will use loop FSM generation
 /home/qinkejiu/mygo/tests/CHStone/dfsin/main.go:788:13: warning: binary op != has unresolved operand; using zero value fallback
-/home/qinkejiu/mygo/tests/CHStone/dfsin/main.go:791:13: warning: fmt.Printf: unsupported verb %f
 [DEBUG] ExtractConstants called for: tests/CHStone/dfsin/main.go
 [DEBUG] Read 18924 bytes from source
 [DEBUG] Parsed 52 declarations

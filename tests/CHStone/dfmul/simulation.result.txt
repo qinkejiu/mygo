@@ -1,4 +1,4 @@
-generated=2026-03-15 10:39:03
+generated=2026-03-16 01:01:30
 case=tests/CHStone/dfmul
 ssa_ok=True
 ssa_return_code=0
@@ -16,8 +16,8 @@ software_return_code=0
 hardware_return_code=0
 software_ok=True
 hardware_ok=True
-hardware_cycles_used=4096
-output_match=False
-output_match_mode=none
+hardware_cycles_used=65
+output_match=True
+output_match_mode=strict
 software_stdout_path=tests/CHStone/dfmul/software.stdout.txt
 hardware_stdout_path=tests/CHStone/dfmul/hardware.stdout.txt

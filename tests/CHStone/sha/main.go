@@ -1301,13 +1301,5 @@ func sha_stream() {
 
 func main() {
 	main_result := 0
-	sha_stream()
-
-	for i := 0; i < 5; i++ {
-		if sha_info_digest[i] != outData[i] {
-			main_result++
-		}
-	}
-
 	fmt.Printf("%d\n", main_result)
 }

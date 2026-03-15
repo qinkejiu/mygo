@@ -244,9 +244,9 @@ type Process struct {
 	Sensitivity Sensitivity
 	Blocks      []*BasicBlock
 	Stage       int
-	Params      []*Signal // Function parameters (for non-main processes)
+	Params      []*Signal   // Function parameters (for non-main processes)
 	SSAParams   []ssa.Value // Original SSA parameter values (for remapping during inlining)
-	Return      *Signal   // Return value signal (for non-main processes)
+	Return      *Signal     // Return value signal (for non-main processes)
 }
 
 // Sensitivity indicates whether process is combinational or sequential.
@@ -372,6 +372,7 @@ const (
 	PrintVerbDec PrintVerb = iota
 	PrintVerbHex
 	PrintVerbBin
+	PrintVerbFloat
 )
 
 // PrintSegment represents either a literal chunk or a formatted value.
@@ -432,6 +433,7 @@ const (
 	Sub
 	Mul
 	Div
+	Rem
 	And
 	Or
 	Xor

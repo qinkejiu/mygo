@@ -3,35 +3,9 @@ module main
     in  clk 1bu
     in  rst 1bu
   signals:
-    callcmp_3 wire  1bu
     const_0  const 1bu = true
     const_1  const 32bs = 0
-    const_10 const 1bu = 0
-    const_11 const 1bu = 0
-    const_2  const 32bs = 0
-    const_4  const 1bu = 0
-    const_6  const 32bs = 0
-    t0       reg   1bu
-    t0_7     wire  1bu
   process 0 main (stage=0, sequential)
     block entry
-      callcmp_3 := cmp(const_1 == const_2)
-      jump entry
-    block recover
-      jump cond.true_inline_cont_0
-    block entry
-      t0_7 := cmp(const_1 == const_6)
-      br t0_7 ? cond.true : if.done
-    block cond.true
-      jump entry
-    block entry
-      t0 := const_11
-      jump cond.true_inline_cont_0
-    block cond.true_inline_cont_0
-      br <nil> ? if.then : if.done
-    block if.done
-      jump entry_inline_cont_1
-    block entry_inline_cont_1
       return
-    block if.then
 

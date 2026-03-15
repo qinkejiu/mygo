@@ -3173,25 +3173,26 @@ package math/bits:
 
 package mygo/tests/CHStone/blowfish:
   const BF_ENCRYPT       BF_ENCRYPT = 1:untyped int
+  const BF_KEY_BYTES     BF_KEY_BYTES = 8:untyped int
   type  BF_LONG          uint32
   const BF_ROUNDS        BF_ROUNDS = 16:untyped int
-  func  BF_cfb64_encrypt func(in []byte, out []byte, length int, ivec []byte, num *int, encrypt int)
+  func  BF_cfb64_encrypt func(in *[40]byte, out *[40]byte, ivec *[8]byte, num *int, encrypt int)
   func  BF_encrypt       func(data *[2]BF_LONG, encrypt int)
-  func  BF_set_key       func(data []byte)
+  func  BF_set_key       func(data [8]byte)
   const KEYSIZE          KEYSIZE = 5200:untyped int
   const N                N = 40:untyped int
-  func  bfEnc            func(l *BF_LONG, r BF_LONG, s *[1024]BF_LONG, p BF_LONG)
+  func  bfEnc            func(l *BF_LONG, r BF_LONG, p BF_LONG)
   var   bf_init_P        [18]BF_LONG
   var   bf_init_S        [1024]BF_LONG
   func  blowfishMain     func() int
-  var   inKey            []byte
+  var   inKey            [9265]byte
   func  init             func()
   var   init$guard       bool
   var   key_P            [18]BF_LONG
   var   key_S            [1024]BF_LONG
-  func  localMemcpy      func(s1 []BF_LONG, s2 []BF_LONG, n int)
   func  main             func()
-  var   outKey           []byte
+  var   mainResult       int
+  var   outKey           [5200]byte
 
 
 package os:

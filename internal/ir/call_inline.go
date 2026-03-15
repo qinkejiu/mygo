@@ -357,6 +357,13 @@ func (b *builder) signalForGlobal(g *ssa.Global) *Signal {
 	if g == nil {
 		return nil
 	}
+	if b != nil && b.currentBlock != nil {
+		if values := b.blockGlobalValues[b.currentBlock]; values != nil {
+			if sig, ok := values[g]; ok && sig != nil {
+				return sig
+			}
+		}
+	}
 
 	// Check if we already have a signal for this global
 	if sig, ok := b.globalValues[g]; ok && sig != nil {
@@ -373,19 +380,40 @@ func (b *builder) signalForGlobal(g *ssa.Global) *Signal {
 	// Check if it's an array type
 	arr, ok := ptrType.Elem().(*types.Array)
 	if ok {
-		// For arrays, we need to pre-create the indexedBaseState and all element signals
-		// This is necessary when passing arrays as slice parameters
+		// For arrays, pre-create/reuse element signals so slice arguments can bind to
+		// stable storage without clobbering existing port-backed elements.
 		state := b.indexedStateForBase(g, g.Pos())
 		if state != nil {
-			// Create individual element signals and add them to the module
 			for i := 0; i < state.length; i++ {
+				if existing := state.storage[i]; existing != nil {
+					if b.module != nil {
+						b.module.Signals[existing.Name] = existing
+					}
+					continue
+				}
+				sigName := fmt.Sprintf("%s_%d", g.Name(), i)
+				if existing, ok := b.module.Signals[sigName]; ok && existing != nil {
+					state.storage[i] = existing
+					if state.elements[i] == nil || state.elements[i].Kind == Const {
+						state.elements[i] = existing
+					}
+					continue
+				}
+
+				existingValue := state.elements[i]
 				elemSig := &Signal{
-					Name:   fmt.Sprintf("%s_%d", g.Name(), i),
+					Name:   sigName,
 					Type:   state.elemType.Clone(),
 					Kind:   Reg,
 					Source: g.Pos(),
 				}
-				state.elements[i] = elemSig
+				if existingValue != nil && existingValue.Kind == Const {
+					elemSig.Value = existingValue.Value
+				}
+				state.storage[i] = elemSig
+				if state.elements[i] == nil || state.elements[i].Kind == Const {
+					state.elements[i] = elemSig
+				}
 				if b.module != nil {
 					b.module.Signals[elemSig.Name] = elemSig
 				}
@@ -407,13 +435,47 @@ func (b *builder) signalForGlobal(g *ssa.Global) *Signal {
 	}
 
 	// For scalar globals, create a single signal
+	sig := b.signalForGlobalStorage(g)
+	if sig == nil {
+		return nil
+	}
+	b.globalValues[g] = sig
+	return sig
+}
+
+func (b *builder) setBlockGlobalValue(block *BasicBlock, g *ssa.Global, value *Signal) {
+	if b == nil || block == nil || g == nil || value == nil {
+		return
+	}
+	values := b.blockGlobalValues[block]
+	if values == nil {
+		values = make(map[*ssa.Global]*Signal)
+		b.blockGlobalValues[block] = values
+	}
+	values[g] = value
+}
+
+func (b *builder) signalForGlobalStorage(g *ssa.Global) *Signal {
+	if g == nil {
+		return nil
+	}
+	if sig, ok := b.globalStorage[g]; ok && sig != nil {
+		return sig
+	}
+	ptrType, ok := g.Type().(*types.Pointer)
+	if !ok {
+		return nil
+	}
 	sig := &Signal{
 		Name:   g.Name(),
 		Type:   signalType(ptrType.Elem()),
-		Kind:   Reg, // Global variables are typically registers
+		Kind:   Reg,
 		Source: g.Pos(),
 	}
-	b.globalValues[g] = sig
+	if current, ok := b.globalValues[g]; ok && current != nil && current.Kind == Const {
+		sig.Value = current.Value
+	}
+	b.globalStorage[g] = sig
 	if b.module != nil {
 		b.module.Signals[sig.Name] = sig
 	}
@@ -527,19 +589,19 @@ func (b *builder) shouldBuildAsModule(fn *ssa.Function) bool {
 	// Check if function has any globals in its free variables
 	// For now, we'll be conservative and only allow known pure functions
 	knownPureFunctions := map[string]bool{
-		"abs":     true,
-		"decode":  true,
-		"encode":  true,
-		"filtep":  true,
-		"filtez":  true,
-		"logsch":  true,
-		"logscl":  true,
-		"quantl":  true,
-		"reset":   true,
-		"scalel":  true,
-		"uppol1":  true,
-		"uppol2":  true,
-		"upzero":  true,
+		"abs":    true,
+		"decode": true,
+		"encode": true,
+		"filtep": true,
+		"filtez": true,
+		"logsch": true,
+		"logscl": true,
+		"quantl": true,
+		"reset":  true,
+		"scalel": true,
+		"uppol1": true,
+		"uppol2": true,
+		"upzero": true,
 	}
 
 	return knownPureFunctions[fn.Name()]
@@ -552,9 +614,60 @@ func (b *builder) buildAndMergeProcess(proc *Process, block *ssa.BasicBlock, bb 
 		return false
 	}
 
+	type savedParamBinding struct {
+		param           *ssa.Parameter
+		oldSignal       *Signal
+		hadSignal       bool
+		oldIndexedState *indexedBaseState
+		hadIndexedState bool
+	}
+	savedBindings := make([]savedParamBinding, 0, len(callee.Params))
+	for i, param := range callee.Params {
+		if param == nil || i >= len(args) {
+			continue
+		}
+		saved := savedParamBinding{param: param}
+		if oldSignal, ok := b.paramSignals[param]; ok {
+			saved.oldSignal = oldSignal
+			saved.hadSignal = true
+		}
+		if oldState, ok := b.indexedBases[param]; ok {
+			saved.oldIndexedState = oldState
+			saved.hadIndexedState = true
+		}
+		if !isSliceType(param.Type()) {
+			b.paramSignals[param] = args[i]
+			savedBindings = append(savedBindings, saved)
+			continue
+		}
+		argState := b.findIndexedBaseForSignal(args[i])
+		if argState == nil {
+			savedBindings = append(savedBindings, saved)
+			continue
+		}
+		b.paramSignals[param] = args[i]
+		b.indexedBases[param] = argState
+		savedBindings = append(savedBindings, saved)
+	}
+	restoreBindings := func() {
+		for _, saved := range savedBindings {
+			if saved.hadSignal {
+				b.paramSignals[saved.param] = saved.oldSignal
+			} else {
+				delete(b.paramSignals, saved.param)
+			}
+			if saved.hadIndexedState {
+				b.indexedBases[saved.param] = saved.oldIndexedState
+			} else {
+				delete(b.indexedBases, saved.param)
+			}
+		}
+	}
+
 	// Get the parent process
 	parentProc := b.findProcessForBlock(bb)
 	if parentProc == nil {
+		restoreBindings()
 		return false
 	}
 
@@ -563,6 +676,7 @@ func (b *builder) buildAndMergeProcess(proc *Process, block *ssa.BasicBlock, bb 
 	// Global signals will be automatically reused through the builder's signals map
 	calleeProc := b.buildProcessInternal(callee)
 	if calleeProc == nil {
+		restoreBindings()
 		return false
 	}
 	// Bind parameters to the argument signals
@@ -632,6 +746,7 @@ func (b *builder) buildAndMergeProcess(proc *Process, block *ssa.BasicBlock, bb 
 			}
 		}
 	}
+	restoreBindings()
 
 	if len(calleeProc.Blocks) == 0 {
 		return false
@@ -709,11 +824,34 @@ func (b *builder) retargetContinuationPhiPreds(oldPred, newPred *BasicBlock) {
 				continue
 			}
 			for i := range phi.Incomings {
-				if phi.Incomings[i].Block == oldPred {
+				incoming := phi.Incomings[i].Block
+				if incoming == oldPred {
 					phi.Incomings[i].Block = newPred
+					continue
 				}
+				if incoming == nil || incoming.Label != oldPred.Label {
+					continue
+				}
+				if blockTargets(incoming, target) {
+					continue
+				}
+				phi.Incomings[i].Block = newPred
 			}
 		}
+	}
+}
+
+func blockTargets(block, target *BasicBlock) bool {
+	if block == nil || target == nil || block.Terminator == nil {
+		return false
+	}
+	switch term := block.Terminator.(type) {
+	case *JumpTerminator:
+		return term.Target == target
+	case *BranchTerminator:
+		return term.True == target || term.False == target
+	default:
+		return false
 	}
 }
 
@@ -1046,6 +1184,7 @@ func (b *builder) buildProcessInternal(fn *ssa.Function) *Process {
 		b.translateBlock(proc, block)
 	}
 	b.rebuildProcessEdges(proc)
+	b.repairPhiPredecessors(proc)
 	b.orderBlocks(proc, entryBB)
 	b.buildLoopFSMs(fn)
 
@@ -1230,8 +1369,8 @@ func (b *builder) remapOperation(op Operation, paramMap map[ssa.Value]*Signal, p
 			return nil
 		}
 		return &AssignOperation{
-			Dest:   newDest,
-			Value:  newValue,
+			Dest:  newDest,
+			Value: newValue,
 		}
 	// Add more operation types as needed
 	default:
@@ -1292,7 +1431,7 @@ func (b *builder) remapTerminator(term Terminator, blockMap map[*BasicBlock]*Bas
 		}
 		newCond := t.Cond
 		return &BranchTerminator{
-			Cond: newCond,
+			Cond:  newCond,
 			True:  newTrue,
 			False: newFalse,
 		}
@@ -1397,7 +1536,7 @@ func (b *builder) inlineCallWithOptions(bb *BasicBlock, callee *ssa.Function, ar
 		bb:      bb,
 		values:  make(map[ssa.Value]*Signal),
 		tuples:  make(map[ssa.Value][]*Signal),
-		slots:  make(map[ssa.Value]*Signal),
+		slots:   make(map[ssa.Value]*Signal),
 		globals: make(map[*ssa.Global]*Signal),
 		stack:   stack,
 	}
@@ -2027,6 +2166,11 @@ func (b *builder) findIndexedBaseForSignal(sig *Signal) *indexedBaseState {
 		// First, check if any element signal matches
 		for _, elemSig := range state.elements {
 			if elemSig == sig {
+				return state
+			}
+		}
+		for _, storageSig := range state.storage {
+			if storageSig == sig {
 				return state
 			}
 		}
