@@ -188,11 +188,12 @@ func (b *builder) buildProcess(fn *ssa.Function) *Process {
 		return proc
 	}
 	proc := &Process{
-		Name:        fn.Name(),
-		Source:      fn.Pos(),
-		Sensitivity: Sequential,
-		Stage:       -1,
-		Params:      make([]*Signal, 0),
+		Name:         fn.Name(),
+		Source:       fn.Pos(),
+		Sensitivity:  Sequential,
+		Stage:        -1,
+		Params:       make([]*Signal, 0),
+		ReturnValues: make(map[*BasicBlock]*Signal),
 	}
 	b.processes[fn] = proc
 	b.module.Processes = append(b.module.Processes, proc)
@@ -691,6 +692,10 @@ func (b *builder) handleReturn(proc *Process, bb *BasicBlock, ret *ssa.Return) {
 			sig := b.signalForValue(returnValue)
 			if sig != nil {
 				proc.Return = sig
+				if proc.ReturnValues == nil {
+					proc.ReturnValues = make(map[*BasicBlock]*Signal)
+				}
+				proc.ReturnValues[bb] = sig
 			}
 		}
 	}

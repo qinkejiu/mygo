@@ -756,6 +756,22 @@ func (b *builder) buildAndMergeProcess(proc *Process, block *ssa.BasicBlock, bb 
 		Label: fmt.Sprintf("%s_inline_cont_%d", bb.Label, instrIndex),
 	}
 	parentProc.Blocks = append(parentProc.Blocks, continuation)
+
+	var callResult *Signal
+	if call != nil && valueResultCount(call.Type()) == 1 {
+		if len(calleeProc.ReturnValues) == 1 {
+			for _, sig := range calleeProc.ReturnValues {
+				callResult = sig
+			}
+		} else if len(calleeProc.ReturnValues) > 1 {
+			callResult = b.ensureValueSignal(call)
+		} else if calleeProc.Return != nil {
+			callResult = calleeProc.Return
+		}
+		if callResult != nil {
+			b.bindResolvedValue(continuation, call, callResult)
+		}
+	}
 	for i := instrIndex + 1; i < len(block.Instrs); i++ {
 		instr := block.Instrs[i]
 		switch v := instr.(type) {
@@ -780,8 +796,20 @@ continuationDone:
 	}
 	b.retargetContinuationPhiPreds(bb, continuation)
 
-	if call != nil && valueResultCount(call.Type()) == 1 && calleeProc.Return != nil {
-		b.bindResolvedValue(continuation, call, calleeProc.Return)
+	if call != nil && valueResultCount(call.Type()) == 1 && len(calleeProc.ReturnValues) > 1 && callResult != nil {
+		incomings := make([]PhiIncoming, 0, len(calleeProc.ReturnValues))
+		for retBlock, sig := range calleeProc.ReturnValues {
+			if retBlock == nil || sig == nil {
+				continue
+			}
+			incomings = append(incomings, PhiIncoming{Block: retBlock, Value: sig})
+		}
+		if len(incomings) > 0 {
+			continuation.Ops = append([]Operation{&PhiOperation{
+				Dest:      callResult,
+				Incomings: incomings,
+			}}, continuation.Ops...)
+		}
 	}
 
 	entryBlock := calleeProc.Blocks[0]
@@ -891,16 +919,18 @@ func (b *builder) cloneProcess(original *Process) *Process {
 
 	// Clone the process structure
 	clone := &Process{
-		Name:        original.Name,
-		Source:      original.Source,
-		Spawned:     original.Spawned,
-		Sensitivity: original.Sensitivity,
-		Blocks:      make([]*BasicBlock, 0, len(original.Blocks)),
-		Stage:       original.Stage,
-		Params:      make([]*Signal, len(original.Params)),
-		SSAParams:   make([]ssa.Value, len(original.SSAParams)),
-		Return:      nil, // Will be set when we clone the return signal
+		Name:         original.Name,
+		Source:       original.Source,
+		Spawned:      original.Spawned,
+		Sensitivity:  original.Sensitivity,
+		Blocks:       make([]*BasicBlock, 0, len(original.Blocks)),
+		Stage:        original.Stage,
+		Params:       make([]*Signal, len(original.Params)),
+		SSAParams:    make([]ssa.Value, len(original.SSAParams)),
+		Return:       nil, // Will be set when we clone the return signal
+		ReturnValues: make(map[*BasicBlock]*Signal),
 	}
+	blockMap := make(map[*BasicBlock]*BasicBlock, len(original.Blocks))
 
 	// Clone SSA params
 	copy(clone.SSAParams, original.SSAParams)
@@ -945,6 +975,7 @@ func (b *builder) cloneProcess(original *Process) *Process {
 		}
 
 		clone.Blocks = append(clone.Blocks, clonedBlock)
+		blockMap[origBlock] = clonedBlock
 	}
 
 	// Clone return signal if it exists
@@ -966,6 +997,14 @@ func (b *builder) cloneProcess(original *Process) *Process {
 
 	// Update predecessor/successor links after all blocks are cloned
 	b.updateBlockLinks(clone.Blocks, original.Blocks)
+
+	for origBlock, sig := range original.ReturnValues {
+		clonedBlock := blockMap[origBlock]
+		if clonedBlock == nil || sig == nil {
+			continue
+		}
+		clone.ReturnValues[clonedBlock] = b.getRemappedSignal(sig, signalMap)
+	}
 
 	return clone
 }
@@ -1137,11 +1176,12 @@ func (b *builder) buildProcessInternal(fn *ssa.Function) *Process {
 
 	prevProc, hadPrev := b.processes[fn]
 	proc := &Process{
-		Name:        fn.Name(),
-		Source:      fn.Pos(),
-		Sensitivity: Sequential,
-		Stage:       -1,
-		Params:      make([]*Signal, 0),
+		Name:         fn.Name(),
+		Source:       fn.Pos(),
+		Sensitivity:  Sequential,
+		Stage:        -1,
+		Params:       make([]*Signal, 0),
+		ReturnValues: make(map[*BasicBlock]*Signal),
 	}
 	b.processes[fn] = proc
 	defer func() {

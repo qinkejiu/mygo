@@ -109,7 +109,6 @@ module main
     const_318 const 32bs = 34
     const_32 const 64bu = 4617188202200935177
     const_321 const 32bs = 35
-    const_323 const 1bu = 0
     const_324 const 32bs = 0
     const_325 const 32bs = 0
     const_326 const 32bs = 1
@@ -549,6 +548,7 @@ module main
     t6_195   wire  64bu
     t7_197   wire  32bs
     t8_200   wire  64bu
+    t8_323   wire  1bu
     t9_202   wire  32bs
     test_in  reg   64bu
     test_in_0 reg   64bu
@@ -804,7 +804,8 @@ module main
       idxload_319 := mux(idxeq_317 ? const_74 : idxload_316)
       idxeq_320 := cmp(t1_79 == const_321)
       idxload_322 := mux(idxeq_320 ? const_75 : idxload_319)
-      br const_323 ? if.then : if.done
+      t8_323 := cmp(t15_194 != idxload_322)
+      br t8_323 ? if.then : if.done
     block if.then
       t14_327 := t0_76 + const_326
       jump if.done

@@ -238,15 +238,16 @@ const (
 
 // Process groups a sequence of operations under a specific clocking scheme.
 type Process struct {
-	Name        string
-	Source      token.Pos
-	Spawned     bool
-	Sensitivity Sensitivity
-	Blocks      []*BasicBlock
-	Stage       int
-	Params      []*Signal   // Function parameters (for non-main processes)
-	SSAParams   []ssa.Value // Original SSA parameter values (for remapping during inlining)
-	Return      *Signal     // Return value signal (for non-main processes)
+	Name         string
+	Source       token.Pos
+	Spawned      bool
+	Sensitivity  Sensitivity
+	Blocks       []*BasicBlock
+	Stage        int
+	Params       []*Signal   // Function parameters (for non-main processes)
+	SSAParams    []ssa.Value // Original SSA parameter values (for remapping during inlining)
+	Return       *Signal     // Return value signal (for non-main processes)
+	ReturnValues map[*BasicBlock]*Signal
 }
 
 // Sensitivity indicates whether process is combinational or sequential.

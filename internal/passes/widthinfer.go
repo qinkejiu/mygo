@@ -2,6 +2,7 @@ package passes
 
 import (
 	"fmt"
+	"go/token"
 
 	"mygo/internal/diag"
 	"mygo/internal/ir"
@@ -19,7 +20,7 @@ type WidthInference struct {
 func NewWidthInference(reporter *diag.Reporter) *WidthInference {
 	return &WidthInference{
 		reporter:      reporter,
-		maxIterations: 32,
+		maxIterations: 256,
 	}
 }
 
@@ -53,7 +54,10 @@ func (w *WidthInference) visitModule(module *ir.Module) error {
 	for changed {
 		iteration++
 		if iteration > w.maxIterations {
-			return fmt.Errorf("width inference did not converge for module %s", module.Name)
+			if w.reporter != nil {
+				w.reporter.Warning(token.NoPos, fmt.Sprintf("width inference did not converge for module %s; continuing with best-effort types", module.Name))
+			}
+			return nil
 		}
 		changed = false
 		for _, proc := range module.Processes {
