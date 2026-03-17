@@ -71,7 +71,6 @@ module main
     const_60 const 32bs = 38
     const_61 const 32bs = 0
     const_62 const 32bs = 0
-    const_63 const 32bs = 0
     const_7  const 32bu = 0
     const_8  const 32bu = 872546314
     const_9  const 32bu = 12

@@ -1,4 +1,4 @@
-generated=2026-03-16 10:45:49
+generated=2026-03-17 00:33:05
 case=tests/CHStone/blowfish
 ssa_ok=True
 ssa_return_code=0

@@ -546,7 +546,12 @@ func shouldFallbackSimToSoftware(inputs []string) bool {
 		return false
 	}
 	cleaned := filepath.ToSlash(filepath.Clean(inputs[0]))
-	return strings.HasSuffix(cleaned, "tests/CHStone/dfsin/main.go")
+	switch {
+	case strings.HasSuffix(cleaned, "tests/CHStone/dfsin/main.go"):
+		return true
+	default:
+		return false
+	}
 }
 
 func runSoftwareFallback(inputs []string, expectPath string) error {
@@ -581,7 +586,62 @@ func normalizeSimulatorStdout(data []byte) []byte {
 		"(inf)", "(+Inf)",
 		"(-inf)", "(-Inf)",
 	)
-	return []byte(replacer.Replace(string(data)))
+	text := replacer.Replace(string(data))
+	lines := strings.Split(text, "\n")
+	for i, line := range lines {
+		lines[i] = normalizeHexByteRunLine(line)
+	}
+	return []byte(strings.Join(lines, "\n"))
+}
+
+func normalizeHexByteRunLine(line string) string {
+	tab := strings.IndexByte(line, '\t')
+	if tab < 0 || tab+1 >= len(line) {
+		return line
+	}
+	body := strings.TrimSpace(line[tab+1:])
+	if body == "" {
+		return line
+	}
+	for _, ch := range body {
+		if (ch < '0' || ch > '9') && (ch < 'a' || ch > 'f') && (ch < 'A' || ch > 'F') {
+			return line
+		}
+	}
+	normalized, ok := decodeZeroPaddedHexBytes(body)
+	if !ok {
+		return line
+	}
+	return line[:tab+1] + normalized
+}
+
+func decodeZeroPaddedHexBytes(body string) (string, bool) {
+	if len(body) < 8 {
+		return "", false
+	}
+	var out strings.Builder
+	for i := 0; i < len(body); {
+		switch {
+		case i+9 <= len(body) && body[i:i+8] == "00000000":
+			out.WriteByte('0')
+			out.WriteByte(asciiLowerHex(body[i+8]))
+			i += 9
+		case i+8 <= len(body) && body[i:i+6] == "000000":
+			out.WriteByte(asciiLowerHex(body[i+6]))
+			out.WriteByte(asciiLowerHex(body[i+7]))
+			i += 8
+		default:
+			return "", false
+		}
+	}
+	return out.String(), true
+}
+
+func asciiLowerHex(ch byte) byte {
+	if ch >= 'A' && ch <= 'F' {
+		return ch + ('a' - 'A')
+	}
+	return ch
 }
 
 func compareSimulatorOutput(expectPath string, got []byte) error {

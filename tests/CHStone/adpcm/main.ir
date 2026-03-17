@@ -555,7 +555,6 @@ module main
     const_502 const 32bs = 54
     const_503 const 32bs = 0
     const_504 const 32bs = 0
-    const_505 const 32bs = 0
     const_51 const 32bs = -12280
     const_52 const 32bs = -11192
     const_53 const 32bs = -10232
@@ -1164,6 +1163,6 @@ module main
     wl_code_table_9 reg   32bs
   process 0 main (stage=0, sequential)
     block entry
-      print %10d(const_505)"\n"
+      print %10d(const_504)"\n"
       return
 

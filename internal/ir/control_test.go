@@ -120,6 +120,99 @@ func main() {
 }
 `
 
+const nestedGlobalArrayProgram = `
+package main
+
+var table = [2][3]int32{
+	{1, 2, 3},
+	{4, 5, 6},
+}
+
+var scratch [2][3]int32
+
+func sink(v int32) {}
+
+func main() {
+	var row int
+	var col int
+
+	row = 1
+	if table[0][0] > 0 {
+		col = 2
+	} else {
+		col = 1
+	}
+
+	scratch[0][1] = table[row][col]
+	sink(scratch[0][1])
+}
+`
+
+const dynamicGlobalWordProgram = `
+package main
+
+var arr [2]int
+var word [2][4]int
+
+func initword() {
+	for j := 0; j < 2; j++ {
+		word[0][j] = 0x39 + j
+		word[1][j] = 0x25 + j
+	}
+}
+
+func main() {
+	initword()
+	for j := 0; j < 2; j++ {
+		arr[j] = word[j][j]
+	}
+}
+`
+
+const sliceInlineProgram = `
+package main
+
+var result int
+
+func bump(v []int) {
+	v[1] = v[1] + 1
+}
+
+func update(a [2]int) ([2]int, int) {
+	row := a[:]
+	bump(row)
+	return a, row[1]
+}
+
+func main() {
+	arr := [2]int{1, 2}
+	arr, result = update(arr)
+	_ = arr
+}
+`
+
+const nestedSliceInlineProgram = `
+package main
+
+var result int
+
+func bump(v []int) {
+	v[1] = v[1] + 1
+}
+
+func update(a [2][2]int, s int) ([2][2]int, int) {
+	row := a[s][:]
+	bump(row)
+	return a, row[1]
+}
+
+func main() {
+	arr := [2][2]int{{1, 2}, {3, 4}}
+	arr, result = update(arr, 0)
+	_ = arr
+}
+`
+
 func TestControlFlowMuxLowering(t *testing.T) {
 	design := buildDesignFromSource(t, branchProgram)
 	if design == nil || design.TopLevel == nil {
@@ -280,6 +373,142 @@ func TestConstEvalLoopCallFallback(t *testing.T) {
 	}
 	if !sawConstNineAssign {
 		t.Fatalf("expected folded constant assignment of 9 for call result")
+	}
+}
+
+func TestNestedGlobalArrayLowering(t *testing.T) {
+	design := buildDesignFromSource(t, nestedGlobalArrayProgram)
+	if design == nil || design.TopLevel == nil {
+		t.Fatalf("expected design")
+	}
+
+	for name, want := range map[string]int64{
+		"table_0": 1,
+		"table_1": 2,
+		"table_2": 3,
+		"table_3": 4,
+		"table_4": 5,
+		"table_5": 6,
+	} {
+		sig := design.TopLevel.Signals[name]
+		if sig == nil {
+			t.Fatalf("missing flattened signal %s", name)
+		}
+		got, ok := sig.Value.(int64)
+		if !ok {
+			t.Fatalf("signal %s init type = %T, want int64", name, sig.Value)
+		}
+		if got != want {
+			t.Fatalf("signal %s init = %d, want %d", name, got, want)
+		}
+	}
+
+	for _, name := range []string{"scratch_0", "scratch_1", "scratch_5"} {
+		if design.TopLevel.Signals[name] == nil {
+			t.Fatalf("missing flattened mutable signal %s", name)
+		}
+	}
+
+	sawIndexedAdd := false
+	sawIndexedLoad := false
+	for _, proc := range design.TopLevel.Processes {
+		for _, block := range proc.Blocks {
+			for _, op := range block.Ops {
+				switch o := op.(type) {
+				case *BinOperation:
+					if o.Dest != nil && strings.HasPrefix(o.Dest.Name, "idxadd_") {
+						sawIndexedAdd = true
+					}
+				case *MuxOperation:
+					if o.Dest != nil && strings.HasPrefix(o.Dest.Name, "idxload_") {
+						sawIndexedLoad = true
+					}
+				}
+			}
+		}
+	}
+	if !sawIndexedAdd {
+		t.Fatalf("expected flattened nested index arithmetic")
+	}
+	if !sawIndexedLoad {
+		t.Fatalf("expected flattened nested index mux load")
+	}
+}
+
+func TestDynamicGlobalWordCallIsNotDropped(t *testing.T) {
+	design := buildDesignFromSource(t, dynamicGlobalWordProgram)
+	if design == nil || design.TopLevel == nil {
+		t.Fatalf("expected design")
+	}
+
+	sawWordAssign := false
+	for _, proc := range design.TopLevel.Processes {
+		for _, block := range proc.Blocks {
+			for _, op := range block.Ops {
+				assign, ok := op.(*AssignOperation)
+				if !ok || assign == nil || assign.Dest == nil {
+					continue
+				}
+				if assign.Dest.Name == "word_0" || assign.Dest.Name == "word_1" || assign.Dest.Name == "word_4" || assign.Dest.Name == "word_5" {
+					sawWordAssign = true
+				}
+			}
+		}
+	}
+	if !sawWordAssign {
+		t.Fatalf("expected initword side effects to assign mutable word elements")
+	}
+}
+
+func TestSliceInlineMultiResultCallAssignsResult(t *testing.T) {
+	design := buildDesignFromSource(t, sliceInlineProgram)
+	if design == nil || design.TopLevel == nil {
+		t.Fatalf("expected design")
+	}
+
+	sawResultAssign := false
+	for _, proc := range design.TopLevel.Processes {
+		for _, block := range proc.Blocks {
+			for _, op := range block.Ops {
+				assign, ok := op.(*AssignOperation)
+				if !ok || assign == nil || assign.Dest == nil || assign.Value == nil {
+					continue
+				}
+				if assign.Dest.Name == "result" {
+					sawResultAssign = true
+				}
+			}
+		}
+	}
+
+	if !sawResultAssign {
+		t.Fatalf("expected slice-based multi-result inline call to assign result")
+	}
+}
+
+func TestNestedSliceInlineMultiResultCallAssignsResult(t *testing.T) {
+	design := buildDesignFromSource(t, nestedSliceInlineProgram)
+	if design == nil || design.TopLevel == nil {
+		t.Fatalf("expected design")
+	}
+
+	sawResultAssign := false
+	for _, proc := range design.TopLevel.Processes {
+		for _, block := range proc.Blocks {
+			for _, op := range block.Ops {
+				assign, ok := op.(*AssignOperation)
+				if !ok || assign == nil || assign.Dest == nil || assign.Value == nil {
+					continue
+				}
+				if assign.Dest.Name == "result" {
+					sawResultAssign = true
+				}
+			}
+		}
+	}
+
+	if !sawResultAssign {
+		t.Fatalf("expected nested slice-based multi-result inline call to assign result")
 	}
 }
 

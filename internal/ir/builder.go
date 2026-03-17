@@ -92,11 +92,14 @@ type indexedBaseState struct {
 	base     ssa.Value
 	elemType *SignalType
 	length   int
+	dims     []int
 	elements map[int]*Signal
 	storage  map[int]*Signal
+	parent   *indexedBaseState
+	offset   int
 }
 
-const defaultDynamicSliceIndexMax = 16
+const defaultDynamicSliceIndexMax = 64
 
 // State is an SSA-backed FSM state for loop lowering.
 type State struct {
@@ -231,6 +234,9 @@ func (b *builder) buildProcess(fn *ssa.Function) *Process {
 func (b *builder) translateBlock(proc *Process, block *ssa.BasicBlock) {
 	if block == nil {
 		return
+	}
+	if len(block.Preds) > 0 {
+		b.materializeIndexedStateStorage()
 	}
 	bb := b.blocks[block]
 	if bb == nil {
@@ -1308,45 +1314,46 @@ func (b *builder) signalForIndexAddr(addr *ssa.IndexAddr) *Signal {
 	if addr == nil {
 		return nil
 	}
-	base := b.signalForValue(addr.X)
-	index := b.signalForValue(addr.Index)
-	return b.memoryAccess(nil, base, index, addr)
+	return b.memoryAccess(nil, addr)
 }
 
 func (b *builder) signalForIndexAddrInBlock(bb *BasicBlock, addr *ssa.IndexAddr) *Signal {
 	if addr == nil {
 		return nil
 	}
-	base := b.signalForValue(addr.X)
-	index := b.signalForValue(addr.Index)
-	return b.memoryAccess(bb, base, index, addr)
+	return b.memoryAccess(bb, addr)
 }
 
-func (b *builder) memoryAccess(bb *BasicBlock, base, index *Signal, addr *ssa.IndexAddr) *Signal {
+func (b *builder) memoryAccess(bb *BasicBlock, addr *ssa.IndexAddr) *Signal {
 	if b == nil || addr == nil {
 		return nil
 	}
 	if cached, ok := b.signals[addr]; ok && cached != nil {
 		return cached
 	}
-	state := b.indexedStateForBase(addr.X, addr.Pos())
+	base, indices, ok := collectIndexedAccess(addr)
+	if !ok {
+		return nil
+	}
+	state := b.indexedStateForBase(base, addr.Pos())
 	if state == nil {
 		return nil
 	}
-	if idx, ok := constIndexValue(addr.Index); ok {
+	if idx, ok := indexedConstantFlatIndex(state, indices); ok {
 		elem := b.indexedElementSignal(state, idx, addr.Pos())
 		if elem != nil {
 			b.signals[addr] = elem
 		}
 		return elem
 	}
-	if index == nil {
-		return nil
-	}
 	if bb == nil {
 		bb = b.currentBlock
 	}
 	if bb == nil {
+		return nil
+	}
+	index, ok := b.linearizeIndexedAccess(bb, state, indices, addr.Pos())
+	if !ok || index == nil {
 		return nil
 	}
 	maxLen := state.length
@@ -1364,12 +1371,11 @@ func (b *builder) lowerIndexedLoad(bb *BasicBlock, load *ssa.UnOp, addr *ssa.Ind
 	if bb == nil || load == nil || addr == nil {
 		return false
 	}
-	base := b.signalForValue(addr.X)
-	index := b.signalForValue(addr.Index)
-	selected := b.memoryAccess(bb, base, index, addr)
+	selected := b.memoryAccess(bb, addr)
 	if selected == nil {
 		return false
 	}
+	selected = b.snapshotLoadedSignal(bb, selected, load.Pos())
 	// Preserve any pre-created placeholder signal (e.g. when a phi references
 	// this load before the defining block is translated) by resolving through
 	// bindResolvedValue instead of replacing the map entry directly.
@@ -1385,7 +1391,11 @@ func (b *builder) lowerIndexedStore(bb *BasicBlock, store *ssa.Store) bool {
 	if !ok {
 		return false
 	}
-	state := b.indexedStateForBase(addr.X, store.Pos())
+	base, indices, ok := collectIndexedAccess(addr)
+	if !ok {
+		return false
+	}
+	state := b.indexedStateForBase(base, store.Pos())
 	if state == nil {
 		return false
 	}
@@ -1393,7 +1403,7 @@ func (b *builder) lowerIndexedStore(bb *BasicBlock, store *ssa.Store) bool {
 	if value == nil {
 		return false
 	}
-	if idx, ok := constIndexValue(addr.Index); ok {
+	if idx, ok := indexedConstantFlatIndex(state, indices); ok {
 		dest := b.indexedElementStorageSignal(state, idx, store.Pos())
 		if dest == nil {
 			return false
@@ -1415,15 +1425,22 @@ func (b *builder) lowerIndexedStore(bb *BasicBlock, store *ssa.Store) bool {
 		state.elements[idx] = value
 		return true
 	}
-	index := b.signalForValue(addr.Index)
-	if index == nil || state.length <= 0 {
+	maxLen := state.length
+	if maxLen < 0 {
+		maxLen = defaultDynamicSliceIndexMax
+	}
+	if maxLen <= 0 {
+		return false
+	}
+	index, ok := b.linearizeIndexedAccess(bb, state, indices, store.Pos())
+	if !ok || index == nil {
 		return false
 	}
 	indexType := index.Type
 	if indexType == nil {
-		indexType = signalType(addr.Index.Type())
+		indexType = &SignalType{Width: 32, Signed: true}
 	}
-	for i := 0; i < state.length; i++ {
+	for i := 0; i < maxLen; i++ {
 		current := b.indexedElementSignal(state, i, store.Pos())
 		dest := b.indexedElementStorageSignal(state, i, store.Pos())
 		if current == nil || dest == nil {
@@ -1507,7 +1524,7 @@ func (b *builder) indexedStateForBase(base ssa.Value, pos token.Pos) *indexedBas
 	if state, ok := b.indexedBases[base]; ok {
 		return state
 	}
-	elemType, length, ok := indexedElementInfo(base.Type())
+	elemType, length, dims, ok := indexedShapeInfo(base.Type())
 	if !ok {
 		return nil
 	}
@@ -1515,6 +1532,7 @@ func (b *builder) indexedStateForBase(base ssa.Value, pos token.Pos) *indexedBas
 		base:     base,
 		elemType: signalType(elemType),
 		length:   length,
+		dims:     dims,
 		elements: make(map[int]*Signal),
 		storage:  make(map[int]*Signal),
 	}
@@ -1556,6 +1574,31 @@ func (b *builder) indexedElementStorageSignal(state *indexedBaseState, idx int, 
 		return nil
 	}
 	if sig, ok := state.storage[idx]; ok && sig != nil {
+		return sig
+	}
+	if _, isGlobal := state.base.(*ssa.Global); !isGlobal {
+		baseName := "idxbase"
+		if alloc, ok := state.base.(*ssa.Alloc); ok {
+			baseName = b.allocName(alloc)
+		} else if state.base != nil {
+			baseName = defaultName(state.base.Name(), baseName)
+			baseName = strings.ReplaceAll(baseName, ".", "_")
+			baseName = strings.ReplaceAll(baseName, " ", "_")
+		}
+		sig := &Signal{
+			Name:   fmt.Sprintf("%s_%d", baseName, idx),
+			Type:   state.elemType.Clone(),
+			Kind:   Reg,
+			Source: pos,
+			Value:  int64(0),
+		}
+		state.storage[idx] = sig
+		if b.module != nil {
+			b.module.Signals[sig.Name] = sig
+		}
+		if state.elements[idx] == nil || state.elements[idx].Kind == Const {
+			state.elements[idx] = sig
+		}
 		return sig
 	}
 	sig := b.indexedElementSignal(state, idx, pos)
@@ -1653,6 +1696,9 @@ func (b *builder) hasPort(name string) bool {
 }
 
 func unwrapIndexedBase(v ssa.Value) ssa.Value {
+	if base, _, ok := collectIndexedAccess(v); ok {
+		return base
+	}
 	for v != nil {
 		switch val := v.(type) {
 		case *ssa.ChangeType:
@@ -1666,24 +1712,253 @@ func unwrapIndexedBase(v ssa.Value) ssa.Value {
 	return nil
 }
 
-func indexedElementInfo(t types.Type) (types.Type, int, bool) {
+func collectIndexedAccess(v ssa.Value) (ssa.Value, []ssa.Value, bool) {
+	if v == nil {
+		return nil, nil, false
+	}
+	var indices []ssa.Value
+	for v != nil {
+		switch val := v.(type) {
+		case *ssa.ChangeType:
+			v = val.X
+		case *ssa.Convert:
+			v = val.X
+		case *ssa.Slice:
+			v = val.X
+		case *ssa.IndexAddr:
+			indices = append([]ssa.Value{val.Index}, indices...)
+			v = val.X
+		default:
+			if len(indices) == 0 {
+				return nil, nil, false
+			}
+			return v, indices, true
+		}
+	}
+	return nil, nil, false
+}
+
+func indexedShapeInfo(t types.Type) (types.Type, int, []int, bool) {
 	if t == nil {
-		return nil, 0, false
+		return nil, 0, nil, false
 	}
 	switch tt := t.Underlying().(type) {
 	case *types.Pointer:
-		switch elem := tt.Elem().Underlying().(type) {
-		case *types.Array:
-			return elem.Elem(), int(elem.Len()), true
-		case *types.Slice:
-			return elem.Elem(), -1, true
-		}
+		return indexedShapeInfo(tt.Elem())
 	case *types.Array:
-		return tt.Elem(), int(tt.Len()), true
+		if elem, nestedLen, nestedDims, ok := indexedShapeInfo(tt.Elem()); ok {
+			dims := append([]int{int(tt.Len())}, nestedDims...)
+			if nestedLen < 0 {
+				return elem, -1, dims, true
+			}
+			return elem, int(tt.Len()) * nestedLen, dims, true
+		}
+		return tt.Elem(), int(tt.Len()), []int{int(tt.Len())}, true
 	case *types.Slice:
-		return tt.Elem(), -1, true
+		if elem, _, nestedDims, ok := indexedShapeInfo(tt.Elem()); ok {
+			return elem, -1, append([]int{-1}, nestedDims...), true
+		}
+		return tt.Elem(), -1, []int{-1}, true
 	}
-	return nil, 0, false
+	return nil, 0, nil, false
+}
+
+func indexedElementInfo(t types.Type) (types.Type, int, bool) {
+	elem, length, _, ok := indexedShapeInfo(t)
+	return elem, length, ok
+}
+
+func (s *indexedBaseState) stride(dim int) (int, bool) {
+	if s == nil || dim < 0 {
+		return 0, false
+	}
+	if len(s.dims) == 0 {
+		if dim == 0 {
+			return 1, true
+		}
+		return 0, false
+	}
+	if dim >= len(s.dims) {
+		return 0, false
+	}
+	stride := 1
+	for i := dim + 1; i < len(s.dims); i++ {
+		if s.dims[i] < 0 {
+			return 0, false
+		}
+		stride *= s.dims[i]
+	}
+	return stride, true
+}
+
+func indexedConstantFlatIndex(state *indexedBaseState, indices []ssa.Value) (int, bool) {
+	if state == nil || len(indices) == 0 {
+		return 0, false
+	}
+	if len(state.dims) > 1 && len(indices) != len(state.dims) {
+		return 0, false
+	}
+	flat := 0
+	for i, index := range indices {
+		raw, ok := constIndexValue(index)
+		if !ok {
+			return 0, false
+		}
+		dimSize := -1
+		if i < len(state.dims) {
+			dimSize = state.dims[i]
+		}
+		if dimSize >= 0 && raw >= dimSize {
+			return 0, false
+		}
+		stride, ok := state.stride(i)
+		if !ok {
+			if len(indices) == 1 {
+				stride = 1
+			} else {
+				return 0, false
+			}
+		}
+		flat += raw * stride
+	}
+	if state.length >= 0 && flat >= state.length {
+		return 0, false
+	}
+	return flat, true
+}
+
+func (b *builder) synthesizeBinOp(bb *BasicBlock, prefix string, op BinOp, left, right *Signal, typ *SignalType, pos token.Pos) *Signal {
+	if b == nil || bb == nil || left == nil || right == nil {
+		return nil
+	}
+	if typ == nil {
+		typ = left.Type.Promote(right.Type)
+	}
+	if typ == nil {
+		typ = &SignalType{Width: 32, Signed: true}
+	}
+	dest := b.newAnonymousSignal(prefix, typ, pos)
+	bb.Ops = append(bb.Ops, &BinOperation{
+		Op:    op,
+		Dest:  dest,
+		Left:  left,
+		Right: right,
+	})
+	return dest
+}
+
+func (b *builder) linearizeIndexedAccess(bb *BasicBlock, state *indexedBaseState, indices []ssa.Value, pos token.Pos) (*Signal, bool) {
+	if b == nil || bb == nil || state == nil || len(indices) == 0 {
+		return nil, false
+	}
+	if len(state.dims) > 1 && len(indices) != len(state.dims) {
+		return nil, false
+	}
+
+	indexType := &SignalType{Width: 32, Signed: true}
+	offset := 0
+	var acc *Signal
+
+	for i, indexValue := range indices {
+		stride, ok := state.stride(i)
+		if !ok {
+			if len(indices) == 1 {
+				stride = 1
+			} else {
+				return nil, false
+			}
+		}
+		if raw, ok := constIndexValue(indexValue); ok {
+			offset += raw * stride
+			continue
+		}
+		index := b.signalForValue(indexValue)
+		if index == nil {
+			return nil, false
+		}
+		if index.Type != nil {
+			indexType = index.Type.Clone()
+		}
+		term := index
+		if stride != 1 {
+			term = b.synthesizeBinOp(
+				bb,
+				"idxmul",
+				Mul,
+				term,
+				b.newConstSignal(int64(stride), indexType.Clone(), pos),
+				indexType.Clone(),
+				pos,
+			)
+			if term == nil {
+				return nil, false
+			}
+		}
+		if acc == nil {
+			acc = term
+			continue
+		}
+		acc = b.synthesizeBinOp(bb, "idxadd", Add, acc, term, indexType.Clone(), pos)
+		if acc == nil {
+			return nil, false
+		}
+	}
+
+	if acc == nil {
+		return b.newConstSignal(int64(offset), indexType, pos), true
+	}
+	if offset != 0 {
+		acc = b.synthesizeBinOp(
+			bb,
+			"idxadd",
+			Add,
+			acc,
+			b.newConstSignal(int64(offset), indexType.Clone(), pos),
+			indexType.Clone(),
+			pos,
+		)
+		if acc == nil {
+			return nil, false
+		}
+	}
+	return acc, true
+}
+
+func (b *builder) snapshotLoadedSignal(bb *BasicBlock, sig *Signal, pos token.Pos) *Signal {
+	if b == nil || bb == nil || sig == nil {
+		return sig
+	}
+	if sig.Kind == Const {
+		return sig
+	}
+	if sig.Kind != Reg {
+		return sig
+	}
+	dest := b.newAnonymousSignal("loadsnap", sig.Type.Clone(), pos)
+	bb.Ops = append(bb.Ops, &MuxOperation{
+		Dest:       dest,
+		Cond:       b.newConstSignal(true, &SignalType{Width: 1, Signed: false}, pos),
+		TrueValue:  sig,
+		FalseValue: sig,
+	})
+	return dest
+}
+
+func (b *builder) materializeIndexedStateStorage() {
+	if b == nil {
+		return
+	}
+	for _, state := range b.indexedBases {
+		if state == nil {
+			continue
+		}
+		for idx, storage := range state.storage {
+			if storage == nil {
+				continue
+			}
+			state.elements[idx] = storage
+		}
+	}
 }
 
 func constIndexValue(v ssa.Value) (int, bool) {
@@ -1721,9 +1996,7 @@ func (b *builder) signalForValue(v ssa.Value) *Signal {
 	case *ssa.Phi:
 		return b.ensureValueSignal(val)
 	case *ssa.IndexAddr:
-		base := b.signalForValue(val.X)
-		index := b.signalForValue(val.Index)
-		if sig := b.memoryAccess(b.currentBlock, base, index, val); sig != nil {
+		if sig := b.memoryAccess(b.currentBlock, val); sig != nil {
 			return sig
 		}
 		// Dynamic index addresses need block context plus analyzable base/index.
@@ -1736,7 +2009,9 @@ func (b *builder) signalForValue(v ssa.Value) *Signal {
 		return nil
 	case *ssa.Global:
 		return b.signalForGlobal(val)
-	case *ssa.MakeInterface, *ssa.Slice, *ssa.MakeChan:
+	case *ssa.Slice:
+		return b.signalForValue(val.X)
+	case *ssa.MakeInterface, *ssa.MakeChan:
 		return nil
 	case *ssa.Call:
 		return nil
@@ -2239,6 +2514,11 @@ func isSliceType(t types.Type) bool {
 		return false
 	}
 	return false
+}
+
+func isIndexedValueType(t types.Type) bool {
+	_, _, _, ok := indexedShapeInfo(t)
+	return ok
 }
 
 func defaultName(candidate, fallback string) string {

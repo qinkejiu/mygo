@@ -89,6 +89,20 @@ func main() {
 }
 `
 
+const fsmPrintUsesUpdatedRegValueProgram = `
+package main
+
+import "fmt"
+
+var out int
+
+func main() {
+	out = 0x1f
+	out = 0x39
+	fmt.Printf("%x\n", out)
+}
+`
+
 func TestValueRefDistinguishesPortsFromMutableRegs(t *testing.T) {
 	design := buildMLIRDesignFromSource(t, mutableRegPortSeparationProgram)
 	out := filepath.Join(t.TempDir(), "design.mlir")
@@ -105,6 +119,62 @@ func TestValueRefDistinguishesPortsFromMutableRegs(t *testing.T) {
 	}
 	if !strings.Contains(text, "sv.read_inout %test_result_1") {
 		t.Fatalf("mutable reg test_result_1 should be read via sv.read_inout:\n%s", text)
+	}
+}
+
+func TestFSMPrintUsesLatestAssignedRegValue(t *testing.T) {
+	design := buildMLIRDesignFromSource(t, fsmPrintUsesUpdatedRegValueProgram)
+	out := filepath.Join(t.TempDir(), "design.mlir")
+	if err := Emit(design, out); err != nil {
+		t.Fatalf("Emit failed: %v", err)
+	}
+	data, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatalf("read mlir output: %v", err)
+	}
+	text := string(data)
+	if !strings.Contains(text, `sv.fwrite`) || !strings.Contains(text, `"%x`) {
+		t.Fatalf("expected hex fwrite in MLIR output:\n%s", text)
+	}
+	if strings.Contains(text, "sv.read_inout %out") {
+		t.Fatalf("print should use the latest assigned value, not re-read %%out:\n%s", text)
+	}
+}
+
+const fsmPrintAfterInlineSliceMutationProgram = `
+package main
+
+import "fmt"
+
+var arr [2]int
+
+func fill(a []int) {
+	a[0] = 0x39
+	a[1] = 0x25
+}
+
+func main() {
+	fill(arr[:])
+	fmt.Printf("%x%x\n", arr[0], arr[1])
+}
+`
+
+func TestFSMPrintAfterInlineSliceMutationUsesUpdatedValues(t *testing.T) {
+	design := buildMLIRDesignFromSource(t, fsmPrintAfterInlineSliceMutationProgram)
+	out := filepath.Join(t.TempDir(), "design.mlir")
+	if err := Emit(design, out); err != nil {
+		t.Fatalf("Emit failed: %v", err)
+	}
+	data, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatalf("read mlir output: %v", err)
+	}
+	text := string(data)
+	if !strings.Contains(text, "sv.bpassign %print_reg") {
+		t.Fatalf("expected print scratch register materialization:\n%s", text)
+	}
+	if !strings.Contains(text, "sv.fwrite") || !strings.Contains(text, "%print_val") {
+		t.Fatalf("expected print to use scratch-backed values:\n%s", text)
 	}
 }
 

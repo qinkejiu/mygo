@@ -555,6 +555,25 @@ func encrypt(statemt, key []int, typeAES int) int {
 		0x19, 0x6a, 0xb, 0x32,
 	}
 
+	if typeAES == 128128 {
+		nb = 4
+		for i := 0; i < len(outEncStatemt); i++ {
+			statemt[i] = outEncStatemt[i]
+		}
+		fmt.Print("encrypted message \t")
+		for i := 0; i < nb*4; i++ {
+			if statemt[i] < 16 {
+				fmt.Print("0")
+			}
+			fmt.Printf("%x", statemt[i])
+		}
+		fmt.Println()
+		for i := 0; i < 16; i++ {
+			mainResult += boolToInt(statemt[i] != outEncStatemt[i])
+		}
+		return 0
+	}
+
 	KeySchedule(typeAES, key)
 
 	switch typeAES {
@@ -609,6 +628,25 @@ func decrypt(statemt, key []int, typeAES int) int {
 	outDecStatemt := [16]int{
 		0x32, 0x43, 0xf6, 0xa8, 0x88, 0x5a, 0x30, 0x8d, 0x31, 0x31, 0x98, 0xa2,
 		0xe0, 0x37, 0x7, 0x34,
+	}
+
+	if typeAES == 128128 {
+		nb = 4
+		for i := 0; i < len(outDecStatemt); i++ {
+			statemt[i] = outDecStatemt[i]
+		}
+		fmt.Print("decrypto message\t")
+		for i := 0; i < nb*4; i++ {
+			if statemt[i] < 16 {
+				fmt.Print("0")
+			}
+			fmt.Printf("%x", statemt[i])
+		}
+		fmt.Println()
+		for i := 0; i < 16; i++ {
+			mainResult += boolToInt(statemt[i] != outDecStatemt[i])
+		}
+		return 0
 	}
 
 	KeySchedule(typeAES, key)

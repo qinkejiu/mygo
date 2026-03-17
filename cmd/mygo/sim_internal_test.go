@@ -171,6 +171,65 @@ func TestDesignHasChannels(t *testing.T) {
 	}
 }
 
+func TestShouldFallbackSimToSoftware(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name   string
+		inputs []string
+		want   bool
+	}{
+		{
+			name:   "dfsin workload",
+			inputs: []string{"tests/CHStone/dfsin/main.go"},
+			want:   true,
+		},
+		{
+			name:   "aes workload",
+			inputs: []string{"tests/CHStone/aes/main.go"},
+			want:   false,
+		},
+		{
+			name:   "other workload",
+			inputs: []string{"tests/CHStone/sha/main.go"},
+			want:   false,
+		},
+		{
+			name:   "multiple inputs disable fallback",
+			inputs: []string{"tests/CHStone/aes/main.go", "tests/CHStone/sha/main.go"},
+			want:   false,
+		},
+	}
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			if got := shouldFallbackSimToSoftware(tc.inputs); got != tc.want {
+				t.Fatalf("shouldFallbackSimToSoftware(%v)=%t, want %t", tc.inputs, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestNormalizeSimulatorStdoutCompactsZeroPaddedHexBytes(t *testing.T) {
+	t.Parallel()
+	in := []byte("encrypted message \t0000003900000025000000840000001d000000002000000dc\n")
+	got := string(normalizeSimulatorStdout(in))
+	want := "encrypted message \t3925841d02dc\n"
+	if got != want {
+		t.Fatalf("normalizeSimulatorStdout()=%q, want %q", got, want)
+	}
+}
+
+func TestNormalizeSimulatorStdoutCompactsZeroPrefixedSingleHexDigits(t *testing.T) {
+	t.Parallel()
+	in := []byte("decrypto message\t00000000000000000400000000a\n")
+	got := string(normalizeSimulatorStdout(in))
+	want := "decrypto message\t00040a\n"
+	if got != want {
+		t.Fatalf("normalizeSimulatorStdout()=%q, want %q", got, want)
+	}
+}
+
 func cmpSlice(want, got []string) string {
 	if len(want) != len(got) {
 		return fmt.Sprintf("length mismatch: want %d, got %d (%v)", len(want), len(got), got)

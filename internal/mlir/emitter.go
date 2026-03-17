@@ -457,7 +457,6 @@ func (e *emitter) emitRootProcess(module *ir.Module, info *processInfo, wires ma
 		name := strings.TrimPrefix(port.Name, "%")
 		portNames[name] = "%" + name
 	}
-
 	pp := &processPrinter{
 		w:             e.w,
 		indent:        e.indent,
@@ -872,8 +871,14 @@ type fsmBuilder struct {
 	recvValidSignals   map[*ir.RecvOperation]string
 	recvDataSignals    map[*ir.RecvOperation]string
 	recvInfos          map[*ir.RecvOperation]*recvRegInfo
+	printScratchRegs   map[printScratchKey]string
 	deadlockWarnings   []string
 	deadlockWarningSet map[string]struct{}
+}
+
+type printScratchKey struct {
+	op    *ir.PrintOperation
+	index int
 }
 
 func newFSMBuilder(printer *processPrinter, proc *ir.Process) *fsmBuilder {
@@ -899,6 +904,7 @@ func newFSMBuilder(printer *processPrinter, proc *ir.Process) *fsmBuilder {
 		recvValidSignals:   make(map[*ir.RecvOperation]string),
 		recvDataSignals:    make(map[*ir.RecvOperation]string),
 		recvInfos:          make(map[*ir.RecvOperation]*recvRegInfo),
+		printScratchRegs:   make(map[printScratchKey]string),
 		deadlockWarningSet: make(map[string]struct{}),
 	}
 	builder.collectChannelOps()
@@ -1180,6 +1186,48 @@ func (f *fsmBuilder) emitRecvRegisters() {
 				regName:   regName,
 				valueName: destName,
 				typeStr:   typeStr,
+			}
+		}
+	}
+}
+
+func (f *fsmBuilder) emitPrintScratchRegs() {
+	if f == nil || f.printer == nil || f.proc == nil {
+		return
+	}
+	for _, block := range f.proc.Blocks {
+		if block == nil {
+			continue
+		}
+		for _, op := range block.Ops {
+			printOp, ok := op.(*ir.PrintOperation)
+			if !ok || printOp == nil {
+				continue
+			}
+			for i, seg := range printOp.Segments {
+				if seg.Value == nil {
+					continue
+				}
+				key := printScratchKey{op: printOp, index: i}
+				if _, exists := f.printScratchRegs[key]; exists {
+					continue
+				}
+				typeStr := typeString(seg.Value.Type)
+				regName := f.printer.freshValueName("print_reg")
+				f.printer.printIndent()
+				fmt.Fprintf(f.printer.w, "%s = sv.reg : !hw.inout<%s>\n", regName, typeStr)
+				zeroName := f.printer.freshValueName("print_zero")
+				f.printer.printIndent()
+				fmt.Fprintf(f.printer.w, "%s = hw.constant 0 : %s\n", zeroName, typeStr)
+				f.printer.printIndent()
+				fmt.Fprintln(f.printer.w, "sv.initial {")
+				f.printer.indent++
+				f.printer.printIndent()
+				fmt.Fprintf(f.printer.w, "sv.bpassign %s, %s : %s\n", regName, zeroName, typeStr)
+				f.printer.indent--
+				f.printer.printIndent()
+				fmt.Fprintln(f.printer.w, "}")
+				f.printScratchRegs[key] = regName
 			}
 		}
 	}
@@ -1501,6 +1549,33 @@ func (f *fsmBuilder) emitInlinePrint(op *ir.PrintOperation) {
 		fd = f.printer.stdoutConstant()
 	}
 	format, operands, operandTypes := f.printer.buildPrintfFormat(op)
+	if len(operands) > 0 {
+		materialized := make([]string, 0, len(operands))
+		materializedTypes := make([]string, 0, len(operandTypes))
+		valueIndex := 0
+		for i, seg := range op.Segments {
+			if seg.Value == nil {
+				continue
+			}
+			key := printScratchKey{op: op, index: i}
+			regName, ok := f.printScratchRegs[key]
+			if !ok {
+				continue
+			}
+			value := operands[valueIndex]
+			typeStr := operandTypes[valueIndex]
+			f.printer.printIndent()
+			fmt.Fprintf(f.printer.w, "sv.bpassign %s, %s : %s\n", regName, value, typeStr)
+			readName := f.printer.freshValueName("print_val")
+			f.printer.printIndent()
+			fmt.Fprintf(f.printer.w, "%s = sv.read_inout %s : !hw.inout<%s>\n", readName, regName, typeStr)
+			materialized = append(materialized, readName)
+			materializedTypes = append(materializedTypes, typeStr)
+			valueIndex++
+		}
+		operands = materialized
+		operandTypes = materializedTypes
+	}
 	f.printer.printIndent()
 	if len(operands) == 0 {
 		fmt.Fprintf(f.printer.w, "sv.fwrite %s, %s\n", fd, strconv.Quote(format))
@@ -1764,6 +1839,7 @@ func (p *processPrinter) emitProcess(proc *ir.Process) {
 			p.fsm.emitStateConstants()
 			p.fsm.emitStateRegister()
 			p.fsm.emitRecvRegisters()
+			p.fsm.emitPrintScratchRegs()
 		}
 	} else {
 		p.fsm = nil
@@ -1828,13 +1904,13 @@ func (p *processPrinter) emitOperation(block *ir.BasicBlock, op ir.Operation, pr
 		p.emitConvertOperation(o)
 	case *ir.AssignOperation:
 		if p.fsm != nil {
-			moduleSig, ok := p.moduleSignals[o.Dest.Name]
-			if ok && moduleSig != nil && moduleSig.Kind == ir.Reg {
-				return
-			}
 			src := p.valueRef(o.Value)
 			if src != "" && src != "%unknown" {
 				p.valueNames[o.Dest] = src
+			}
+			moduleSig, ok := p.moduleSignals[o.Dest.Name]
+			if ok && moduleSig != nil && moduleSig.Kind == ir.Reg {
+				return
 			}
 			return
 		}
