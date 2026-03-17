@@ -10,7 +10,7 @@ import (
 	"golang.org/x/tools/go/ssa"
 )
 
-const inlineCallMaxDepth = 64
+const inlineCallMaxDepth = 256
 
 type inlineFrame struct {
 	builder *builder
@@ -829,7 +829,7 @@ func (b *builder) handleCall(proc *Process, block *ssa.BasicBlock, bb *BasicBloc
 	// Always inline functions, even pure ones
 	// The modular approach is too complex and causes signal naming issues
 	// Fall back to inlining for all functions
-	success := b.buildAndMergeProcess(proc, block, bb, instrIndex, callee, args, call)
+	success := b.buildAndMergeProcess(proc, block, bb, instrIndex, callee, args, call, nil)
 	if success {
 		return true
 	}
@@ -875,7 +875,7 @@ func (b *builder) shouldBuildAsModule(fn *ssa.Function) bool {
 
 // buildAndMergeProcess builds a callee process and merges it with the caller's process
 // This is used for functions with global state access that need to share the same module
-func (b *builder) buildAndMergeProcess(proc *Process, block *ssa.BasicBlock, bb *BasicBlock, instrIndex int, callee *ssa.Function, args []*Signal, call *ssa.Call) bool {
+func (b *builder) buildAndMergeProcess(proc *Process, block *ssa.BasicBlock, bb *BasicBlock, instrIndex int, callee *ssa.Function, args []*Signal, call *ssa.Call, resultDest *Signal) bool {
 	if proc == nil || block == nil || bb == nil || callee == nil {
 		return false
 	}
@@ -1074,6 +1074,40 @@ continuationDone:
 			continuation.Ops = append([]Operation{&PhiOperation{
 				Dest:      callResult,
 				Incomings: incomings,
+			}}, continuation.Ops...)
+		}
+	}
+	if resultDest != nil {
+		switch {
+		case len(calleeProc.ReturnValues) > 1:
+			incomings := make([]PhiIncoming, 0, len(calleeProc.ReturnValues))
+			for retBlock, sig := range calleeProc.ReturnValues {
+				if retBlock == nil || sig == nil {
+					continue
+				}
+				incomings = append(incomings, PhiIncoming{Block: retBlock, Value: sig})
+			}
+			if len(incomings) > 0 {
+				continuation.Ops = append([]Operation{&PhiOperation{
+					Dest:      resultDest,
+					Incomings: incomings,
+				}}, continuation.Ops...)
+			}
+		case len(calleeProc.ReturnValues) == 1:
+			for _, sig := range calleeProc.ReturnValues {
+				if sig == nil {
+					continue
+				}
+				continuation.Ops = append([]Operation{&AssignOperation{
+					Dest:  resultDest,
+					Value: sig,
+				}}, continuation.Ops...)
+				break
+			}
+		case calleeProc.Return != nil:
+			continuation.Ops = append([]Operation{&AssignOperation{
+				Dest:  resultDest,
+				Value: calleeProc.Return,
 			}}, continuation.Ops...)
 		}
 	}
@@ -1776,7 +1810,7 @@ func (b *builder) inlineCall(bb *BasicBlock, callee *ssa.Function, args []*Signa
 	if bb == nil || callee == nil {
 		return nil, false
 	}
-	if results, ok := b.inlineIntrinsicCall(callee, args); ok {
+	if results, ok := b.inlineIntrinsicCall(bb, callee, args, callee.Pos()); ok {
 		return results, true
 	}
 	if depth >= inlineCallMaxDepth {
@@ -1845,7 +1879,7 @@ func (b *builder) inlineCallWithOptions(bb *BasicBlock, callee *ssa.Function, ar
 	if bb == nil || callee == nil {
 		return nil, false
 	}
-	if results, ok := b.inlineIntrinsicCall(callee, args); ok {
+	if results, ok := b.inlineIntrinsicCall(bb, callee, args, callee.Pos()); ok {
 		return results, true
 	}
 	if depth >= inlineCallMaxDepth {
@@ -2088,6 +2122,10 @@ func (b *builder) inlineExecInstr(frame *inlineFrame, instr ssa.Instruction, dep
 			if !ok || value == nil {
 				return false
 			}
+			if dest, ok := b.lowerNativeFloatNeg(frame.bb, value, v.Type(), v.Pos()); ok {
+				frame.values[v] = dest
+				return true
+			}
 			dest := b.newAnonymousSignal("callneg", signalType(v.Type()), v.Pos())
 			zero := b.newConstSignal(0, dest.Type, v.Pos())
 			frame.bb.Ops = append(frame.bb.Ops, &BinOperation{
@@ -2156,7 +2194,10 @@ func (b *builder) inlineExecInstr(frame *inlineFrame, instr ssa.Instruction, dep
 			}
 			args = append(args, sig)
 		}
-		results, ok := b.inlineCall(frame.bb, callee, args, frame.stack, depth+1)
+		results, ok := b.inlineIntrinsicCall(frame.bb, callee, args, v.Pos())
+		if !ok {
+			results, ok = b.inlineCall(frame.bb, callee, args, frame.stack, depth+1)
+		}
 		resultCount := valueResultCount(v.Type())
 		if !ok {
 			return resultCount == 0
@@ -2208,6 +2249,9 @@ func (b *builder) inlineEmitTypeChange(bb *BasicBlock, source *Signal, dstType t
 	if source == nil {
 		return nil
 	}
+	if dest, ok := b.lowerNativeFloatConvert(bb, source, nil, dstType, pos); ok {
+		return dest
+	}
 	destType := signalType(dstType)
 	if source.Type != nil && source.Type.Equal(destType) {
 		return source
@@ -2223,6 +2267,9 @@ func (b *builder) inlineEmitTypeChange(bb *BasicBlock, source *Signal, dstType t
 func (b *builder) inlineEmitBinOp(bb *BasicBlock, tok token.Token, resultType types.Type, leftType types.Type, left, right *Signal, pos token.Pos) *Signal {
 	if left == nil || right == nil {
 		return nil
+	}
+	if dest, ok := b.lowerNativeFloatBinOp(bb, tok, resultType, leftType, left, right, pos); ok {
+		return dest
 	}
 	commonType := left.Type.Promote(right.Type)
 	if commonType == nil {
@@ -2313,14 +2360,33 @@ func (b *builder) inlineEmitBinOp(bb *BasicBlock, tok token.Token, resultType ty
 	return dest
 }
 
-func (b *builder) inlineIntrinsicCall(callee *ssa.Function, args []*Signal) ([]*Signal, bool) {
+func (b *builder) inlineIntrinsicCall(bb *BasicBlock, callee *ssa.Function, args []*Signal, pos token.Pos) ([]*Signal, bool) {
 	if callee == nil || callee.Pkg == nil || callee.Pkg.Pkg == nil {
 		return nil, false
 	}
-	switch callee.Pkg.Pkg.Path() {
-	case "math":
+	pkgPath := callee.Pkg.Pkg.Path()
+	pkgName := callee.Pkg.Pkg.Name()
+	switch {
+	case pkgPath == "math":
 		if callee.Name() == "Float64frombits" && len(args) == 1 && args[0] != nil {
 			return []*Signal{args[0]}, true
+		}
+		if callee.Name() == "Float64bits" && len(args) == 1 && args[0] != nil {
+			return []*Signal{args[0]}, true
+		}
+		if callee.Name() == "Abs" && len(args) == 1 && args[0] != nil {
+			return b.inlineMainHelperCall(bb, "float64_abs", args, pos)
+		}
+	case pkgPath == "main" || pkgName == "main":
+		if callee.Name() == "countLeadingZeros32" && len(args) == 1 && args[0] != nil {
+			if result := b.synthesizeCountLeadingZeros32(bb, args[0], pos); result != nil {
+				return []*Signal{result}, true
+			}
+		}
+		if callee.Name() == "countLeadingZeros64" && len(args) == 1 && args[0] != nil {
+			if result := b.synthesizeCountLeadingZeros64(bb, args[0], pos); result != nil {
+				return []*Signal{result}, true
+			}
 		}
 	}
 	return nil, false

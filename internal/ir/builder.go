@@ -5,6 +5,7 @@ import (
 	"go/constant"
 	"go/token"
 	"go/types"
+	"math"
 	"sort"
 	"strings"
 
@@ -27,6 +28,7 @@ func BuildDesign(prog *ssa.Program, reporter *diag.Reporter) (*Design, error) {
 
 	builder := &builder{
 		reporter:             reporter,
+		mainPkg:              mainPkg,
 		signals:              make(map[ssa.Value]*Signal),
 		tupleSignals:         make(map[ssa.Value][]*Signal),
 		indexedBases:         make(map[ssa.Value]*indexedBaseState),
@@ -62,6 +64,7 @@ func BuildDesign(prog *ssa.Program, reporter *diag.Reporter) (*Design, error) {
 
 type builder struct {
 	reporter             *diag.Reporter
+	mainPkg              *ssa.Package
 	module               *Module
 	signals              map[ssa.Value]*Signal
 	tupleSignals         map[ssa.Value][]*Signal
@@ -772,9 +775,9 @@ func (b *builder) handlePhi(block *ssa.BasicBlock, bb *BasicBlock, phi *ssa.Phi)
 	})
 }
 
-func (b *builder) handleBinOp(bb *BasicBlock, op *ssa.BinOp) {
+func (b *builder) handleBinOp(proc *Process, block *ssa.BasicBlock, bb *BasicBlock, instrIndex int, op *ssa.BinOp) bool {
 	if bb == nil || op == nil {
-		return
+		return false
 	}
 	left := b.signalForBinOperand(bb, op.X)
 	right := b.signalForBinOperand(bb, op.Y)
@@ -786,7 +789,16 @@ func (b *builder) handleBinOp(bb *BasicBlock, op *ssa.BinOp) {
 		zero := b.newConstSignal(0, typ, op.Pos())
 		b.bindResolvedValue(bb, op, zero)
 		b.reporter.Warning(op.Pos(), fmt.Sprintf("binary op %s has unresolved operand; using zero value fallback", op.Op.String()))
-		return
+		return false
+	}
+	if dest, ok := b.lowerNativeFloatBinOp(bb, op.Op, op.Type(), op.X.Type(), left, right, op.Pos()); ok {
+		b.bindResolvedValue(bb, op, dest)
+		return false
+	}
+	if op.Op == token.QUO && isNativeFloat64Type(op.X.Type()) {
+		if b.mergeNativeFloatHelperCall(proc, block, bb, instrIndex, op, "float64_div", argsToSignals(left, right)) {
+			return true
+		}
 	}
 	if pred, ok := translateCompareOp(op.Op, isSignedType(op.X.Type())); ok {
 		dest := b.ensureValueSignal(op)
@@ -797,7 +809,7 @@ func (b *builder) handleBinOp(bb *BasicBlock, op *ssa.BinOp) {
 			Left:      left,
 			Right:     right,
 		})
-		return
+		return false
 	}
 	bin, ok := translateBinOp(op.Op)
 	if ok && bin == ShrU && op.Op == token.SHR && isSignedType(op.X.Type()) {
@@ -805,7 +817,7 @@ func (b *builder) handleBinOp(bb *BasicBlock, op *ssa.BinOp) {
 	}
 	if !ok {
 		b.reporter.Warning(op.Pos(), fmt.Sprintf("unsupported binary op: %s", op.Op.String()))
-		return
+		return false
 	}
 	dest := b.ensureValueSignal(op)
 	dest.Type = signalType(op.Type())
@@ -829,6 +841,7 @@ func (b *builder) handleBinOp(bb *BasicBlock, op *ssa.BinOp) {
 		Left:  left,
 		Right: right,
 	})
+	return false
 }
 
 func (b *builder) signalForBinOperand(bb *BasicBlock, v ssa.Value) *Signal {
@@ -891,6 +904,10 @@ func (b *builder) handleUnOp(proc *Process, bb *BasicBlock, op *ssa.UnOp) {
 			zero := b.newConstSignal(0, typ, op.Pos())
 			b.bindResolvedValue(bb, op, zero)
 			b.reporter.Warning(op.Pos(), fmt.Sprintf("unary op %s has unresolved operand %T; using zero value fallback", op.Op.String(), op.X))
+			return
+		}
+		if dest, ok := b.lowerNativeFloatNeg(bb, value, op.Type(), op.Pos()); ok {
+			b.bindResolvedValue(bb, op, dest)
 			return
 		}
 		dest := b.ensureValueSignal(op)
@@ -1015,7 +1032,7 @@ func (b *builder) translateInstr(proc *Process, block *ssa.BasicBlock, bb *Basic
 		}
 		bb.Ops = append(bb.Ops, &AssignOperation{Dest: dest, Value: val})
 	case *ssa.BinOp:
-		b.handleBinOp(bb, v)
+		return b.handleBinOp(proc, block, bb, instrIndex, v)
 	case *ssa.UnOp:
 		b.handleUnOp(proc, bb, v)
 	case *ssa.Convert:
@@ -1847,6 +1864,120 @@ func (b *builder) synthesizeBinOp(bb *BasicBlock, prefix string, op BinOp, left,
 	return dest
 }
 
+func (b *builder) synthesizeCompare(bb *BasicBlock, prefix string, pred ComparePredicate, left, right *Signal, pos token.Pos) *Signal {
+	if b == nil || bb == nil || left == nil || right == nil {
+		return nil
+	}
+	dest := b.newAnonymousSignal(prefix, boolSignalType(), pos)
+	bb.Ops = append(bb.Ops, &CompareOperation{
+		Predicate: pred,
+		Dest:      dest,
+		Left:      left,
+		Right:     right,
+	})
+	return dest
+}
+
+func (b *builder) synthesizeMux(bb *BasicBlock, prefix string, cond, trueValue, falseValue *Signal, typ *SignalType, pos token.Pos) *Signal {
+	if b == nil || bb == nil || cond == nil || trueValue == nil || falseValue == nil {
+		return nil
+	}
+	if typ == nil {
+		typ = trueValue.Type
+		if typ == nil {
+			typ = falseValue.Type
+		}
+	}
+	dest := b.newAnonymousSignal(prefix, typ, pos)
+	bb.Ops = append(bb.Ops, &MuxOperation{
+		Dest:       dest,
+		Cond:       cond,
+		TrueValue:  trueValue,
+		FalseValue: falseValue,
+	})
+	return dest
+}
+
+func (b *builder) synthesizeCountLeadingZeros32(bb *BasicBlock, value *Signal, pos token.Pos) *Signal {
+	if b == nil || bb == nil || value == nil {
+		return nil
+	}
+	wordType := &SignalType{Width: 32, Signed: false}
+	countType := &SignalType{Width: 8, Signed: true}
+	current := value
+	if value.Type == nil || !value.Type.Equal(wordType) {
+		current = b.newAnonymousSignal("clz32_arg", wordType, pos)
+		bb.Ops = append(bb.Ops, &ConvertOperation{Dest: current, Value: value})
+	}
+	count := b.newConstSignal(int8(0), countType, pos)
+	steps := []struct {
+		limit uint32
+		add   int8
+		shift uint32
+	}{
+		{limit: 0x00010000, add: 16, shift: 16},
+		{limit: 0x01000000, add: 8, shift: 8},
+		{limit: 0x10000000, add: 4, shift: 4},
+		{limit: 0x40000000, add: 2, shift: 2},
+		{limit: 0x80000000, add: 1, shift: 1},
+	}
+	for _, step := range steps {
+		cond := b.synthesizeCompare(bb, "clz32_cmp", CompareULT, current, b.newConstSignal(step.limit, wordType, pos), pos)
+		if cond == nil {
+			return nil
+		}
+		incremented := b.synthesizeBinOp(bb, "clz32_add", Add, count, b.newConstSignal(step.add, countType, pos), countType, pos)
+		if incremented == nil {
+			return nil
+		}
+		count = b.synthesizeMux(bb, "clz32_sel", cond, incremented, count, countType, pos)
+		shifted := b.synthesizeBinOp(bb, "clz32_shl", Shl, current, b.newConstSignal(step.shift, wordType, pos), wordType, pos)
+		if shifted == nil {
+			return nil
+		}
+		current = b.synthesizeMux(bb, "clz32_word", cond, shifted, current, wordType, pos)
+	}
+	return count
+}
+
+func (b *builder) synthesizeCountLeadingZeros64(bb *BasicBlock, value *Signal, pos token.Pos) *Signal {
+	if b == nil || bb == nil || value == nil {
+		return nil
+	}
+	wordType := &SignalType{Width: 64, Signed: false}
+	countType := &SignalType{Width: 8, Signed: true}
+	current := value
+	if value.Type == nil || !value.Type.Equal(wordType) {
+		current = b.newAnonymousSignal("clz64_arg", wordType, pos)
+		bb.Ops = append(bb.Ops, &ConvertOperation{Dest: current, Value: value})
+	}
+	highZero := b.synthesizeCompare(bb, "clz64_cmp", CompareULT, current, b.newConstSignal(uint64(1)<<32, wordType, pos), pos)
+	if highZero == nil {
+		return nil
+	}
+	upper := b.synthesizeBinOp(bb, "clz64_shr", ShrU, current, b.newConstSignal(uint64(32), wordType, pos), wordType, pos)
+	if upper == nil {
+		return nil
+	}
+	lower32 := b.newAnonymousSignal("clz64_lo", &SignalType{Width: 32, Signed: false}, pos)
+	bb.Ops = append(bb.Ops, &ConvertOperation{Dest: lower32, Value: current})
+	upper32 := b.newAnonymousSignal("clz64_hi", &SignalType{Width: 32, Signed: false}, pos)
+	bb.Ops = append(bb.Ops, &ConvertOperation{Dest: upper32, Value: upper})
+	selected := b.synthesizeMux(bb, "clz64_sel", highZero, lower32, upper32, lower32.Type, pos)
+	if selected == nil {
+		return nil
+	}
+	inner := b.synthesizeCountLeadingZeros32(bb, selected, pos)
+	if inner == nil {
+		return nil
+	}
+	base := b.synthesizeMux(bb, "clz64_base", highZero, b.newConstSignal(int8(32), countType, pos), b.newConstSignal(int8(0), countType, pos), countType, pos)
+	if base == nil {
+		return nil
+	}
+	return b.synthesizeBinOp(bb, "clz64_add", Add, base, inner, countType, pos)
+}
+
 func (b *builder) linearizeIndexedAccess(bb *BasicBlock, state *indexedBaseState, indices []ssa.Value, pos token.Pos) (*Signal, bool) {
 	if b == nil || bb == nil || state == nil || len(indices) == 0 {
 		return nil, false
@@ -2028,6 +2159,10 @@ func (b *builder) lowerTypeChange(bb *BasicBlock, destVal ssa.Value, srcVal ssa.
 	if source == nil {
 		return
 	}
+	if dest, ok := b.lowerNativeFloatConvert(bb, source, srcVal.Type(), dstType, srcVal.Pos()); ok {
+		b.bindResolvedValue(bb, destVal, dest)
+		return
+	}
 	destSignalType := signalType(dstType)
 	if source.Type != nil && source.Type.Equal(destSignalType) {
 		b.signals[destVal] = source
@@ -2039,6 +2174,248 @@ func (b *builder) lowerTypeChange(bb *BasicBlock, destVal ssa.Value, srcVal ssa.
 		Dest:  dest,
 		Value: source,
 	})
+}
+
+func (b *builder) lowerNativeFloatBinOp(bb *BasicBlock, tok token.Token, resultType types.Type, leftType types.Type, left, right *Signal, pos token.Pos) (*Signal, bool) {
+	if bb == nil || left == nil || right == nil || !isNativeFloat64Type(leftType) {
+		return nil, false
+	}
+	switch tok {
+	case token.ADD:
+		return b.lowerNativeFloatAdd(bb, left, right, signalType(resultType), pos)
+	case token.SUB:
+		negRight, ok := b.callMainHelperValue(bb, "float64_neg", argsToSignals(right), signalType(leftType), pos)
+		if !ok {
+			return nil, false
+		}
+		return b.lowerNativeFloatAdd(bb, left, negRight, signalType(resultType), pos)
+	case token.MUL:
+		return b.callMainHelperValue(bb, "float64_mul", argsToSignals(left, right), signalType(resultType), pos)
+	case token.QUO:
+		return b.callMainHelperValue(bb, "float64_div", argsToSignals(left, right), signalType(resultType), pos)
+	case token.LEQ:
+		return b.callMainHelperValue(bb, "float64_le", argsToSignals(left, right), signalType(resultType), pos)
+	case token.GEQ:
+		return b.callMainHelperValue(bb, "float64_le", argsToSignals(right, left), signalType(resultType), pos)
+	case token.EQL:
+		return b.lowerNativeFloatEquality(bb, left, right, true, pos)
+	case token.NEQ:
+		return b.lowerNativeFloatEquality(bb, left, right, false, pos)
+	case token.LSS:
+		le, ok := b.callMainHelperValue(bb, "float64_le", argsToSignals(left, right), boolSignalType(), pos)
+		if !ok {
+			return nil, false
+		}
+		revLe, ok := b.callMainHelperValue(bb, "float64_le", argsToSignals(right, left), boolSignalType(), pos)
+		if !ok {
+			return nil, false
+		}
+		notRevLe := b.newAnonymousSignal("flt_not", boolSignalType(), pos)
+		bb.Ops = append(bb.Ops, &NotOperation{
+			Dest:  notRevLe,
+			Value: revLe,
+		})
+		return b.synthesizeBinOp(bb, "flt_lt", And, le, notRevLe, boolSignalType(), pos), true
+	case token.GTR:
+		return b.lowerNativeFloatBinOp(bb, token.LSS, resultType, leftType, right, left, pos)
+	default:
+		return nil, false
+	}
+}
+
+func (b *builder) lowerNativeFloatAdd(bb *BasicBlock, left, right *Signal, destType *SignalType, pos token.Pos) (*Signal, bool) {
+	if bb == nil || left == nil || right == nil {
+		return nil, false
+	}
+	signA, ok := b.nativeFloatSign(bb, left, pos)
+	if !ok {
+		return nil, false
+	}
+	signB, ok := b.nativeFloatSign(bb, right, pos)
+	if !ok {
+		return nil, false
+	}
+	sameSign := b.synthesizeCompare(bb, "flt_same_sign", CompareEQ, signA, signB, pos)
+	if sameSign == nil {
+		return nil, false
+	}
+	expA, ok := b.nativeFloatExponent(bb, left, pos)
+	if !ok {
+		return nil, false
+	}
+	expB, ok := b.nativeFloatExponent(bb, right, pos)
+	if !ok {
+		return nil, false
+	}
+	leftHasMaxExp := b.synthesizeCompare(bb, "flt_exp_ge", CompareUGE, expA, expB, pos)
+	if leftHasMaxExp == nil {
+		return nil, false
+	}
+	addAB, ok := b.callMainHelperValue(bb, "addFloat64Sigs", argsToSignals(left, right, signA), destType, pos)
+	if !ok {
+		return nil, false
+	}
+	addBA, ok := b.callMainHelperValue(bb, "addFloat64Sigs", argsToSignals(right, left, signB), destType, pos)
+	if !ok {
+		return nil, false
+	}
+	addRes := b.synthesizeMux(bb, "flt_add_order", leftHasMaxExp, addAB, addBA, destType, pos)
+	if addRes == nil {
+		return nil, false
+	}
+	subRes, ok := b.callMainHelperValue(bb, "subFloat64Sigs", argsToSignals(left, right, signA), destType, pos)
+	if !ok {
+		return nil, false
+	}
+	return b.synthesizeMux(bb, "flt_addsel", sameSign, addRes, subRes, destType, pos), true
+}
+
+func (b *builder) nativeFloatSign(bb *BasicBlock, value *Signal, pos token.Pos) (*Signal, bool) {
+	if bb == nil || value == nil {
+		return nil, false
+	}
+	wordType := &SignalType{Width: 64, Signed: false}
+	signWord := b.synthesizeBinOp(bb, "flt_sign_shr", ShrU, value, b.newConstSignal(uint64(63), wordType, pos), wordType, pos)
+	if signWord == nil {
+		return nil, false
+	}
+	sign := b.synthesizeCompare(bb, "flt_sign_bool", CompareNE, signWord, b.newConstSignal(uint64(0), wordType, pos), pos)
+	if sign == nil {
+		return nil, false
+	}
+	return sign, true
+}
+
+func (b *builder) nativeFloatExponent(bb *BasicBlock, value *Signal, pos token.Pos) (*Signal, bool) {
+	if bb == nil || value == nil {
+		return nil, false
+	}
+	wordType := &SignalType{Width: 64, Signed: false}
+	shifted := b.synthesizeBinOp(bb, "flt_exp_shr", ShrU, value, b.newConstSignal(uint64(52), wordType, pos), wordType, pos)
+	if shifted == nil {
+		return nil, false
+	}
+	exp := b.synthesizeBinOp(bb, "flt_exp_mask", And, shifted, b.newConstSignal(uint64(0x7FF), wordType, pos), wordType, pos)
+	if exp == nil {
+		return nil, false
+	}
+	return exp, true
+}
+
+func (b *builder) lowerNativeFloatEquality(bb *BasicBlock, left, right *Signal, equal bool, pos token.Pos) (*Signal, bool) {
+	ab, ok := b.callMainHelperValue(bb, "float64_le", argsToSignals(left, right), boolSignalType(), pos)
+	if !ok {
+		return nil, false
+	}
+	ba, ok := b.callMainHelperValue(bb, "float64_le", argsToSignals(right, left), boolSignalType(), pos)
+	if !ok {
+		return nil, false
+	}
+	eq := b.synthesizeBinOp(bb, "flt_eq", And, ab, ba, boolSignalType(), pos)
+	if eq == nil {
+		return nil, false
+	}
+	if equal {
+		return eq, true
+	}
+	dest := b.newAnonymousSignal("flt_ne", boolSignalType(), pos)
+	bb.Ops = append(bb.Ops, &NotOperation{
+		Dest:  dest,
+		Value: eq,
+	})
+	return dest, true
+}
+
+func (b *builder) lowerNativeFloatNeg(bb *BasicBlock, value *Signal, valueType types.Type, pos token.Pos) (*Signal, bool) {
+	if bb == nil || value == nil || !isNativeFloat64Type(valueType) {
+		return nil, false
+	}
+	return b.callMainHelperValue(bb, "float64_neg", argsToSignals(value), signalType(valueType), pos)
+}
+
+func (b *builder) lowerNativeFloatConvert(bb *BasicBlock, source *Signal, srcType, dstType types.Type, pos token.Pos) (*Signal, bool) {
+	if bb == nil || source == nil || !isNativeFloat64Type(dstType) {
+		return nil, false
+	}
+	if srcType != nil {
+		if !isIntegerType(srcType) {
+			return nil, false
+		}
+	} else if source.Type == nil || source.Type.Width <= 0 || source.Type.Width > 32 {
+		return nil, false
+	}
+	helperArg := source
+	helperType := &SignalType{Width: 32, Signed: true}
+	if source.Type == nil || !source.Type.Equal(helperType) {
+		helperArg = b.newAnonymousSignal("fconv_arg", helperType, pos)
+		bb.Ops = append(bb.Ops, &ConvertOperation{
+			Dest:  helperArg,
+			Value: source,
+		})
+	}
+	return b.callMainHelperValue(bb, "int32_to_float64", argsToSignals(helperArg), signalType(dstType), pos)
+}
+
+func (b *builder) callMainHelperValue(bb *BasicBlock, name string, args []*Signal, destType *SignalType, pos token.Pos) (*Signal, bool) {
+	results, ok := b.inlineMainHelperCall(bb, name, args, pos)
+	if !ok || len(results) != 1 || results[0] == nil {
+		return nil, false
+	}
+	result := results[0]
+	if destType == nil || result.Type == nil || result.Type.Equal(destType) {
+		return result, true
+	}
+	dest := b.newAnonymousSignal("helpercast", destType, pos)
+	bb.Ops = append(bb.Ops, &ConvertOperation{
+		Dest:  dest,
+		Value: result,
+	})
+	return dest, true
+}
+
+func (b *builder) mergeNativeFloatHelperCall(proc *Process, block *ssa.BasicBlock, bb *BasicBlock, instrIndex int, value ssa.Value, name string, args []*Signal) bool {
+	if b == nil || proc == nil || block == nil || bb == nil || value == nil || b.mainPkg == nil {
+		return false
+	}
+	callee := b.mainPkg.Func(name)
+	if callee == nil {
+		return false
+	}
+	dest := b.ensureValueSignal(value)
+	dest.Type = signalType(value.Type())
+	return b.buildAndMergeProcess(proc, block, bb, instrIndex, callee, args, nil, dest)
+}
+
+func (b *builder) inlineMainHelperCall(bb *BasicBlock, name string, args []*Signal, pos token.Pos) ([]*Signal, bool) {
+	if b == nil || bb == nil || b.mainPkg == nil || strings.TrimSpace(name) == "" {
+		return nil, false
+	}
+	callee := b.mainPkg.Func(name)
+	if callee == nil {
+		return nil, false
+	}
+	stack := make(map[*ssa.Function]struct{})
+	baseOps := len(bb.Ops)
+	if results, ok := b.inlineCall(bb, callee, args, stack, 0); ok {
+		return results, true
+	}
+	bb.Ops = bb.Ops[:baseOps]
+	baseOps = len(bb.Ops)
+	if results, ok := b.inlineCallWithOptions(bb, callee, args, stack, 0, true); ok {
+		return results, true
+	}
+	bb.Ops = bb.Ops[:baseOps]
+	return nil, false
+}
+
+func argsToSignals(args ...*Signal) []*Signal {
+	out := make([]*Signal, 0, len(args))
+	for _, arg := range args {
+		if arg != nil {
+			out = append(out, arg)
+		}
+	}
+	return out
 }
 
 func (b *builder) channelForValue(v ssa.Value) *Channel {
@@ -2454,6 +2831,33 @@ func isSignedType(t types.Type) bool {
 	return true
 }
 
+func isIntegerType(t types.Type) bool {
+	if t == nil {
+		return false
+	}
+	basic, ok := t.Underlying().(*types.Basic)
+	return ok && basic.Info()&types.IsInteger != 0
+}
+
+func isNativeFloatType(t types.Type) bool {
+	if t == nil {
+		return false
+	}
+	basic, ok := t.Underlying().(*types.Basic)
+	return ok && (basic.Kind() == types.Float32 || basic.Kind() == types.Float64)
+}
+
+func isNativeFloat64Type(t types.Type) bool {
+	if !isNativeFloatType(t) {
+		return false
+	}
+	return t.Underlying().(*types.Basic).Kind() == types.Float64
+}
+
+func boolSignalType() *SignalType {
+	return &SignalType{Width: 1, Signed: false}
+}
+
 func signalType(t types.Type) *SignalType {
 	switch bt := t.Underlying().(type) {
 	case *types.Basic:
@@ -2544,6 +2948,14 @@ func extractConstValue(c *ssa.Const) interface{} {
 		}
 	case types.Bool:
 		return constant.BoolVal(c.Value)
+	case types.Float32:
+		if f, ok := constant.Float64Val(c.Value); ok {
+			return math.Float32bits(float32(f))
+		}
+	case types.Float64:
+		if f, ok := constant.Float64Val(c.Value); ok {
+			return math.Float64bits(f)
+		}
 	}
 	return c.Value.ExactString()
 }

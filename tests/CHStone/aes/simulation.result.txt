@@ -1,4 +1,4 @@
-generated=2026-03-16 23:50:18
+generated=2026-03-17 13:13:13
 case=tests/CHStone/aes
 ssa_ok=True
 ssa_return_code=0
@@ -16,7 +16,7 @@ software_return_code=0
 hardware_return_code=0
 software_ok=True
 hardware_ok=True
-hardware_cycles_used=1
+hardware_cycles_used=251
 output_match=True
 output_match_mode=strict
 software_stdout_path=tests/CHStone/aes/software.stdout.txt

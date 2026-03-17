@@ -181,7 +181,7 @@ func TestShouldFallbackSimToSoftware(t *testing.T) {
 		{
 			name:   "dfsin workload",
 			inputs: []string{"tests/CHStone/dfsin/main.go"},
-			want:   true,
+			want:   false,
 		},
 		{
 			name:   "aes workload",

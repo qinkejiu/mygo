@@ -505,6 +505,7 @@ func runBuiltinVerilator(mainPath string, auxPaths []string, expectPath string, 
 	args := []string{
 		"--cc", "--exe", "--build",
 		"--sv",
+		"-Wno-CMPCONST",
 		"--Mdir", objDir,
 		"--top-module", "main",
 		"-o", "mygo_sim",
@@ -545,13 +546,7 @@ func shouldFallbackSimToSoftware(inputs []string) bool {
 	if len(inputs) != 1 {
 		return false
 	}
-	cleaned := filepath.ToSlash(filepath.Clean(inputs[0]))
-	switch {
-	case strings.HasSuffix(cleaned, "tests/CHStone/dfsin/main.go"):
-		return true
-	default:
-		return false
-	}
+	return false
 }
 
 func runSoftwareFallback(inputs []string, expectPath string) error {

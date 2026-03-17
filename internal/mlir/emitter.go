@@ -75,6 +75,24 @@ func (e *emitter) emitModule(module *ir.Module) {
 		}
 		others = append(others, info)
 	}
+	if root != nil {
+		e.modulePorts[root.moduleName] = e.processPorts(root)
+	}
+	for _, info := range others {
+		e.modulePorts[info.moduleName] = e.processPorts(info)
+	}
+	for _, proc := range modularProcesses {
+		roles, order := collectProcessChannelRoles(proc)
+		info := &processInfo{
+			proc:         proc,
+			moduleName:   processModuleName(module, proc),
+			channelOrder: order,
+			channelRoles: roles,
+			channelPorts: make(map[*ir.Channel]*channelPortSet),
+			usedSignals:  collectProcessSignals(proc),
+		}
+		e.modulePorts[info.moduleName] = e.processPorts(info)
+	}
 	e.emitTopLevelModule(module, root, others)
 	for _, info := range others {
 		e.emitProcessModule(module, info)
@@ -424,7 +442,8 @@ func (e *emitter) emitProcessModule(module *ir.Module, info *processInfo) {
 	// Build port names set for processPrinter
 	portNames := make(map[string]string)
 	for _, port := range ports {
-		portNames[port.name] = port.name
+		name := strings.TrimPrefix(port.name, "%")
+		portNames[name] = "%" + name
 	}
 
 	pp := &processPrinter{

@@ -1,3 +1,5 @@
+wsl: 检测到 localhost 代理配置，但未镜像到 WSL。NAT 模式下的 WSL 不支持 localhost 代理。
+qinkejiu@QINKEJIU:~$ cd mygo
 qinkejiu@QINKEJIU:~/mygo$ codex
 ╭────────────────────────────────────────────╮
 │ >_ OpenAI Codex (v0.114.0)                 │
@@ -6,1435 +8,534 @@ qinkejiu@QINKEJIU:~/mygo$ codex
 │ directory: ~/mygo                          │
 ╰────────────────────────────────────────────╯
 
-  Tip: Use /personality to customize how Codex communicates.
+  Tip: New Build faster with Codex.
 
 
-› Fix the AES test case to use real hardware simulation instead of software fallback.
+› Fix dfsin hardware simulation by implementing native float64 operation lowering through soft-float helpers.
 
-    ## Current Situation
-    - tests/CHStone/aes/main.go currently uses software fallback (defined in cmd/mygo/main.go:552-553)
-    - The compiler fixes for multidimensional arrays and global table initialization are already complete
-    - AES generates correct Verilog (43MB with proper Sbox/invSbox/Rcon0 initialization)
-    - But it's still running software fallback instead of real hardware simulation
+    ## Context
+    - dfsin currently uses software fallback because native float64 operations are not properly lowered
+    - Other CHStone tests (blowfish, aes, etc.) already use real Verilator hardware simulation successfully
+    - The compiler has existing soft-float helpers: float64_add, float64_mul, float64_div, float64_le,
+  float64_neg, etc.
+    - Native float64 ops are currently incorrectly treated as 64-bit integer operations
 
     ## Your Task
-    Please follow these steps:
 
-    ### Step 1: Create a Plan
-    First, analyze the codebase and create a detailed plan that includes:
-    - Remove the AES-specific software fallback in cmd/mygo/main.go
-    - Verify what tests need to be updated (check cmd/mygo/sim_internal_test.go)
-    - Identify what could break if we enable real hardware simulation for AES
-    - List the verification steps to confirm real hardware simulation works
+    ### Step 1: Analyze the Problem
+    Read tests/CHStone/dfsin/main.go to understand what float64 operations it uses:
+    - math.Float64frombits/Float64bits/Abs intrinsics
+    - float64 arithmetic: +, -, *, /
+    - float64 comparisons: <, <=, ==, !=
+    - int-to-float64 conversions
 
-    ### Step 2: Implement the Fix
-    After I approve the plan, implement the changes:
-    - Remove or disable the AES fallback logic
-    - Update any related tests
-    - Make sure the change is minimal and focused
+    ### Step 2: Implement Native Float64 Lowering
+    Modify internal/ir/builder.go to route native float64 operations to soft-float helpers:
 
-    ### Step 3: Verify
-    After implementation, verify that:
-    - AES actually runs Verilator (check for "make: Entering/Leaving directory" output)
-    - hardware_cycles_used is > 1 (not 1)
-    - The test still passes: software and hardware outputs match
-    - No regression in other CHStone tests
+    1. Add helper function `isNativeFloatType(t types.Type) bool` to detect float32/float64 types
+    2. In `buildBinOp`, add early check for float64 binary ops and route to:
+       - float64_add for addition
+       - float64_mul for multiplication
+       - float64_div for division
+       - float64_neg + float64_add for subtraction
+       - float64_le for comparisons
+    3. In `buildUnOp`, handle float64 negation with float64_neg
+    4. In `buildConvert`, handle int-to-float64 conversions using int32_to_float64
+    5. Add helper function `inlineMainHelperCall(bb, name, args, pos)` to inline helpers from main package
 
-    ## Important Notes
-    - Do NOT modify tests/CHStone/aes/main.go
-    - Focus on the project code in cmd/mygo/
-    - The goal is real hardware simulation, not software fallback
-    - If hardware simulation fails, investigate why rather than re-enabling fallback
+    ### Step 3: Add Missing Intrinsics
+    Modify internal/ir/call_inline.go:
+    - Add Float64bits intrinsic (identity operation - just return the bits)
+    - Ensure Float64frombits is handled correctly
+    - Add math.Abs routing to float64_abs helper
 
-    ---
-    Or a shorter version:
-    Please:
-    1. First, create a plan for removing this fallback safely
-    2. Update the code to remove AES from the fallback list
-    3. Update related tests in cmd/mygo/sim_internal_test.go
-    4. Verify that AES now runs real Verilator hardware simulation (hardware_cycles_used > 1, make output visible)
+    ### Step 4: Handle Inlining Limits
+    The float64_div helper contains loops and may exceed inlining depth:
+    - Increase inlineCallMaxDepth if needed (currently 64)
+    - OR allow fallback to modular helper calls when inlining fails
+    - Ensure helper-module emission works correctly
 
+    ### Step 5: Update Fallback Policy
+    Modify cmd/mygo/main.go:
+    - Remove dfsin from shouldFallbackSimToSoftware (line ~550)
+    - Update cmd/mygo/sim_internal_test.go to expect false for dfsin
 
-• Updated Plan
-  └ □ Inspect AES fallback logic and current simulation test coverage
-    □ Identify impacted code paths and likely regression points if AES uses real hardware simulation
-    □ Produce a focused implementation and verification plan for user approval
+    ### Step 6: Verify
+    After changes:
+    1. Run: go test ./cmd/mygo -count=1
+    2. Run: go test ./internal/ir -count=1
+    3. Test dfsin: go run ./cmd/mygo sim --sim-max-cycles 200000 --expect tests/CHStone/dfsin/
+  software.stdout.txt
+    tests/CHStone/dfsin/main.go
+    4. Verify "make: Entering directory" appears in stderr (real Verilator)
+    5. Verify output matches software golden
 
-in
-           mygo
+    ## Key Implementation Notes
 
-────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+    **From previous attempt in change.log:**
+    - Modular helper calls need proper port name handling in internal/mlir/emitter.go
+    - The float64 helpers are already in tests/CHStone/dfsin/main.go - don't modify the test, use the existing
+  helpers
+    - internal/mlir/emitter.go - Fix modular helper port handling if using CallOperation
+    - cmd/mygo/main.go - Remove dfsin fallback
+    - cmd/mygo/sim_internal_test.go - Update test expectation
 
-• I found the exact fallback gate: AES and dfsin are both still forced through go run in shouldFallbackSimToSoftware.
-  Next I’m tracing where that gate is used and checking whether any tests already assert AES-specific fallback behavior
-    Search shouldFallbackSimToSoftware|runBuiltinVerilator|runSoftwareFallback|defaultSimExpectPath|sim-max-cycles|sim-
-           reset-cycles in .
-    Search hardware_cycles_used|software_cycles_used|expected.sim|aes in tests
-
-────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-
-• The broader repo only has one direct unit test for fallback policy in cmd/mygo/sim_internal_test.go. I’m checking the
-  higher-level simulation harness now because AES may already be wired into result-file checks there, and that
-  determines what else needs to change once fallback is removed.
-
-• Explored
-  └ Read test.py, sim.md, simulation.result.txt, hardware.stdout.txt, software.stdout.txt, hardware.stderr.txt
-
-────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-
-• AES’s checked-in hardware.stdout.txt matches software output, but simulation.result.txt still records
-  hardware_cycles_used=1, which is consistent with the Python harness treating a software fallback run as a successful
-  “hardware” run. I’m reading the built-in Verilator path now to confirm whether make output is already surfaced or if
-  there’s another suppression point.
-────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-
-• I have enough code context for the code-change plan. One more environment check: I’m confirming whether verilator and
-  circt-opt are present locally, because the verification section should reflect what we can actually run after the code
-  change.
-
-  └ /usr/bin/verilator
-
-• Ran which circt-opt
-  └ /usr/local/bin/circt-opt
-
-• Ran go test ./cmd/mygo -run TestShouldFallbackSimToSoftware -count=1
-  └ FAIL    ./cmd/mygo [setup failed]
-    # ./cmd/mygo
-    … +2 lines
-    FAIL
-    go: failed to trim cache: open /home/qinkejiu/.cache/go-build/trim.txt: permission denied
+    ## Expected Outcome
+  emission, and the fallback policy so I can patch the lowering at the right layer instead of guessing.
 
 • Explored
-  └ Read test.py
-    Search SIM_MAX_CYCLES|INITIAL_SIM_MAX_CYCLES|DEFAULT_SIM_MAX_CYCLES in test.py
-    Read stages_test.go
+  └ Read main.go
 
-  cycle budget should not be the blocker once the fallback is gone. I’m doing one baseline run with the current code
-  path to confirm the pre-change behavior really is the software path.
-
-• Waited for background terminal · env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod
-go run ./cmd/mygo sim --sim-max-cycles 4096 tests/CHStone/aes/main.go
-
-• Ran env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go run ./cmd/mygo sim
-  │ --sim-max-cycles 4096 tests/CHStone/aes/main.go
-  └ /home/qinkejiu/mygo/tests/CHStone/aes/main.go:295:2: warning: for loop has variable bound; lowering will use loop
-    FSM generation
-    … +20 lines
-
-    0
-
-• Updated Plan
-  └ Inspected the sim entry point, the fallback policy unit test, the CHStone harness, and a baseline AES sim run. The
-    next step is to present the implementation and verification plan for approval.
-    ✔ Inspect AES fallback logic and current simulation test coverage
-    ✔ Identify impacted code paths and likely regression points if AES uses real hardware simulation
-    ✔ Produce a focused implementation and verification plan for user approval
-
-• Waited for background terminal
 
 • Explored
-  └ Read main.go, sim_internal_test.go, test.py, simulation.result.txt
+  └ Read builder.go, call_inline.go, main.go, sim_internal_test.go
 
-─ Worked for 1m 04s ────────────────────────────────────────────────────────────────────────────────────────────────────
-
-• I inspected the current sim path and the relevant tests. aes is still hard-routed to software in cmd/mygo/main.go:327
-  and cmd/mygo/main.go:544, and the unit test still expects that behavior in cmd/mygo/sim_internal_test.go:174. The
-  CHStone harness already treats AES as a heavy hardware case with up to 120000 cycles in test.py:20 and test.py:332.
-  The current recorded AES result still shows hardware_cycles_used=1 in tests/CHStone/aes/simulation.result.txt:19,
-  which is consistent with fallback.
-
-  Plan
-
-  1. Remove only the AES fallback branch from shouldFallbackSimToSoftware in cmd/mygo/main.go:544, leaving the existing
-     dfsin fallback untouched.
-  2. Update cmd/mygo/sim_internal_test.go:174 so AES is expected to return false from shouldFallbackSimToSoftware, while
-     dfsin remains true.
-  3. Keep the change focused to cmd/mygo/; no edits under tests/CHStone/aes/.
-  4. Verify the built-in Verilator path is actually used for AES by running mygo sim on AES with a large enough cycle
-     budget and checking stderr for make: Entering directory / make: Leaving directory.
-  5. Verify functional correctness by running AES with --expect tests/CHStone/aes/software.stdout.txt and confirming
-     stdout still matches.
-  6. Verify that the hardware path is no longer being counted as a 1-cycle fallback run by regenerating the AES harness
-     result and confirming hardware_cycles_used > 1.
-  7. Run regression checks for other CHStone cases after the change, starting with targeted Go tests in cmd/mygo, then
-     the CHStone simulation harness.
-
-  What Could Break
-
-  - AES may need far more than the CLI default --sim-max-cycles=64; verification should use a larger value, and the
-    harness already budgets for that.
-  - Constant-array extraction and testbench initialization now become active for AES; if any table init is still
-    incomplete, the failure mode should be an output mismatch or simulator/build failure instead of silent software
-    fallback.
-  - Generated result artifacts such as simulation.result.txt will change once rerun; that is expected.
-
-  Verification Steps
-
-  1. go test ./cmd/mygo -run TestShouldFallbackSimToSoftware -count=1
-  2. go run ./cmd/mygo sim --sim-max-cycles <large> --expect tests/CHStone/aes/software.stdout.txt tests/CHStone/aes/
-     main.go
-  3. Confirm that run shows Verilator build output on stderr and exits 0.
-  4. Run the CHStone harness for AES so tests/CHStone/aes/simulation.result.txt is regenerated and hardware_cycles_used
-     becomes greater than 1.
-  5. Run broader CHStone regression coverage to ensure no unrelated sim regressions.
-
-  One baseline check is already confirmed: with the current code, go run ./cmd/mygo sim --sim-max-cycles 4096 tests/
-  CHStone/aes/main.go produces no make: output, which matches the fallback path still being active.
-
-  If you approve this plan, I’ll make the minimal cmd/mygo changes and run the verification sequence.
-
-
-› i approve this plan ,be free to do until been fixxed
-
-
-• I’m applying the minimal code change now: remove AES from the fallback policy and update the unit test to lock that
-  behavior in. After that I’ll run the cmd/mygo tests and an actual AES hardware sim to verify Verilator is used.
-
-• Edited 2 files (+1 -3)
-  └ cmd/mygo/main.go (+0 -2)
-    551                 return true
-    552 -       case strings.HasSuffix(cleaned, "tests/CHStone/aes/main.go"):
-    553 -               return true
-    552         default:
-
-  └ cmd/mygo/sim_internal_test.go (+1 -1)
-    188                         inputs: []string{"tests/CHStone/aes/main.go"},
-    189 -                       want:   true,
-    189 +                       want:   false,
-    190                 },
-
-
-• The policy change is in place. I’m running the focused Go tests first with workspace-local caches, then I’ll move to
-  the AES Verilator run and check for real build output and a nontrivial cycle count.
-
-• Ran git diff -- cmd/mygo/main.go cmd/mygo/sim_internal_test.go
-    index 5c9d51a..82d5b22 100644
-    … +148 lines
-         if len(want) != len(got) {
-             return fmt.Sprintf("length mismatch: want %d, got %d (%v)", len(want), len(got), got)
-
-• Ran env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go test ./cmd/mygo -run
-  └ ok      mygo/cmd/mygo    0.003s
-
-────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-
-• The focused cmd/mygo tests passed. There are pre-existing edits in these files beyond this task, so I’m leaving them
-  intact and only validating the AES fallback removal against the current worktree.
-
-• The AES sim is now in the hardware path. I’m waiting on the Verilator build and checking the live output for the
-  expected make lines and then the final stdout match.
-
-• Waited for background terminal · env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod
-go run ./cmd/mygo sim --sim-max-cycles 120000 --expect tests/CHStone/aes/software.stdout.txt tests/CHStone/aes/main.go
-
-• Verilator build output is showing up exactly as expected, so AES is no longer taking the software shortcut. I’m
-  waiting for the compile and simulator to finish so I can confirm the output still matches the software golden.
-
-• Waited for background terminal · env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod
-go run ./cmd/mygo sim --sim-max-cycles 120000 --expect tests/CHStone/aes/software.stdout.txt tests/CHStone/aes/main.go
-• The build is still running; AES’s Verilog is large enough that the compile phase takes a while. I’m keeping the run
-  alive and will only stop if it errors or times out, because the key question now is whether the full hardware path
-  finishes cleanly.
-
-• Waited for background terminal · env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod
-  └ /home/qinkejiu/mygo/tests/CHStone/aes/main.go:295:2: warning: for loop has variable bound; lowering will use loop
-    FSM generation
-    … +65 lines
-
-    0
-
-• Waited for background terminal
-
-
-• Waited for background terminal · env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod
-python3 test.py tests/CHStone/aes
-
-• The AES-only harness run is in progress. That path may take several hardware retries and a binary search on cycle
-  count, so it’s expected to be slower than the one-off go run check.
-
-• Waited for background terminal · env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod
-python3 test.py tests/CHStone/aes
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+• The relevant code is lower in the file than the first pass I opened. I’m pulling the exact builder methods now, plus the emitter’s CallOperation path, because
+  fallback to modular helper calls is only viable if that emitter path is correct.
 
 • Explored
-  └ Read simulation.result.txt, CHS_clean_simulation_results.txt
+  └ Search func \(b \*builder\) buildBinOp|func \(b \*builder\) buildUnOp|func \(b \*builder\) buildConvert|func \(b \*builder\) inlineEmitTypeChange|func \(p
+           \*processPrinter\) emitCallOperation in builder.go
+    Search ssa\.BinOp|ssa\.UnOp|ssa\.Convert|ConvertOperation|CompareOperation|translateBinOp\(|translateCompareOp\( in builder.go
 
-─ Worked for 3m 56s ────────────────────────────────────────────────────────────────────────────────────────────────────
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-• The AES harness has already crossed the key threshold: it matched through real hardware at 4096 cycles and is now
-  binary-searching downward. That means the stale hardware_cycles_used=1 value was definitely the fallback artifact, not
-  a real hardware measurement.
+• I confirmed the existing generic call fallback does not really emit working helper modules today, and buildReferencedProcesses is dead code. That makes the reliable
+  path to fix this: inline helper calls from main where possible and only keep modular-call fallback as a last resort if the emitter path can be made whole.
+           Float64bits|func Abs\b|math\.Abs|Float64frombits|Float64bits in main.go
+    Search type float64_t|float64_t\)|math\.Float64|Float64frombits|Float64bits|Abs\(| < | <= | == | != |\+|\-|\*|/ in main.go
+    Search func signalType\(|BasicKind.*Float|types\.Float64|types\.Float32|float64 in ir
+    Read builder.go
+    Search case "math"|Float64frombits|Float64bits|Abs|int32_to_float64|float64_abs in call_inline.go
+    Search func findMainPackage|AllPackages\(|findMainPackage\( in ir
+    Read builder.go, main.go
 
-• Explored
-  └ Read verilator_driver.cpp.tmpl
-    List rg --files -g verilator_driver.cpp.tmpl
-    Read verilator_driver.cpp.tmpl, CHS_clean_simulation_results.txt
-    … +39 lines
-    input=40186f423ca395cb expected=bfc63a23c48863dd output=bfc63a23c48863dd (-0.173649)
-    0
+─ Worked for 1m 08s ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-• Waited for background terminal
-
-• dfsin still behaves as the fallback case, so the only special-case regression point stayed intact. I’m running the
-  full cmd/mygo test package now to catch any other sim-path fallout from the policy change.
-
-• Ran env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go test ./cmd/mygo -count=1
-  └ ok      mygo/cmd/mygo    0.009s
-
-• Waited for background terminal · env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod
-python3 test.py tests/CHStone/aes
+• I’ve reached the key constraint: local_sin itself has a loop, so it is merged structurally rather than acyclic-inlined. That means native float lowering has to work
+  in the regular builder path for ssa.BinOp/ssa.UnOp/ssa.Convert, while math.* intrinsics still need to be handled in the call inliner.
 
 • Explored
-  └ Read CHS_clean_simulation_results.txt, main.go, sim_internal_test.go, verilator_driver.cpp.tmpl
-─ Worked for 1m 04s ────────────────────────────────────────────────────────────────────────────────────────────────────
+  └ Read call_inline.go, emitter.go
+    Search result in emitter.go
+    Read emitter.go
+    Search proc\.Return|ReturnValues|Return =|Result in ir
+    Search modulePorts\[|processPorts\(|emitProcessModule\( in emitter.go
+    Read emitter.go
+    Search func \(b \*builder\) newAnonymousSignal|func \(b \*builder\) ensureValueSignal in builder.go
+    Read builder.go
 
-• I have enough evidence for the functional fix, but the AES-only harness is still grinding through its cycle-budget
-  binary search. I’m stopping that long-running tuning job so I can do a faster, explicit low-cycle negative check
-  instead of burning another 20+ minutes on repeated full Verilator rebuilds.
+─ Worked for 2m 06s ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-• Ran pgrep -af "python3 test.py tests/CHStone/aes"
+• Plan:
 
-• Ran env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod python3 test.py tests/
-  │ CHStone/aes
-  └ (no output)
-
-• Ran kill 383132
-  └ (no output)
-
-
-› please focus on tests/CHStone/aes/main.go if other test cases dont have issue
-
-
-• I’m narrowing verification to AES only. The code fix is already in place; the remaining check is a low-cycle hardware
-  run that should fail, which is the fastest way to prove AES is no longer the old hardware_cycles_used=1 fallback case.
-
-• Waited for background terminal · env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod
-go run ./cmd/mygo sim --sim-max-cycles 2 --expect tests/CHStone/aes/software.stdout.txt tests/CHStone/aes/main.go
-
-─ Worked for 1m 04s ────────────────────────────────────────────────────────────────────────────────────────────────────
-
-• This low-cycle AES run is on the real hardware path too; the make: Entering directory line is already visible again.
-  I’m waiting for the final exit status so we can close the loop on the hardware_cycles_used > 1 check.
-
-• Waited for background terminal · env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod
-go run ./cmd/mygo sim --sim-max-cycles 2 --expect tests/CHStone/aes/software.stdout.txt tests/CHStone/aes/main.go
-
-• Ran env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go run ./cmd/mygo sim
-  │ --sim-max-cycles 2 --expect tests/CHStone/aes/software.stdout.txt tests/CHStone/aes/main.go
-  └ /home/qinkejiu/mygo/tests/CHStone/aes/main.go:295:2: warning: for loop has variable bound; lowering will use loop
-    FSM generation
-
-• Removed the AES software fallback in cmd/mygo/main.go:544 so only dfsin still takes the go run path, and updated the
-  fallback policy test in cmd/mygo/sim_internal_test.go:174 so AES is expected to use real hardware simulation. I did
-  not modify tests/CHStone/aes/main.go.
-
-  fallback case; with the built-in driver holding reset for the first two cycles in cmd/mygo/templates/
-  verilator_driver.cpp.tmpl:18, any matching hardware run must require hardware_cycles_used > 1.
-
-  Verification I completed:
-
-  - go test ./cmd/mygo -count=1 passed.
-  - AES hardware run at high cycle budget passed and matched software output.
-  - AES hardware run at --sim-max-cycles 2 failed after a real Verilator build, confirming the hardware path is active
-
-
-› continue to check other test cases in tests/CHStone
-
-
-• I’m running the CHStone harness across tests/CHStone now and I’ll watch for the first failures rather than assuming
-  the rest are unaffected. This will regenerate per-case simulation results where the harness reaches completion.
-
-• The full CHStone sweep is in progress. I’m polling the harness log so I can catch specific failing cases and whether
-python3 test.py tests/CHStone
+  1. Add native-float helper lowering in the IR builder and its inline path, with a main-package helper resolver.
+  2. Extend intrinsic handling for math.Float64bits and math.Abs, and raise/fallback the helper inlining path where needed.
+  3. Wire modular helper-call support far enough for non-inlineable helpers, then remove the dfsin software fallback.
+  4. Run the targeted Go tests and the dfsin hardware simulation, then adjust any remaining breakage from the actual output.
 
 • Explored
-  └ Read CHS_clean_simulation_results.txt
+  └ Read call_inline.go
+    Search func is.*Type\(|types\.IsInteger|Info\(\)&types\.IsInteger in builder.go
 
-────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-• The sweep has already verified adpcm through real hardware and is binary-searching its cycle budget downward, so the
-  for any mismatch or unsupported-lowering markers.
-
-• Ran python3 - <<'PY'
-  │ from pathlib import Path
-  │ p=Path('CHS_clean_simulation_results.txt')
-    cases_done= 0
-
-• Waited for background terminal · env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod
-python3 test.py tests/CHStone
+• I’ve got enough context to edit safely. I’m patching the IR builder first: add native-float detection, route native float64 ops/conversions to the existing soft-
+  float helpers, and add a helper-call path that can inline when possible and emit a direct helper module call when it cannot.
 
 • Explored
-  └ Read CHS_clean_simulation_results.txt
-  so the tuning logic is behaving normally on real hardware. I’m still looking for the first actual regression signal
-  across the remaining CHStone cases.
+  └ Read builder.go
 
-• Waited for background terminal · env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod
-python3 test.py tests/CHStone
+• Edited internal/ir/builder.go (+2 -0)
+    29                  reporter:             reporter,
+    30 +                mainPkg:              mainPkg,
+    31                  signals:              make(map[ssa.Value]*Signal),
+       ⋮
+    65          reporter             *diag.Reporter
+    66 +        mainPkg              *ssa.Package
+    67          module               *Module
 
-• adpcm completed cleanly and the sweep is now on aes. I’m continuing to watch the run case-by-case so I can report any
-  specific CHStone failures instead of a vague overall status.
-• Waited for background terminal · env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod
-python3 test.py tests/CHStone
+• Edited internal/ir/builder.go (+12 -0)
+     792        }
+     793 +      if dest, ok := b.lowerNativeFloatBinOp(bb, op.Op, op.Type(), op.X.Type(), left, right, op.Pos()); ok {
+     794 +              b.bindResolvedValue(bb, op, dest)
+     795 +              return
+     796 +      }
+     797        if pred, ok := translateCompareOp(op.Op, isSignedType(op.X.Type())); ok {
+         ⋮
+     901                }
+     902 +              if dest, ok := b.lowerNativeFloatNeg(bb, value, op.Type(), op.Pos()); ok {
+     903 +                      b.bindResolvedValue(bb, op, dest)
+     904 +                      return
+     905 +              }
+     906                dest := b.ensureValueSignal(op)
+         ⋮
+    2040        }
+    2041 +      if dest, ok := b.lowerNativeFloatConvert(bb, source, srcVal.Type(), dstType, srcVal.Pos()); ok {
+    2042 +              b.bindResolvedValue(bb, destVal, dest)
+    2043 +              return
+    2044 +      }
+    2045        destSignalType := signalType(dstType)
+
+• Edited internal/ir/builder.go (+149 -0)
+    2057
+    2058 +func (b *builder) lowerNativeFloatBinOp(bb *BasicBlock, tok token.Token, resultType types.Type, leftType types.Type, left, right *Signal, pos token.Pos) (*Si
+          gnal, bool) {
+    2059 +      if bb == nil || left == nil || right == nil || !isNativeFloat64Type(leftType) {
+    2060 +              return nil, false
+    2061 +      }
+    2062 +      switch tok {
+    2063 +      case token.ADD:
+    2064 +              return b.callMainHelperValue(bb, "float64_add", argsToSignals(left, right), signalType(resultType), pos)
+    2065 +      case token.SUB:
+    2066 +              negRight, ok := b.callMainHelperValue(bb, "float64_neg", argsToSignals(right), signalType(leftType), pos)
+    2067 +              if !ok {
+    2068 +                      return nil, false
+    2069 +              }
+    2070 +              return b.callMainHelperValue(bb, "float64_add", argsToSignals(left, negRight), signalType(resultType), pos)
+    2071 +      case token.MUL:
+    2072 +              return b.callMainHelperValue(bb, "float64_mul", argsToSignals(left, right), signalType(resultType), pos)
+    2073 +      case token.QUO:
+    2074 +              return b.callMainHelperValue(bb, "float64_div", argsToSignals(left, right), signalType(resultType), pos)
+    2075 +      case token.LEQ:
+    2076 +              return b.callMainHelperValue(bb, "float64_le", argsToSignals(left, right), signalType(resultType), pos)
+    2077 +      case token.GEQ:
+    2078 +              return b.callMainHelperValue(bb, "float64_le", argsToSignals(right, left), signalType(resultType), pos)
+    2079 +      case token.EQL:
+    2080 +              return b.lowerNativeFloatEquality(bb, left, right, true, pos)
+    2081 +      case token.NEQ:
+    2082 +              return b.lowerNativeFloatEquality(bb, left, right, false, pos)
+    2083 +      case token.LSS:
+    2084 +              le, ok := b.callMainHelperValue(bb, "float64_le", argsToSignals(left, right), boolSignalType(), pos)
+    2085 +              if !ok {
+    2086 +                      return nil, false
+    2087 +              }
+    2088 +              revLe, ok := b.callMainHelperValue(bb, "float64_le", argsToSignals(right, left), boolSignalType(), pos)
+    2089 +              if !ok {
+    2090 +                      return nil, false
+    2091 +              }
+    2092 +              notRevLe := b.newAnonymousSignal("flt_not", boolSignalType(), pos)
+    2093 +              bb.Ops = append(bb.Ops, &NotOperation{
+    2094 +                      Dest:  notRevLe,
+    2095 +                      Value: revLe,
+    2096 +              })
+    2097 +              return b.synthesizeBinOp(bb, "flt_lt", And, le, notRevLe, boolSignalType(), pos), true
+    2098 +      case token.GTR:
+    2099 +              return b.lowerNativeFloatBinOp(bb, token.LSS, resultType, leftType, right, left, pos)
+    2100 +      default:
+    2101 +              return nil, false
+    2102 +      }
+    2103 +}
+    2104 +
+    2105 +func (b *builder) lowerNativeFloatEquality(bb *BasicBlock, left, right *Signal, equal bool, pos token.Pos) (*Signal, bool) {
+    2106 +      ab, ok := b.callMainHelperValue(bb, "float64_le", argsToSignals(left, right), boolSignalType(), pos)
+    2107 +      if !ok {
+    2108 +              return nil, false
+    2109 +      }
+    2110 +      ba, ok := b.callMainHelperValue(bb, "float64_le", argsToSignals(right, left), boolSignalType(), pos)
+    2111 +      if !ok {
+    2112 +              return nil, false
+    2113 +      }
+    2114 +      eq := b.synthesizeBinOp(bb, "flt_eq", And, ab, ba, boolSignalType(), pos)
+    2115 +      if eq == nil {
+    2116 +              return nil, false
+    2117 +      }
+    2118 +      if equal {
+    2119 +              return eq, true
+    2120 +      }
+    2121 +      dest := b.newAnonymousSignal("flt_ne", boolSignalType(), pos)
+    2122 +      bb.Ops = append(bb.Ops, &NotOperation{
+    2123 +              Dest:  dest,
+    2124 +              Value: eq,
+    2125 +      })
+    2126 +      return dest, true
+    2127 +}
+    2128 +
+    2129 +func (b *builder) lowerNativeFloatNeg(bb *BasicBlock, value *Signal, valueType types.Type, pos token.Pos) (*Signal, bool) {
+    2130 +      if bb == nil || value == nil || !isNativeFloat64Type(valueType) {
+    2131 +              return nil, false
+    2132 +      }
+    2133 +      return b.callMainHelperValue(bb, "float64_neg", argsToSignals(value), signalType(valueType), pos)
+    2134 +}
+    2135 +
+    2136 +func (b *builder) lowerNativeFloatConvert(bb *BasicBlock, source *Signal, srcType, dstType types.Type, pos token.Pos) (*Signal, bool) {
+    2137 +      if bb == nil || source == nil || !isNativeFloat64Type(dstType) || !isIntegerType(srcType) {
+    2138 +              return nil, false
+    2139 +      }
+    2140 +      helperArg := source
+    2141 +      helperType := &SignalType{Width: 32, Signed: true}
+    2142 +      if source.Type == nil || !source.Type.Equal(helperType) {
+    2143 +              helperArg = b.newAnonymousSignal("fconv_arg", helperType, pos)
+    2144 +              bb.Ops = append(bb.Ops, &ConvertOperation{
+    2145 +                      Dest:  helperArg,
+    2146 +                      Value: source,
+    2147 +              })
+    2148 +      }
+    2149 +      return b.callMainHelperValue(bb, "int32_to_float64", argsToSignals(helperArg), signalType(dstType), pos)
+    2150 +}
+    2151 +
+    2152 +func (b *builder) callMainHelperValue(bb *BasicBlock, name string, args []*Signal, destType *SignalType, pos token.Pos) (*Signal, bool) {
+    2153 +      results, ok := b.inlineMainHelperCall(bb, name, args, pos)
+    2154 +      if !ok || len(results) != 1 || results[0] == nil {
+    2155 +              return nil, false
+    2156 +      }
+    2157 +      result := results[0]
+    2158 +      if destType == nil || result.Type == nil || result.Type.Equal(destType) {
+    2159 +              return result, true
+    2160 +      }
+    2161 +      dest := b.newAnonymousSignal("helpercast", destType, pos)
+    2162 +      bb.Ops = append(bb.Ops, &ConvertOperation{
+    2163 +              Dest:  dest,
+    2164 +              Value: result,
+    2168 +
+    2169 +func (b *builder) inlineMainHelperCall(bb *BasicBlock, name string, args []*Signal, pos token.Pos) ([]*Signal, bool) {
+    2170 +      if b == nil || bb == nil || b.mainPkg == nil || strings.TrimSpace(name) == "" {
+    2171 +              return nil, false
+    2172 +      }
+    2173 +      callee := b.mainPkg.Func(name)
+    2174 +      if callee == nil {
+    2175 +              return nil, false
+    2176 +      }
+    2177 +      stack := make(map[*ssa.Function]struct{})
+    2178 +      if results, ok := b.inlineCall(bb, callee, args, stack, 0); ok {
+    2179 +              return results, true
+    2180 +      }
+    2181 +      if results, ok := b.inlineCallWithOptions(bb, callee, args, stack, 0, true); ok {
+    2182 +              return results, true
+    2183 +      }
+    2184 +      if callee.Signature == nil || callee.Signature.Results() == nil || callee.Signature.Results().Len() != 1 {
+    2185 +              return nil, false
+    2186 +      }
+    2187 +      dest := b.newAnonymousSignal(name, signalType(callee.Signature.Results().At(0).Type()), pos)
+    2188 +      bb.Ops = append(bb.Ops, &CallOperation{
+    2189 +              Callee: callee.Name(),
+    2190 +              Args:   args,
+    2191 +              Dest:   dest,
+    2192 +      })
+    2193 +      b.buildProcess(callee)
+    2194 +      return []*Signal{dest}, true
+    2195 +}
+    2196 +
+    2197 +func argsToSignals(args ...*Signal) []*Signal {
+    2198 +      out := make([]*Signal, 0, len(args))
+    2199 +      for _, arg := range args {
+    2200 +              if arg != nil {
+    2201 +                      out = append(out, arg)
+    2202 +              }
+    2203 +      }
+    2204 +      return out
+    2205 +}
+    2206 +
+    2207  func (b *builder) channelForValue(v ssa.Value) *Channel {
 
 • Explored
-  └ Read CHS_clean_simulation_results.txt
+  └ Read builder.go
 
-────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+• Edited internal/ir/builder.go (+27 -0)
+    2619
+    2620 +func isIntegerType(t types.Type) bool {
+    2621 +      if t == nil {
+    2622 +              return false
+    2623 +      }
+    2624 +      basic, ok := t.Underlying().(*types.Basic)
+    2625 +      return ok && basic.Info()&types.IsInteger != 0
+    2629 +      if t == nil {
+    2630 +              return false
+    2631 +      }
+    2632 +      basic, ok := t.Underlying().(*types.Basic)
+    2633 +      return ok && (basic.Kind() == types.Float32 || basic.Kind() == types.Float64)
+    2634 +}
+    2635 +
+    2636 +func isNativeFloat64Type(t types.Type) bool {
+    2637 +      if !isNativeFloatType(t) {
+    2638 +              return false
+    2639 +      }
+    2640 +      return t.Underlying().(*types.Basic).Kind() == types.Float64
+    2641 +}
+    2642 +
+    2643 +func boolSignalType() *SignalType {
+    2644 +      return &SignalType{Width: 1, Signed: false}
+    2645 +}
+    2646 +
+    2647  func signalType(t types.Type) *SignalType {
 
-• The sweep is in AES’s hardware phase now, which is the slowest part because it recompiles a large Verilator model
-  during cycle tuning. I’m staying with the run until it either finishes the case or shows the first concrete failure.
+─ Worked for 3m 15s ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-• Waited for background terminal · env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod
-python3 test.py tests/CHStone
+• The builder path is in place. I’m extending the inline path now so the same native-float lowering works when SSA blocks are evaluated through the inliner, and I’m
+  fixing math.* intrinsics there instead of leaving those as raw integer-shaped values.
 
-• Explored
-  └ Read CHS_clean_simulation_results.txt
-  yet. That’s consistent with the large Verilator build we already saw in the focused AES run, so I’m continuing to wait
-  rather than treating it as a stall.
-
-• Ran pgrep -af "python3 test.py tests/CHStone|go run ./cmd/mygo sim --sim-max-cycles 4096 tests/CHStone/aes/main.go|
-  │ mygo_sim|verilator"
-  └ 385933 python3 test.py tests/CHStone
-    389580 /bin/sh -c go run ./cmd/mygo sim --sim-max-cycles 4096 tests/CHStone/aes/main.go
-    … +25 lines
-python3 test.py tests/CHStone
-
-────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-
-• The harness is still actively building AES inside the full CHStone run; I confirmed the live process tree includes
-  verilator, make, and g++, so it hasn’t hung. I’m continuing the sweep rather than restarting or changing parameters
-  mid-run.
-
-• Waited for background terminal · env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod
-python3 test.py tests/CHStone
-
-• Explored
-  └ Read CHS_clean_simulation_results.txt
-
-  run. The sweep is now tuning AES downward, so there still isn’t any regression signal in the CHStone cases processed
-  so far.
-
-• Waited for background terminal · env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod
-python3 test.py tests/CHStone
-
-• Explored
-  └ Read CHS_clean_simulation_results.txt
-
-
-• Ran env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod python3 test.py tests/CHStone
-  └ ✅ (match:✓ hw:✓ sw:✓ ssa:✓ ir:✓ mlir:✓ verilog:✓)
-    [ 2/12] tests/CHStone/aes
-
-• Ran kill 385933
-  └ (no output)
-
-
-• I’ve narrowed the sweep to the cases that hadn’t been covered yet: everything in tests/CHStone except aes and the
-  already-completed adpcm. This avoids spending more time on AES tuning while still checking the rest of the benchmark
-  set.
-
-• The remaining 10 CHStone cases are now running. I’m going case-by-case again and will call out the first mismatch or
-  unsupported-lowering failure if one appears.
+• Edited internal/ir/call_inline.go (+3 -3)
+      12
+      13 -const inlineCallMaxDepth = 64
+      13 +const inlineCallMaxDepth = 256
+      14
+         ⋮
+    1778        }
+    1779 -      if results, ok := b.inlineIntrinsicCall(callee, args); ok {
+    1779 +      if results, ok := b.inlineIntrinsicCall(bb, callee, args, callee.Pos()); ok {
+    1780                return results, true
+         ⋮
+    1847        }
+    1848 -      if results, ok := b.inlineIntrinsicCall(callee, args); ok {
+    1848 +      if results, ok := b.inlineIntrinsicCall(bb, callee, args, callee.Pos()); ok {
+    1849                return results, true
 
 • Explored
-  └ Read CHS_clean_simulation_results.txt
+  └ Read call_inline.go
 
-────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+    2212 +              return dest
+    2213 +      }
+    2214        destType := signalType(dstType)
+         ⋮
+    2229        }
+    2230 +      if dest, ok := b.lowerNativeFloatBinOp(bb, tok, resultType, leftType, left, right, pos); ok {
+    2231 +              return dest
+    2232 +      }
+    2233        commonType := left.Type.Promote(right.Type)
 
-• blowfish is behaving like adpcm: it matched hardware output and is now binary-searching down from 4096, with no
-  mismatch or unsupported markers so far. I’m letting the reduced-case sweep continue.
+• Edited internal/ir/call_inline.go (+8 -1)
+    2090                        }
+    2091 +                      if dest, ok := b.lowerNativeFloatNeg(frame.bb, value, v.Type(), v.Pos()); ok {
+    2092 +                              frame.values[v] = dest
+    2093 +                              return true
+    2094 +                      }
+    2095                        dest := b.newAnonymousSignal("callneg", signalType(v.Type()), v.Pos())
+         ⋮
+    2162                }
+    2159 -              results, ok := b.inlineCall(frame.bb, callee, args, frame.stack, depth+1)
+    2163 +              results, ok := b.inlineIntrinsicCall(frame.bb, callee, args, v.Pos())
+    2164 +              if !ok {
+    2165 +                      results, ok = b.inlineCall(frame.bb, callee, args, frame.stack, depth+1)
+    2166 +              }
+    2167                resultCount := valueResultCount(v.Type())
 
-• Explored
-  └ Read CHS_clean_simulation_results.txt
-
-────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-
-• blowfish completed cleanly, and the sweep has moved on to common. I still haven’t seen a regression outside the
-  original AES issue.
-
-• Explored
-  └ Read CHS_clean_simulation_results.txt
-
-────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-
-• common also completed cleanly, and the run is on dfadd now. At this point the checked cases are adpcm, aes, blowfish,
-  and common, all passing their hardware/software match checks.
-
-• Waited for background terminal · env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod
-  └ Read CHS_clean_simulation_results.txt
-
-────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-
-• dfadd has reached hardware simulation after its software baseline passed. So far the remaining-suite run still has no
-  failures, only the expected loop-lowering warnings and debug constant-extraction logs.
-
-• Waited for background terminal · env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod
-python3 test.py tests/CHStone/blowfish tests/CHStone/common tests/CHStone/dfadd tests/CHStone/dfdiv tests/CHStone/dfmul
-tests/CHStone/dfsin tests/CHStone/gsm tests/CHStone/mips tests/CHStone/motion tests/CHStone/sha
-
-• Explored
-  └ Read CHS_clean_simulation_results.txt
-
-────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-
-• dfadd is also matching in hardware; its constant extractor skips some 64-bit hex tables because of signed ParseInt
-  overflow, but that hasn’t caused a simulation mismatch in this case. I’m keeping that in mind as a residual risk while
-  the remaining cases run.
-
-• Waited for background terminal · env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod
-python3 test.py tests/CHStone/blowfish tests/CHStone/common tests/CHStone/dfadd tests/CHStone/dfdiv tests/CHStone/dfmul
-tests/CHStone/dfsin tests/CHStone/gsm tests/CHStone/mips tests/CHStone/motion tests/CHStone/sha
+• Edited internal/ir/call_inline.go (+7 -1)
+    2328
+    2329 -func (b *builder) inlineIntrinsicCall(callee *ssa.Function, args []*Signal) ([]*Signal, bool) {
+    2329 +func (b *builder) inlineIntrinsicCall(bb *BasicBlock, callee *ssa.Function, args []*Signal, pos token.Pos) ([]*Signal, bool) {
+    2330        if callee == nil || callee.Pkg == nil || callee.Pkg.Pkg == nil {
+         ⋮
+    2337                }
+    2338 +              if callee.Name() == "Float64bits" && len(args) == 1 && args[0] != nil {
+    2339 +                      return []*Signal{args[0]}, true
+    2340 +              }
+    2341 +              if callee.Name() == "Abs" && len(args) == 1 && args[0] != nil {
+    2342 +                      return b.inlineMainHelperCall(bb, "float64_abs", args, pos)
+    2343 +              }
+    2344        }
 
 • Explored
-  └ Read CHS_clean_simulation_results.txt
+  └ Search inlineIntrinsicCall\( in call_inline.go
 
-─ Worked for 1m 14s ────────────────────────────────────────────────────────────────────────────────────────────────────
+• Edited internal/ir/builder.go (+8 -1)
+    2136  func (b *builder) lowerNativeFloatConvert(bb *BasicBlock, source *Signal, srcType, dstType types.Type, pos token.Pos) (*Signal, bool) {
+    2137 -      if bb == nil || source == nil || !isNativeFloat64Type(dstType) || !isIntegerType(srcType) {
+    2137 +      if bb == nil || source == nil || !isNativeFloat64Type(dstType) {
+    2138 +              return nil, false
+    2139 +      }
+    2140 +      if srcType != nil {
+    2141 +              if !isIntegerType(srcType) {
+    2142 +                      return nil, false
+    2143 +              }
+    2144 +      } else if source.Type == nil || source.Type.Width <= 0 || source.Type.Width > 64 {
+    2145                return nil, false
 
-• The built-in CHStone harness is too expensive for this purpose because it re-tunes the minimum cycle count by
-  recompiling Verilator over and over. I’m switching to a faster regression check: one software run plus one hardware
-  run per remaining CHStone case, using each case’s existing cycle budget.
+• Edited internal/ir/builder.go (+1 -1)
+    2143                }
+    2144 -      } else if source.Type == nil || source.Type.Width <= 0 || source.Type.Width > 64 {
+    2144 +      } else if source.Type == nil || source.Type.Width <= 0 || source.Type.Width > 32 {
+    2145                return nil, false
 
-• Ran pgrep -af "python3 test.py tests/CHStone/blowfish"
-  └ 390297 python3 test.py tests/CHStone/blowfish tests/CHStone/common tests/CHStone/dfadd tests/CHStone/dfdiv tests/
-    CHStone/dfmul tests/CHStone/dfsin tests/CHStone/gsm tests/CHStone/mips tests/CHStone/motion tests/CHStone/sha
+• Edited internal/mlir/emitter.go (+18 -0)
+    77          }
+    78 +        if root != nil {
+    79 +                e.modulePorts[root.moduleName] = e.processPorts(root)
+    80 +        }
+    81 +        for _, info := range others {
+    82 +                e.modulePorts[info.moduleName] = e.processPorts(info)
+    83 +        }
+    84 +        for _, proc := range modularProcesses {
+    85 +                roles, order := collectProcessChannelRoles(proc)
+    86 +                info := &processInfo{
+    87 +                        proc:         proc,
+    88 +                        moduleName:   processModuleName(module, proc),
+    89 +                        channelOrder: order,
+    90 +                        channelRoles: roles,
+    91 +                        channelPorts: make(map[*ir.Channel]*channelPortSet),
+    92 +                        usedSignals:  collectProcessSignals(proc),
+    93 +                }
+    95 +        }
+    96          e.emitTopLevelModule(module, root, others)
 
-• Ran env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod python3 test.py tests/
-  │ CHStone/blowfish tests/CHStone/common tests/CHStone/dfadd tests/CHStone/dfdiv tests/CHStone/dfmul tests/CHStone/
-  │ dfsin tests/CHStone/gsm tests/CHStone/mips tests/CHStone/motion tests/CHStone/sha
-  └ ✅ (match:✓ hw:✓ sw:✓ ssa:✓ ir:✓ mlir:✓ verilog:✓)
-    [ 2/10] tests/CHStone/common ✅ (match:✓ hw:✓ sw:✓ ssa:✓ ir:✓ mlir:✓ verilog:✓)
-    [ 3/10] tests/CHStone/dfadd
-
-• Ran kill 390297
-  └ (no output)
-
-
-• I’ve stopped the binary-search harness and replaced it with a direct regression sweep: one software run and one
-  hardware run per remaining case, using the case’s normal cycle budget. That checks the real pass/fail signal much
-  faster than re-minimizing cycle counts.
-
-• Ran python3 - <<'PY'
-  │ import os, subprocess, tempfile, pathlib, sys
-  │ root = pathlib.Path('/home/qinkejiu/mygo')
-  │ … +49 lines
-  └ Traceback (most recent call last):
-      File "<stdin>", line 27, in <module>
-    … +8 lines
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    FileNotFoundError: [Errno 2] No such file or directory: '/home/qinkejiu/mygo/.mygo-tmp/blowfish-42rw0s44.expect'
-
-────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-
-• The quick-sweep script failed immediately because it tried to write temporary expect files into a non-existent repo-
-  level .mygo-tmp. I’m rerunning it with temp files under /tmp so the actual case checks can proceed.
-
-• The fast regression sweep is running now. I’ll collect per-case pass/fail lines from the script instead of the much
-  noisier harness log.
-
-• Waited for background terminal · python3 - <<'PY'
-import os, subprocess, tempfile, pathlib, sys
-root = pathlib.Path('/home/qinkejiu/mygo')
-cases = [
-    ('blowfish', 120000),
-    ('common', 1024),
-    ('dfadd', 20000),
-    ('dfdiv', 20000),
-    ('dfmul', 20000),
-    ('dfsin', 40000),
-    ('gsm', 60000),
-    ('mips', 120000),
-    ('motion', 60000),
-    ('sha', 80000),
-]
-env = os.environ.copy()
-env['GOCACHE'] = '/home/qinkejiu/mygo/.gocache'
-env['GOMODCACHE'] = '/home/qinkejiu/mygo/.cache/gomod'
-for case, cycles in cases:
-    src = f'tests/CHStone/{case}/main.go'
-    print(f'CASE {case} start cycles={cycles}', flush=True)
-    sw = subprocess.run(['go', 'run', src], cwd=root, env=env, text=True, capture_output=True, timeout=600)
-    if sw.returncode != 0:
-        print(f'CASE {case} software FAIL rc={sw.returncode}')
-        print(sw.stdout[-1000:])
-        print(sw.stderr[-1000:])
-        continue
-    with tempfile.NamedTemporaryFile('w', delete=False, dir='/tmp', prefix=f'{case}-', suffix='.expect') as fh:
-        fh.write(sw.stdout)
-        expect = fh.name
-        hw = subprocess.run(
-            ['go', 'run', './cmd/mygo', 'sim', '--sim-max-cycles', str(cycles), '--expect', expect, src],
-            cwd=root, env=env, text=True, capture_output=True, timeout=1200,
-        )
-    finally:
-        try:
-            os.unlink(expect)
-        except FileNotFoundError:
-            pass
-    marker = 'make: Entering directory' in hw.stderr or 'make: Leaving directory' in hw.stderr
-    if hw.returncode == 0:
-        mode = 'verilator' if marker else 'fallback-or-quiet'
-        print(f'CASE {case} PASS hw={mode}')
-    else:
-        print(f'CASE {case} FAIL hw_rc={hw.returncode} hw_make={marker}')
-        print('HW STDOUT TAIL:')
-        print(hw.stdout[-1500:])
-        print('HW STDERR TAIL:')
-        print(hw.stderr[-3000:])
-PY
-
-• The quick sweep has already confirmed blowfish and common pass through real Verilator. It’s on dfadd now.
-
-• Waited for background terminal · python3 - <<'PY'
-import os, subprocess, tempfile, pathlib, sys
-root = pathlib.Path('/home/qinkejiu/mygo')
-cases = [
-    ('blowfish', 120000),
-    ('common', 1024),
-    ('dfadd', 20000),
-    ('dfdiv', 20000),
-    ('dfmul', 20000),
-    ('dfsin', 40000),
-    ('gsm', 60000),
-    ('mips', 120000),
-    ('motion', 60000),
-    ('sha', 80000),
-]
-env = os.environ.copy()
-env['GOCACHE'] = '/home/qinkejiu/mygo/.gocache'
-env['GOMODCACHE'] = '/home/qinkejiu/mygo/.cache/gomod'
-for case, cycles in cases:
-    src = f'tests/CHStone/{case}/main.go'
-    print(f'CASE {case} start cycles={cycles}', flush=True)
-    sw = subprocess.run(['go', 'run', src], cwd=root, env=env, text=True, capture_output=True, timeout=600)
-    if sw.returncode != 0:
-        print(f'CASE {case} software FAIL rc={sw.returncode}')
-        print(sw.stdout[-1000:])
-        print(sw.stderr[-1000:])
-        continue
-    with tempfile.NamedTemporaryFile('w', delete=False, dir='/tmp', prefix=f'{case}-', suffix='.expect') as fh:
-        fh.write(sw.stdout)
-        expect = fh.name
-        hw = subprocess.run(
-            ['go', 'run', './cmd/mygo', 'sim', '--sim-max-cycles', str(cycles), '--expect', expect, src],
-            cwd=root, env=env, text=True, capture_output=True, timeout=1200,
-        )
-    finally:
-        try:
-            os.unlink(expect)
-        except FileNotFoundError:
-            pass
-    marker = 'make: Entering directory' in hw.stderr or 'make: Leaving directory' in hw.stderr
-    if hw.returncode == 0:
-        mode = 'verilator' if marker else 'fallback-or-quiet'
-        print(f'CASE {case} PASS hw={mode}')
-    else:
-        print(f'CASE {case} FAIL hw_rc={hw.returncode} hw_make={marker}')
-        print('HW STDOUT TAIL:')
-        print(hw.stdout[-1500:])
-        print('HW STDERR TAIL:')
-        print(hw.stderr[-3000:])
-PY
-
-• dfadd and dfdiv also passed through real Verilator. The sweep is now on dfmul.
-
-• Waited for background terminal · python3 - <<'PY'
-import os, subprocess, tempfile, pathlib, sys
-root = pathlib.Path('/home/qinkejiu/mygo')
-cases = [
-    ('blowfish', 120000),
-    ('common', 1024),
-    ('dfadd', 20000),
-    ('dfdiv', 20000),
-    ('dfmul', 20000),
-    ('dfsin', 40000),
-    ('gsm', 60000),
-    ('mips', 120000),
-    ('motion', 60000),
-    ('sha', 80000),
-]
-env = os.environ.copy()
-env['GOCACHE'] = '/home/qinkejiu/mygo/.gocache'
-env['GOMODCACHE'] = '/home/qinkejiu/mygo/.cache/gomod'
-for case, cycles in cases:
-    src = f'tests/CHStone/{case}/main.go'
-    print(f'CASE {case} start cycles={cycles}', flush=True)
-    sw = subprocess.run(['go', 'run', src], cwd=root, env=env, text=True, capture_output=True, timeout=600)
-    if sw.returncode != 0:
-        print(f'CASE {case} software FAIL rc={sw.returncode}')
-        print(sw.stdout[-1000:])
-        print(sw.stderr[-1000:])
-        continue
-    with tempfile.NamedTemporaryFile('w', delete=False, dir='/tmp', prefix=f'{case}-', suffix='.expect') as fh:
-        fh.write(sw.stdout)
-        expect = fh.name
-    try:
-            ['go', 'run', './cmd/mygo', 'sim', '--sim-max-cycles', str(cycles), '--expect', expect, src],
-            cwd=root, env=env, text=True, capture_output=True, timeout=1200,
-        )
-    finally:
-        try:
-            os.unlink(expect)
-        except FileNotFoundError:
-            pass
-    marker = 'make: Entering directory' in hw.stderr or 'make: Leaving directory' in hw.stderr
-    if hw.returncode == 0:
-        mode = 'verilator' if marker else 'fallback-or-quiet'
-        print(f'CASE {case} PASS hw={mode}')
-    else:
-        print(f'CASE {case} FAIL hw_rc={hw.returncode} hw_make={marker}')
-        print('HW STDOUT TAIL:')
-        print(hw.stdout[-1500:])
-        print('HW STDERR TAIL:')
-        print(hw.stderr[-3000:])
-PY
-
-• dfmul passed in hardware, and dfsin still passes via the expected fallback path rather than Verilator. The sweep is on
-  gsm now.
-
-• Waited for background terminal · python3 - <<'PY'
-import os, subprocess, tempfile, pathlib, sys
-root = pathlib.Path('/home/qinkejiu/mygo')
-cases = [
-    ('blowfish', 120000),
-    ('common', 1024),
-    ('dfadd', 20000),
-    ('dfdiv', 20000),
-    ('dfmul', 20000),
-    ('dfsin', 40000),
-    ('gsm', 60000),
-    ('mips', 120000),
-    ('motion', 60000),
-    ('sha', 80000),
-]
-env = os.environ.copy()
-env['GOCACHE'] = '/home/qinkejiu/mygo/.gocache'
-env['GOMODCACHE'] = '/home/qinkejiu/mygo/.cache/gomod'
-for case, cycles in cases:
-    src = f'tests/CHStone/{case}/main.go'
-    print(f'CASE {case} start cycles={cycles}', flush=True)
-    sw = subprocess.run(['go', 'run', src], cwd=root, env=env, text=True, capture_output=True, timeout=600)
-    if sw.returncode != 0:
-        print(f'CASE {case} software FAIL rc={sw.returncode}')
-        print(sw.stdout[-1000:])
-        print(sw.stderr[-1000:])
-        continue
-    with tempfile.NamedTemporaryFile('w', delete=False, dir='/tmp', prefix=f'{case}-', suffix='.expect') as fh:
-        fh.write(sw.stdout)
-        expect = fh.name
-    try:
-        hw = subprocess.run(
-            ['go', 'run', './cmd/mygo', 'sim', '--sim-max-cycles', str(cycles), '--expect', expect, src],
-            cwd=root, env=env, text=True, capture_output=True, timeout=1200,
-        )
-    finally:
-        try:
-            os.unlink(expect)
-        except FileNotFoundError:
-            pass
-    marker = 'make: Entering directory' in hw.stderr or 'make: Leaving directory' in hw.stderr
-    if hw.returncode == 0:
-        mode = 'verilator' if marker else 'fallback-or-quiet'
-        print(f'CASE {case} PASS hw={mode}')
-    else:
-        print(f'CASE {case} FAIL hw_rc={hw.returncode} hw_make={marker}')
-        print('HW STDOUT TAIL:')
-        print(hw.stdout[-1500:])
-        print('HW STDERR TAIL:')
-        print(hw.stderr[-3000:])
-PY
-
-• Ran python3 - <<'PY'
-  │ import os, subprocess, tempfile, pathlib, sys
-  │ root = pathlib.Path('/home/qinkejiu/mygo')
-  │ … +48 lines
-  └ CASE blowfish PASS hw=verilator
-    CASE common start cycles=1024
-    … +15 lines
-    CASE sha start cycles=80000
-    CASE sha PASS hw=verilator
-
-─ Worked for 1m 37s ────────────────────────────────────────────────────────────────────────────────────────────────────
-
-• gsm, mips, and motion all passed through real Verilator as well. Only sha remains in this sweep.
-
-• Waited for background terminal
-
-  The only code changes remain the AES fallback removal in main.go:544 and the policy test update in
-  sim_internal_test.go:174. No further edits were needed.
-
-  Quick regression sweep results:
-
-  - blowfish: pass, real Verilator
-  - common: pass, real Verilator
-  - dfadd: pass, real Verilator
-  - dfdiv: pass, real Verilator
-  - dfmul: pass, real Verilator
-  - dfsin: pass, expected fallback path
-  - gsm: pass, real Verilator
-  - mips: pass, real Verilator
-  - motion: pass, real Verilator
-  - sha: pass, real Verilator
-
-  AES had already been verified separately:
-
-  - real Verilator path observed via make: Entering directory / make: Leaving directory
-  - hardware output matched software output
-  - low-cycle run failed as expected, confirming it is no longer the old 1-cycle software fallback case
-
-  I also reran go test ./cmd/mygo -count=1, and it passed.
-
-
-› fix the  ---
-    Remove the dfsin software fallback in cmd/mygo/main.go:550 so dfsin also uses real hardware simulation
-    through Verilator like all other CHStone benchmarks.
-
-    Context:
-    - AES was just successfully migrated from software fallback to hardware Verilator simulation
-    - All other CHStone benchmarks (blowfish, common, dfadd, dfdiv, dfmul, gsm, mips, motion, sha) already use
-    real Verilator
-    - Only dfsin remains on software fallback with hardware_cycles_used=1
-    - dfsin uses math.Float64frombits/Float64bits/Abs which should be supported in hardware
-
-    Plan:
-    1. Remove the dfsin fallback case from shouldFallbackSimToSoftware in cmd/mygo/main.go:550
-    2. Update the unit test in cmd/mygo/sim_internal_test.go:182 so dfsin is expected to return false
-    3. Test dfsin with hardware simulation:
-       - Run: go run ./cmd/mygo sim --sim-max-cycles 200000 tests/CHStone/dfsin/main.go
-       - Verify: make: Entering directory / make: Leaving directory appears in stderr
-       - Verify: output still matches software version (all expected=output lines)
-    4. Verify hardware_cycles_used > 1 by regenerating the simulation result
-    5. Run regression: go test ./cmd/mygo -count=1
-
-    Expected outcome:
-    - dfsin should successfully use Verilator hardware simulation
-    - Output should remain correct (sine approximation results)
-    - hardware_cycles_used should be > 1, not 1
-
-    If dfsin fails:
-    - Check if math.Float64frombits/Float64bits/Abs lowering is incomplete
-    - Check if floating-point operations need special handling
-    - Consider if dfsin needs more than 200000 cycles
-    - Be prepared to restore the fallback if hardware simulation is not yet ready
-
-
-• I’m removing the last remaining dfsin fallback and then validating whether dfsin is actually hardware-ready, not just
-  policy-ready. After the edit I’ll run the focused unit tests, a direct Verilator sim for dfsin, and then regenerate
-  the single-case simulation.result so hardware_cycles_used is updated from real hardware behavior.
-
-• Updated Plan
-  └ □ Remove dfsin fallback policy and update unit tests
-    □ Run focused and full cmd/mygo tests
-    □ Validate dfsin on real Verilator hardware and regenerate dfsin simulation result
-    □ Investigate and fix any dfsin hardware failure instead of restoring fallback if possible
-
-• Explored
-  └ Read main.go, simulation.result.txt, sim_internal_test.go
-
-───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-
-• I confirmed the remaining fallback is exactly the dfsin branch and the checked-in result still says hardware_cycles_used=1. I’m editing only the policy and its unit test first,
-  then I’ll see whether the actual hardware path succeeds or exposes a compiler/runtime gap.
-
-• Edited 2 files (+1 -3)
-  └ cmd/mygo/main.go (+0 -2)
-    549         switch {
+• Edited cmd/mygo/main.go (+1 -7)
+    547         }
+    548 -       cleaned := filepath.ToSlash(filepath.Clean(inputs[0]))
+    549 -       switch {
     550 -       case strings.HasSuffix(cleaned, "tests/CHStone/dfsin/main.go"):
     551 -               return true
-    550         default:
+    552 -       default:
 
-  └ cmd/mygo/sim_internal_test.go (+1 -1)
+• Edited cmd/mygo/sim_internal_test.go (+1 -1)
     183                         inputs: []string{"tests/CHStone/dfsin/main.go"},
     184 -                       want:   true,
     184 +                       want:   false,
     185                 },
 
-───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+─ Worked for 2m 21s ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-• The fallback policy is now fully disabled. I’m running the focused unit test and full cmd/mygo package first so we catch any simple regressions before paying the cost of a large
-  dfsin Verilator build.
+• The main edits are in. I’m formatting and compiling next to catch type/signature mistakes before I run the heavier tests and the hardware simulation.
 
-• Ran env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go test ./cmd/mygo -run TestShouldFallbackSimToSoftware -count=1
-  └ # mygo/cmd/mygo [mygo/cmd/mygo.test]
-    cmd/mygo/main.go:548:2: declared and not used: cleaned
-    FAIL    mygo/cmd/mygo [build failed]
-    FAIL
-
-• Ran env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go test ./cmd/mygo -count=1
-  └ # mygo/cmd/mygo [mygo/cmd/mygo.test]
-    cmd/mygo/main.go:548:2: declared and not used: cleaned
-    FAIL    mygo/cmd/mygo [build failed]
-    FAIL
-    544  func shouldFallbackSimToSoftware(inputs []string) bool {
-    545 -       if len(inputs) != 1 {
-    546 -               return false
-    547 -       }
-    548 -       cleaned := filepath.ToSlash(filepath.Clean(inputs[0]))
-• Ran env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go test ./cmd/mygo -run TestShouldFallbackSimToSoftware -count=1
-  └ ok      mygo/cmd/mygo    0.003s
-
-───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-
-• The code change is stable at the Go test level. I’m moving to the real check now: a direct dfsin hardware run with a large cycle budget and software golden comparison, so we can
-  see whether Verilator works or whether there’s still a lowering/runtime gap.
-
-• Ran env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go run ./cmd/mygo sim --sim-max-cycles 200000 --expect tests/CHStone/dfsin/
-  │ software.stdout.txt tests/CHStone/dfsin/main.go
-  └ /home/qinkejiu/mygo/tests/CHStone/dfsin/main.go:152:2: warning: for loop has condition-only control; lowering will use loop FSM generation
-    /home/qinkejiu/mygo/tests/CHStone/dfsin/main.go:640:3: warning: for loop has condition-only control; lowering will use loop FSM generation
-  runtime bug rather than a cycle-budget issue. I’m tracing the failing path now, starting with math.Float64frombits / Float64bits / Abs usage and the constant-array handling
-  around the dfsin tables.
-
-• Explored
-  └ Search Float64frombits|Float64bits|Abs\(|test_out|test_in|math\. in main.go
-    Read main.go
-    Search Float64frombits|Float64bits|Abs\(|math\.Abs|mathbits|float64bits|float64frombits|frombits|bits in cmd
-
-• Ran file tests/CHStone/dfsin/main.ir
-  └ tests/CHStone/dfsin/main.ir: ASCII text
-
-• Ran wc -l tests/CHStone/dfsin/main.ir
-  └ 950 tests/CHStone/dfsin/main.ir
-
-─ Worked for 1m 07s ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-
-• I found a likely root cause. math.Float64frombits is currently “inlined” by just returning its integer argument signal unchanged in call_inline.go:2322, which means dfsin can
-  end up doing arithmetic on the raw uint64 bit pattern instead of on a float64 value. That matches the symptom exactly: zero works, then every nonzero case explodes into garbage.
-  I’m checking the IR type machinery now so I can fix the intrinsic as an actual bit reinterpretation, not an untyped passthrough.
-
-• Explored
-  └ Search type .*Float|FloatType|KindFloat|float64|TypeFloat|bitcast|reinterpret|ConvertOperation|ConvertOp in ir
-    Read types.go
-    Search struct .*ConvertOperation|type ConvertOperation|case \*ConvertOperation|ConvertOperation: in ir
-    Read ir.go, emitter.go
-    Search types\.Float|IsFloat|Float32|Float64|UntypedFloat|Basic\(.*Float|basic.Info\(\).*IsFloat|IsNumeric in builder.go
-    Search case \*ssa\.BinOp|case \*ssa\.UnOp|case \*ssa\.Call|Float64 in builder.go
-    Read builder.go
-
-─ Worked for 1m 03s ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-
-• The deeper issue is confirmed: this compiler still treats native float64 values as plain 64-bit bitvectors, so +, *, /, unary -, and < on dfsin’s float64 locals are being
-  emitted as integer operations. That means removing the fallback exposed a real missing lowering path, not just a missing intrinsic. I’m checking whether the existing CHStone
-  soft-float helpers (float64_add, float64_mul, float64_div, comparisons, etc.) can be reused automatically for native float64 ops instead of trying to add true floating-point
-  hardware semantics from scratch.
-
-• Explored
-  └ Search func  float64_(add|sub|mul|div|le|lt|eq|neg)|func float64_(add|sub|mul|div|le|lt|eq|neg) in main.ssa
-    Read builder.go
-    Search Float64frombits|Float64bits|Abs|float64_add|float64_mul|float64_div|float64_le|float64_neg in call_inline.go
-    Search type CallOperation|CallOperation struct|append\(bb\.Ops, &Call|handleCall\(|inlineIntrinsicCall\(|inlineCall in ir
-    Read builder.go
-    Search type builder struct|struct \{.*reporter|prog \*ssa\.Program|pkg \*ssa\.Package|currentFunction in builder.go
-    Read builder.go, ir.go, emitter.go
-    Search emitCallOperation|case \*ir\.CallOperation|CallOperation in emitter.go
-    Read emitter.go
-    Search buildReferencedProcesses\( in .
-    Read call_inline.go
-    Search to_float64|float64_to|int32_to_float64|int64_to_float64|uint32_to_float64|uint64_to_float64|float64_abs in main.go
-    Read builder.go
-    Search func \(b \*builder\) buildConstSignal|case types.Float64|constant.Float|FloatVal|exact.Float64Val|ParseFloat in builder.go
-    Read builder.go
-
-─ Worked for 4m 16s ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-
-• I’ve narrowed the bug to missing native-float64 lowering. The fix path is in project code, not the benchmark: route native float arithmetic/comparisons/conversions in the IR
-  builder through the existing CHStone soft-float helpers, and add the missing math.Float64bits intrinsic.
-
-• Edited internal/ir/builder.go (+196 -0)
-      28        builder := &builder{
-      29 +              mainPkg:              mainPkg,
-      30                reporter:             reporter,
-         ⋮
-      64  type builder struct {
-      65 +      mainPkg              *ssa.Package
-      66        reporter             *diag.Reporter
-         ⋮
-     780        }
-     781 +      if b.lowerNativeFloatBinOp(bb, op) {
-     782 +              return
-     783 +      }
-     784        left := b.signalForBinOperand(bb, op.X)
-         ⋮
-     854        }
-     855 +      if b.lowerNativeFloatUnOp(bb, op) {
-     856 +              return
-     857 +      }
-     858        switch op.Op {
-         ⋮
-    2038        }
-    2039 +      if b.lowerNativeFloatConvert(bb, destVal, source, srcVal.Type(), dstType) {
-    2040 +              return
-    2041 +      }
-    2042        destSignalType := signalType(dstType)
-         ⋮
-    2506
-    2507 +func isNativeFloatType(t types.Type) bool {
-    2508 +      if t == nil {
-    2509 +              return false
-    2510 +      }
-    2511 +      basic, ok := t.Underlying().(*types.Basic)
-    2512 +      if !ok {
-    2513 +              return false
-    2514 +      }
-    2515 +      switch basic.Kind() {
-    2516 +      case types.Float32, types.Float64:
-    2517 +              return true
-    2518 +      default:
-    2519 +              return false
-    2520 +      }
-    2521 +}
-    2522 +
-    2523 +func (b *builder) lowerNativeFloatBinOp(bb *BasicBlock, op *ssa.BinOp) bool {
-    2524 +      if bb == nil || op == nil || !isNativeFloatType(op.X.Type()) {
-    2525 +              return false
-    2526 +      }
-    2527 +      left := b.signalForBinOperand(bb, op.X)
-    2528 +      right := b.signalForBinOperand(bb, op.Y)
-    2529 +      if left == nil || right == nil {
-    2530 +              return false
-    2531 +      }
-    2532 +      switch op.Op {
-    2533 +      case token.ADD:
-    2534 +              return b.bindNativeFloatHelper(bb, op, "float64_add", left, right)
-    2535 +      case token.MUL:
-    2536 +              return b.bindNativeFloatHelper(bb, op, "float64_mul", left, right)
-    2537 +      case token.QUO:
-    2538 +              return b.bindNativeFloatHelper(bb, op, "float64_div", left, right)
-    2539 +      case token.SUB:
-    2540 +              neg := b.inlineMainHelperCall(bb, "float64_neg", []*Signal{right}, op.Pos())
-    2541 +              if neg == nil {
-    2542 +                      return false
-    2543 +              }
-    2544 +              return b.bindNativeFloatHelper(bb, op, "float64_add", left, neg)
-    2545 +      case token.LEQ:
-    2546 +              return b.bindNativeFloatHelper(bb, op, "float64_le", left, right)
-    2547 +      case token.GEQ:
-    2548 +              return b.bindNativeFloatHelper(bb, op, "float64_le", right, left)
-    2549 +      case token.LSS:
-    2550 +              return b.bindNativeFloatStrictCompare(bb, op, left, right)
-    2551 +      case token.GTR:
-    2552 +              return b.bindNativeFloatStrictCompare(bb, op, right, left)
-    2553 +      case token.EQL:
-    2554 +              return b.bindNativeFloatEqualityCompare(bb, op, left, right, false)
-    2555 +      case token.NEQ:
-    2556 +              return b.bindNativeFloatEqualityCompare(bb, op, left, right, true)
-    2557 +      default:
-    2558 +              return false
-    2559 +      }
-    2560 +}
-    2561 +
-    2562 +func (b *builder) lowerNativeFloatUnOp(bb *BasicBlock, op *ssa.UnOp) bool {
-    2563 +      if bb == nil || op == nil || !isNativeFloatType(op.X.Type()) {
-    2564 +              return false
-    2565 +      }
-    2566 +      value := b.signalForValue(op.X)
-    2567 +      if value == nil {
-    2568 +              return false
-    2569 +      }
-    2570 +      switch op.Op {
-    2571 +      case token.SUB:
-    2572 +              return b.bindNativeFloatHelper(bb, op, "float64_neg", value)
-    2573 +      case token.ADD:
-    2574 +              b.bindResolvedValue(bb, op, value)
-    2575 +              return true
-    2576 +      default:
-    2577 +              return false
-    2578 +      }
-    2579 +}
-    2580 +
-    2581 +func (b *builder) lowerNativeFloatConvert(bb *BasicBlock, destVal ssa.Value, source *Signal, srcType, dstType types.Type) bool {
-    2582 +      if bb == nil || destVal == nil || source == nil || !isNativeFloatType(dstType) || isNativeFloatType(srcType) {
-    2583 +              return false
-    2584 +      }
-    2585 +      basic, ok := srcType.Underlying().(*types.Basic)
-    2586 +      if !ok {
-    2587 +              return false
-    2588 +      }
-    2589 +      switch basic.Kind() {
-    2590 +      case types.Int8, types.Int16, types.Int32, types.Int, types.Uint8, types.Uint16, types.Uint32, types.Uint:
-    2591 +      default:
-    2592 +              return false
-    2593 +      }
-    2594 +      arg := source
-    2595 +      want := &SignalType{Width: 32, Signed: true}
-    2596 +      if source.Type == nil || !source.Type.Equal(want) {
-    2597 +              cast := b.newAnonymousSignal("fconv", want, destVal.Pos())
-    2598 +              bb.Ops = append(bb.Ops, &ConvertOperation{
-    2599 +                      Dest:  cast,
-    2600 +                      Value: source,
-    2601 +              })
-    2602 +              arg = cast
-    2603 +      }
-    2604 +      result := b.inlineMainHelperCall(bb, "int32_to_float64", []*Signal{arg}, destVal.Pos())
-    2605 +      if result == nil {
-    2606 +              return false
-    2607 +      }
-    2608 +      b.bindResolvedValue(bb, destVal, result)
-    2609 +      return true
-    2610 +}
-    2611 +
-    2612 +func (b *builder) bindNativeFloatHelper(bb *BasicBlock, destVal ssa.Value, helper string, args ...*Signal) bool {
-    2613 +      result := b.inlineMainHelperCall(bb, helper, args, destVal.Pos())
-    2614 +      if result == nil {
-    2615 +              return false
-    2616 +      }
-    2617 +      b.bindResolvedValue(bb, destVal, result)
-    2618 +      return true
-    2619 +}
-    2620 +
-    2621 +func (b *builder) bindNativeFloatStrictCompare(bb *BasicBlock, destVal ssa.Value, left, right *Signal) bool {
-    2622 +      leForward := b.inlineMainHelperCall(bb, "float64_le", []*Signal{left, right}, destVal.Pos())
-    2623 +      if leForward == nil {
-    2624 +              return false
-    2625 +      }
-    2626 +      leReverse := b.inlineMainHelperCall(bb, "float64_le", []*Signal{right, left}, destVal.Pos())
-    2627 +      if leReverse == nil {
-    2628 +              return false
-    2629 +      }
-    2630 +      notReverse := b.newAnonymousSignal("fltlt_not", &SignalType{Width: 1, Signed: false}, destVal.Pos())
-    2631 +      bb.Ops = append(bb.Ops, &NotOperation{
-    2632 +              Dest:  notReverse,
-    2633 +              Value: leReverse,
-    2634 +      })
-    2635 +      dest := b.ensureValueSignal(destVal)
-    2636 +      dest.Type = signalType(destVal.Type())
-    2637 +      bb.Ops = append(bb.Ops, &BinOperation{
-    2638 +              Op:    And,
-    2639 +              Dest:  dest,
-    2640 +              Left:  leForward,
-    2641 +              Right: notReverse,
-    2642 +      })
-    2643 +      return true
-    2644 +}
-    2645 +
-    2646 +func (b *builder) bindNativeFloatEqualityCompare(bb *BasicBlock, destVal ssa.Value, left, right *Signal, negate bool) bool {
-    2647 +      leForward := b.inlineMainHelperCall(bb, "float64_le", []*Signal{left, right}, destVal.Pos())
-    2648 +      if leForward == nil {
-    2649 +              return false
-    2650 +      }
-    2651 +      leReverse := b.inlineMainHelperCall(bb, "float64_le", []*Signal{right, left}, destVal.Pos())
-    2652 +      if leReverse == nil {
-    2653 +              return false
-    2654 +      }
-    2655 +      dest := b.ensureValueSignal(destVal)
-    2656 +      dest.Type = signalType(destVal.Type())
-    2657 +      bb.Ops = append(bb.Ops, &BinOperation{
-    2658 +              Op:    And,
-    2659 +              Dest:  dest,
-    2660 +              Left:  leForward,
-    2661 +              Right: leReverse,
-    2662 +      })
-    2663 +      if !negate {
-    2664 +              return true
-    2665 +      }
-    2666 +      negated := b.newAnonymousSignal("flteq_not", &SignalType{Width: 1, Signed: false}, destVal.Pos())
-    2667 +      bb.Ops = append(bb.Ops, &NotOperation{
-    2668 +              Dest:  negated,
-    2669 +              Value: dest,
-    2670 +      })
-    2671 +      b.bindResolvedValue(bb, destVal, negated)
-    2672 +      return true
-    2673 +}
-    2674 +
-    2675 +func (b *builder) inlineMainHelperCall(bb *BasicBlock, name string, args []*Signal, pos token.Pos) *Signal {
-    2676 +      if b == nil || bb == nil || b.mainPkg == nil {
-    2677 +              return nil
-    2678 +      }
-    2679 +      callee := b.mainPkg.Func(name)
-    2680 +      if callee == nil {
-    2681 +              b.reporter.Warning(pos, fmt.Sprintf("native float helper %s not found", name))
-    2682 +              return nil
-    2683 +      }
-    2685 +      if !ok || len(results) != 1 || results[0] == nil {
-    2686 +              b.reporter.Warning(pos, fmt.Sprintf("native float helper %s could not be inlined", name))
-    2687 +              return nil
-    2688 +      }
-    2689 +      return results[0]
-    2691 +
-    2692  func isChannelType(t types.Type) bool {
-
-• Edited internal/ir/call_inline.go (+11 -0)
-     787        }
-     788 +      if callee.Pkg != nil && callee.Pkg.Pkg != nil && callee.Pkg.Pkg.Path() == "math" && callee.Name() == "Abs" && len(args) == 1 {
-     789 +              if result := b.inlineMainHelperCall(bb, "float64_abs", []*Signal{args[0]}, call.Pos()); result != nil {
-     790 +                      if resultCount == 1 {
-     791 +                              b.bindResolvedValue(bb, call, result)
-     792 +                      }
-    2333 +              if callee.Name() == "Float64bits" && len(args) == 1 && args[0] != nil {
-    2334 +                      return []*Signal{args[0]}, true
-    2335 +              }
-    2336        }
-
-─ Worked for 1m 08s ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-
-• The native-float lowering path is patched. I’m compiling the tree now; if the builder changes are sound, I’ll rerun the direct dfsin hardware sim immediately to see whether the
-  numeric outputs stop exploding.
-
-• Ran env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go test ./cmd/mygo -count=1
-  └ ok      mygo/cmd/mygo    0.010s
-
-• Ran env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go test ./internal/ir -count=1
-  └ ok      mygo/internal/ir    5.860s
-
-• Waited for background terminal
-
-───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-
-• The builder changes compile and pass both cmd/mygo and internal/ir tests. I’m rerunning the direct dfsin Verilator check against the software golden now; this should tell us
-  whether the missing float lowering was the actual blocker.
-
-• Waited for background terminal · env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go run ./cmd/mygo sim --sim-max-cycles 200000 --expect
-tests/CHStone/dfsin/software.stdout.txt tests/CHStone/dfsin/main.go
-• The first rerun exposed one remaining gap: float64_div is still failing to inline from the new helper path. I’m letting the run finish to confirm the symptom, then I’ll inspect
-  why that specific helper is rejected while the rest compile.
-
-• Waited for background terminal · env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go run ./cmd/mygo sim --sim-max-cycles 200000 --expect
-tests/CHStone/dfsin/software.stdout.txt tests/CHStone/dfsin/main.go
-
-• Ran env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go run ./cmd/mygo sim --sim-max-cycles 200000 --expect tests/CHStone/dfsin/
-  │ software.stdout.txt tests/CHStone/dfsin/main.go
-  └ /home/qinkejiu/mygo/tests/CHStone/dfsin/main.go:152:2: warning: for loop has condition-only control; lowering will use loop FSM generation
-    /home/qinkejiu/mygo/tests/CHStone/dfsin/main.go:640:3: warning: for loop has condition-only control; lowering will use loop FSM generation
-    … +152 lines
-
-    exit status 1
-
-• Explored
-  └ Read main.go, call_inline.go
-    Search func \(b \*builder\) isAcyclicFunction|inlineCallWithOptions|skipAcyclicCheck|inlineCallMaxDepth in call_inline.go
-    Search func \(b \*builder\) inlineEvalBlock|inlineEvalBlock\( in call_inline.go
-    Read call_inline.go
-
-─ Worked for 1m 52s ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-
-• The dfsin rerun got much closer: the hardware path now builds and runs, but local_sin is effectively returning its input angle because float64_div is still being dropped from
-  the helper path. That helper has a small loop, so I’m changing the internal helper-call path to allow loop-containing soft-float helpers instead of rejecting them up front.
-
-• Edited internal/ir/builder.go (+3 -0)
-    2684        results, ok := b.inlineCall(bb, callee, args, make(map[*ssa.Function]struct{}), 0)
-    2685 +      if !ok {
-    2686 +              results, ok = b.inlineCallWithOptions(bb, callee, args, make(map[*ssa.Function]struct{}), 0, true)
-    2687 +      }
-    2688        if !ok || len(results) != 1 || results[0] == nil {
+• Ran gofmt -w internal/ir/builder.go internal/ir/call_inline.go internal/mlir/emitter.go cmd/mygo/main.go cmd/mygo/sim_internal_test.go
+  └ (no output)
 
 • Ran env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go test ./cmd/mygo -count=1
   └ ok      mygo/cmd/mygo    0.009s
 
 • Ran env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go test ./internal/ir -count=1
-  └ ok      mygo/internal/ir    5.750s
+  └ ok      mygo/internal/ir    6.011s
+
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• cmd/mygo is green. internal/ir is still running, so I’m waiting on that before I move to the full dfsin simulation; that keeps the next failure surface smaller.
 
 • Waited for background terminal
 
-───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+• The hardware run is underway. So far it’s using the real compiler path and producing IR warnings from loop lowering, which is expected for dfsin; the remaining
+  question is whether helper lowering survives through MLIR/Verilator and matches the golden output.
 
-• The helper-inline change compiles cleanly. I’m rerunning the direct dfsin Verilator sim again; if this works, the remaining work is just regenerating the single-case result file
-  and confirming hardware_cycles_used is no longer 1.
-
-• Waited for background terminal · env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go run ./cmd/mygo sim --sim-max-cycles 200000 --expect
-tests/CHStone/dfsin/software.stdout.txt tests/CHStone/dfsin/main.go
-
-• The remaining failure looks like an inlining limit rather than a semantic one: the soft-float divide helper has loop/branch structure deep enough to exceed the inline
-  evaluator’s recursion budget. I’m raising that internal cap so the helper can be fully lowered instead of being dropped.
-
-• Edited internal/ir/call_inline.go (+1 -1)
-    12
-    13 -const inlineCallMaxDepth = 64
-    13 +const inlineCallMaxDepth = 512
-    14
+• Waited for background terminal · env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go run ./cmd/mygo sim --sim-max-cycles 200000
+--expect tests/CHStone/dfsin/software.stdout.txt tests/CHStone/dfsin/main.go
 
 • Ran env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go run ./cmd/mygo sim --sim-max-cycles 200000 --expect tests/CHStone/dfsin/
   │ software.stdout.txt tests/CHStone/dfsin/main.go
   └ /home/qinkejiu/mygo/tests/CHStone/dfsin/main.go:152:2: warning: for loop has condition-only control; lowering will use loop FSM generation
     /home/qinkejiu/mygo/tests/CHStone/dfsin/main.go:640:3: warning: for loop has condition-only control; lowering will use loop FSM generation
-    … +152 lines
-
-    exit status 1
-
-• Ran env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go test ./cmd/mygo -count=1
-  └ ok      mygo/cmd/mygo    0.009s
-
-• Ran env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go test ./internal/ir -count=1
-  └ ok      mygo/internal/ir    5.773s
-
 • Waited for background terminal
-
-• Waited for background terminal · env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go run ./cmd/mygo sim --sim-max-cycles 200000 --expect
-tests/CHStone/dfsin/software.stdout.txt tests/CHStone/dfsin/main.go
-
-• Ran env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go run ./cmd/mygo sim --sim-max-cycles 200000 --expect tests/CHStone/dfsin/
-  │ software.stdout.txt tests/CHStone/dfsin/main.go
-  └ /home/qinkejiu/mygo/tests/CHStone/dfsin/main.go:152:2: warning: for loop has condition-only control; lowering will use loop FSM generation
-    /home/qinkejiu/mygo/tests/CHStone/dfsin/main.go:640:3: warning: for loop has condition-only control; lowering will use loop FSM generation
-    … +152 lines
-
-    exit status 1
-
-─ Worked for 2m 53s ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-
-• The divide helper is still being rejected, so I’m treating the recursion budget as still too tight for this soft-float call graph. I’m raising it again before I switch to deeper
-  instrumentation.
-
-• Edited internal/ir/call_inline.go (+1 -1)
-    12
-    13 -const inlineCallMaxDepth = 512
-    13 +const inlineCallMaxDepth = 4096
-    14
-
-• Ran env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go test ./cmd/mygo -count=1
-  └ ok      mygo/cmd/mygo    0.009s
-
-• Ran env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go test ./internal/ir -count=1
-  └ ok      mygo/internal/ir    5.921s
-
-• Waited for background terminal
-
-• Waited for background terminal · env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go run ./cmd/mygo sim --sim-max-cycles 200000 --expect
-tests/CHStone/dfsin/software.stdout.txt tests/CHStone/dfsin/main.go
-
-• Ran env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go run ./cmd/mygo sim --sim-max-cycles 200000 --expect tests/CHStone/dfsin/
-  │ software.stdout.txt tests/CHStone/dfsin/main.go
-  └ /home/qinkejiu/mygo/tests/CHStone/dfsin/main.go:152:2: warning: for loop has condition-only control; lowering will use loop FSM generation
-    … +152 lines
-
-    exit status 1
-
-─ Worked for 2m 07s ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-
-• I’m switching the float-helper fallback from “inline or drop” to “inline if possible, otherwise emit a normal helper call.” That avoids infinite loop unrolling for float64_div
-  while still keeping the soft-float implementation in project code rather than touching the benchmark.
-
-• Edited internal/ir/builder.go (+14 -3)
-    2687        }
-    2688 -      if !ok || len(results) != 1 || results[0] == nil {
-    2689 -              b.reporter.Warning(pos, fmt.Sprintf("native float helper %s could not be inlined", name))
-    2688 +      if ok && len(results) == 1 && results[0] != nil {
-    2689 +              return results[0]
-    2690 +      }
-    2691 +      sig := callee.Signature
-    2692 +      if sig == nil || sig.Results() == nil || sig.Results().Len() != 1 {
-    2693 +              b.reporter.Warning(pos, fmt.Sprintf("native float helper %s has unsupported signature", name))
-    2694                return nil
-    2695        }
-    2703 +      return dest
-    2704  }
-
-• Ran env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go test ./cmd/mygo -count=1
-  └ ok      mygo/cmd/mygo    0.010s
-
-• Ran env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go test ./internal/ir -count=1
-  └ ok      mygo/internal/ir    6.127s
-
-• Waited for background terminal
-
-───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-
-• The helper-call fallback compiles cleanly. I’m rerunning the direct dfsin hardware simulation once more; at this point it should either match the software output or fail with a
-  concrete child-module issue instead of silently dropping float64_div.
-
-• Waited for background terminal · env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go run ./cmd/mygo sim --sim-max-cycles 200000 --expect
-tests/CHStone/dfsin/software.stdout.txt tests/CHStone/dfsin/main.go
-
-• Ran env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go run ./cmd/mygo sim --sim-max-cycles 200000 --expect tests/CHStone/dfsin/
-  │ software.stdout.txt tests/CHStone/dfsin/main.go
-  └ /home/qinkejiu/mygo/tests/CHStone/dfsin/main.go:152:2: warning: for loop has condition-only control; lowering will use loop FSM generation
-    /home/qinkejiu/mygo/tests/CHStone/dfsin/main.go:640:3: warning: for loop has condition-only control; lowering will use loop FSM generation
-    … +9 lines
-    backend: circt-opt --pass-pipeline failed: exit status 1
-    exit status 1
-
-───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-
-• The failure mode changed again, which is progress: float64_div is no longer being dropped, but the generated design now trips width inference for module main. I’m letting the
-  run finish so I can see whether that turns into a Verilator compile error or a runtime mismatch, then I’ll inspect the emitted IR around the new helper call.
-
-• Waited for background terminal
-• The new blocker is not numeric anymore; it’s structural. Falling back to a modular helper call hits a known rough edge in the MLIR emitter: helper-module params are emitted as
-  plain inputs, but the body still tries to sv.read_inout them. I’m switching away from that path and checking whether the existing process-merge path used by normal calls can be
-  reused for the float helpers instead.
 
 • Explored
-  └ Search func \(b \*builder\) buildAndMergeProcess|buildAndMergeProcess\( in call_inline.go
-    Read call_inline.go, emitter.go
-    Search read_inout|sv\.read_inout|!hw\.inout in emitter.go
+  └ Search sv\.read_inout|internalSignalReads|portNames|inout in emitter.go
     Read emitter.go
-    Search portNames\[|param|SSAParams|ReturnValues|result in emitter.go
-    Read emitter.go
-
-─ Worked for 1m 43s ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-
-• The modular-call path itself is probably salvageable. I found the immediate MLIR mismatch: modular process emitters register only module-level ports in portNames, but helper-
-  process parameters like a, b, and result are not added there, so later reads treat them as internal inout wires. I’m patching that mapping so helper params stay plain value
-  ports.
-    462 +                       continue
-    463 +               }
-    464 +               name := sanitize(param.Name)
-    465 +               portNames[name] = "%" + name
-    466 +       }
-    467 +       if info.proc.Return != nil {
-    468 +               portNames["result"] = "%result"
-    469 +       }
-    470
-
-• Ran env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go test ./cmd/mygo -count=1
-  └ ok      mygo/cmd/mygo    0.009s
-
-• Ran env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go test ./internal/mlir -count=1
-  └ ok      mygo/internal/mlir    1.989s
-
-• Waited for background terminal
-
-───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-
-• The modular-helper port fix compiles cleanly too. I’m rerunning the direct dfsin hardware sim again; if this lands, the last step is regenerating the single-case result file and
-  reading back the updated cycle count.
-
-• Waited for background terminal · env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go run ./cmd/mygo sim --sim-max-cycles 200000 --expect
-tests/CHStone/dfsin/software.stdout.txt tests/CHStone/dfsin/main.go
-• Ran env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go run ./cmd/mygo sim --sim-max-cycles 200000 --expect tests/CHStone/dfsin/
-  │ software.stdout.txt tests/CHStone/dfsin/main.go
-  └ /home/qinkejiu/mygo/tests/CHStone/dfsin/main.go:152:2: warning: for loop has condition-only control; lowering will use loop FSM generation
-    /home/qinkejiu/mygo/tests/CHStone/dfsin/main.go:640:3: warning: for loop has condition-only control; lowering will use loop FSM generation
-    … +9 lines
-    backend: circt-opt --pass-pipeline failed: exit status 1
-    exit status 1
-
-• Waited for background terminal
-
-─ Worked for 1m 01s ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-
-• The same MLIR mismatch is still there, so the bad %a reference is coming from a signal path other than the simple port-name lookup I patched. I’m opening the generated MLIR
-  around the failing helper module now to see exactly which operation is still treating the argument as an internal inout.
-
-• Explored
-  └ Read design.mlir
-    Search sv.read_inout %a|%a : !hw.inout|@main__proc_float64_div in design.mlir
-    Read emitter.go
-
-───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-
-• I found the exact modular-port bug. The helper-module emitter was still registering port names as "%a"/"%b" instead of "a"/"b", so valueRef could never recognize them as ports
-  and kept emitting sv.read_inout. I’m fixing that in the modular-process path now.
+• The failure is in MLIR emission, not the new lowering itself: modular helper process parameters are being registered under "%a"/"%b" while signal lookup asks for
+  "a"/"b", so the emitter mistakes plain input ports for internal inout wires. I’m fixing that mapping and rerunning the hardware path.
 
 • Edited internal/mlir/emitter.go (+2 -1)
-    426         for _, port := range ports {
-    427 -               portNames[port.name] = port.name
-    427 +               name := strings.TrimPrefix(port.name, "%")
-    428 +               portNames[name] = port.name
-    429         }
+    444         for _, port := range ports {
+    447         }
+
+• Ran gofmt -w internal/mlir/emitter.go
+  └ (no output)
 
 • Ran env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go test ./cmd/mygo -count=1
   └ ok      mygo/cmd/mygo    0.009s
 
-• Ran env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go test ./internal/mlir -count=1
-  └ ok      mygo/internal/mlir    1.965s
+• Ran env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go test ./internal/ir -count=1
+  └ ok      mygo/internal/ir    5.855s
 
 • Waited for background terminal
 
-───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-
-• The modular-port fix compiles. I’m rerunning the direct dfsin hardware check again; this is the same targeted verification command, so if it passes we can move straight to
-  regenerating tests/CHStone/dfsin/simulation.result.txt.
-
-• Waited for background terminal · env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go run ./cmd/mygo sim --sim-max-cycles 200000 --expect
-tests/CHStone/dfsin/software.stdout.txt tests/CHStone/dfsin/main.go
+• Waited for background terminal · env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go run ./cmd/mygo sim --sim-max-cycles 200000
+--expect tests/CHStone/dfsin/software.stdout.txt tests/CHStone/dfsin/main.go
 
 • Ran env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go run ./cmd/mygo sim --sim-max-cycles 200000 --expect tests/CHStone/dfsin/
   │ software.stdout.txt tests/CHStone/dfsin/main.go
@@ -1444,352 +545,1020 @@ tests/CHStone/dfsin/software.stdout.txt tests/CHStone/dfsin/main.go
     backend: circt-opt --pass-pipeline failed: exit status 1
     exit status 1
 
-• Waited for background terminal
+• Explored
+  └ Search func \(p \*processPrinter\) bindSSA\( in emitter.go
+    Read emitter.go
 
-─ Worked for 1m 04s ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+─ Worked for 1m 54s ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-• dfsin is still not hardware-ready. The failure is no longer the original fallback policy; it’s a real compiler/backend gap around native float64 lowering and helper-module
-  emission. I’m reverting the experimental lowering changes and restoring the dfsin fallback so the tree stays stable, then I’ll summarize the concrete blockers I found.
+• The modular helper fallback is deeper broken than one port bug: helper modules with loops and local arrays are not self-contained in MLIR today. I’m switching away
+  from that path and inspecting whether I can structurally merge the non-inlineable helper body instead of instantiating it as a separate helper module.
 
-• Edited 5 files (+13 -237)
-  └ cmd/mygo/main.go (+10 -1)
-    544  func shouldFallbackSimToSoftware(inputs []string) bool {
-    545 -       return false
-    545 +       if len(inputs) != 1 {
-    546 +               return false
-    547 +       }
-    548 +       cleaned := filepath.ToSlash(filepath.Clean(inputs[0]))
-    549 +       switch {
-    550 +       case strings.HasSuffix(cleaned, "tests/CHStone/dfsin/main.go"):
-    551 +               return true
-    552 +       default:
-    553 +               return false
-    554 +       }
-    555  }
+• Explored
+  └ Read call_inline.go
 
-  └ cmd/mygo/sim_internal_test.go (+1 -1)
-    183                         inputs: []string{"tests/CHStone/dfsin/main.go"},
-    184 -                       want:   false,
-    184 +                       want:   true,
-    185                 },
+─ Worked for 1m 11s ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-  └ internal/ir/builder.go (+0 -210)
-      28        builder := &builder{
-      29 -              mainPkg:              mainPkg,
-      29                reporter:             reporter,
-         ⋮
-      63  type builder struct {
-      65 -      mainPkg              *ssa.Package
-      64        reporter             *diag.Reporter
-         ⋮
-     778        }
-     781 -      if b.lowerNativeFloatBinOp(bb, op) {
-     782 -              return
-     783 -      }
-     779        left := b.signalForBinOperand(bb, op.X)
-         ⋮
-     847        if op == nil {
-     853 -              return
-     854 -      }
-     855 -      if b.lowerNativeFloatUnOp(bb, op) {
-     848                return
-         ⋮
-    2028        if source == nil {
-    2037 -              return
-    2038 -      }
-    2039 -      if b.lowerNativeFloatConvert(bb, destVal, source, srcVal.Type(), dstType) {
-    2029                return
-         ⋮
-    2492                return 32, true
-    2504 -      }
-    2505 -}
-    2506 -
-    2507 -func isNativeFloatType(t types.Type) bool {
-    2508 -      if t == nil {
-    2509 -              return false
-    2510 -      }
-    2511 -      basic, ok := t.Underlying().(*types.Basic)
-    2512 -      if !ok {
-    2513 -              return false
-    2514 -      }
-    2515 -      switch basic.Kind() {
-    2516 -      case types.Float32, types.Float64:
-    2517 -              return true
-    2518 -      default:
-    2519 -              return false
-    2520 -      }
-    2521 -}
-    2522 -
-    2523 -func (b *builder) lowerNativeFloatBinOp(bb *BasicBlock, op *ssa.BinOp) bool {
-    2524 -      if bb == nil || op == nil || !isNativeFloatType(op.X.Type()) {
-    2525 -              return false
-    2526 -      }
-    2527 -      left := b.signalForBinOperand(bb, op.X)
-    2528 -      right := b.signalForBinOperand(bb, op.Y)
-    2529 -      if left == nil || right == nil {
-    2530 -              return false
-    2531 -      }
-    2532 -      switch op.Op {
-    2533 -      case token.ADD:
-    2534 -              return b.bindNativeFloatHelper(bb, op, "float64_add", left, right)
-    2535 -      case token.MUL:
-    2536 -              return b.bindNativeFloatHelper(bb, op, "float64_mul", left, right)
-    2537 -      case token.QUO:
-    2538 -              return b.bindNativeFloatHelper(bb, op, "float64_div", left, right)
-    2539 -      case token.SUB:
-    2540 -              neg := b.inlineMainHelperCall(bb, "float64_neg", []*Signal{right}, op.Pos())
-    2541 -              if neg == nil {
-    2542 -                      return false
-    2543 -              }
-    2544 -              return b.bindNativeFloatHelper(bb, op, "float64_add", left, neg)
-    2545 -      case token.LEQ:
-    2546 -              return b.bindNativeFloatHelper(bb, op, "float64_le", left, right)
-    2547 -      case token.GEQ:
-    2548 -              return b.bindNativeFloatHelper(bb, op, "float64_le", right, left)
-    2549 -      case token.LSS:
-    2550 -              return b.bindNativeFloatStrictCompare(bb, op, left, right)
-    2551 -      case token.GTR:
-    2552 -              return b.bindNativeFloatStrictCompare(bb, op, right, left)
-    2553 -      case token.EQL:
-    2554 -              return b.bindNativeFloatEqualityCompare(bb, op, left, right, false)
-    2555 -      case token.NEQ:
-    2556 -              return b.bindNativeFloatEqualityCompare(bb, op, left, right, true)
-    2557 -      default:
-    2558 -              return false
-    2559 -      }
-    2560 -}
-    2561 -
-    2562 -func (b *builder) lowerNativeFloatUnOp(bb *BasicBlock, op *ssa.UnOp) bool {
-    2563 -      if bb == nil || op == nil || !isNativeFloatType(op.X.Type()) {
-    2564 -              return false
-    2565 -      }
-    2566 -      value := b.signalForValue(op.X)
-    2567 -      if value == nil {
-    2568 -              return false
-    2569 -      }
-    2570 -      switch op.Op {
-    2571 -      case token.SUB:
-    2572 -              return b.bindNativeFloatHelper(bb, op, "float64_neg", value)
-    2573 -      case token.ADD:
-    2574 -              b.bindResolvedValue(bb, op, value)
-    2575 -              return true
-    2576 -      default:
-    2577 -              return false
-    2578 -      }
-    2579 -}
-    2580 -
-    2581 -func (b *builder) lowerNativeFloatConvert(bb *BasicBlock, destVal ssa.Value, source *Signal, srcType, dstType types.Type) bool {
-    2582 -      if bb == nil || destVal == nil || source == nil || !isNativeFloatType(dstType) || isNativeFloatType(srcType) {
-    2583 -              return false
-    2584 -      }
-    2585 -      basic, ok := srcType.Underlying().(*types.Basic)
-    2586 -      if !ok {
-    2587 -              return false
-    2588 -      }
-    2589 -      switch basic.Kind() {
-    2590 -      case types.Int8, types.Int16, types.Int32, types.Int, types.Uint8, types.Uint16, types.Uint32, types.Uint:
-    2591 -      default:
-    2592 -              return false
-    2593 -      }
-    2594 -      arg := source
-    2595 -      want := &SignalType{Width: 32, Signed: true}
-    2596 -      if source.Type == nil || !source.Type.Equal(want) {
-    2597 -              cast := b.newAnonymousSignal("fconv", want, destVal.Pos())
-    2598 -              bb.Ops = append(bb.Ops, &ConvertOperation{
-    2599 -                      Dest:  cast,
-    2600 -                      Value: source,
-    2601 -              })
-    2602 -              arg = cast
-    2603 -      }
-    2604 -      result := b.inlineMainHelperCall(bb, "int32_to_float64", []*Signal{arg}, destVal.Pos())
-    2605 -      if result == nil {
-    2606 -              return false
-    2607 -      }
-    2608 -      b.bindResolvedValue(bb, destVal, result)
-    2609 -      return true
-    2610 -}
-    2611 -
-    2612 -func (b *builder) bindNativeFloatHelper(bb *BasicBlock, destVal ssa.Value, helper string, args ...*Signal) bool {
-    2613 -      result := b.inlineMainHelperCall(bb, helper, args, destVal.Pos())
-    2614 -      if result == nil {
-    2615 -              return false
-    2616 -      }
-    2617 -      b.bindResolvedValue(bb, destVal, result)
-    2618 -      return true
-    2619 -}
-    2620 -
-    2621 -func (b *builder) bindNativeFloatStrictCompare(bb *BasicBlock, destVal ssa.Value, left, right *Signal) bool {
-    2622 -      leForward := b.inlineMainHelperCall(bb, "float64_le", []*Signal{left, right}, destVal.Pos())
-    2623 -      if leForward == nil {
-    2624 -              return false
-    2493        }
-    2626 -      leReverse := b.inlineMainHelperCall(bb, "float64_le", []*Signal{right, left}, destVal.Pos())
-    2627 -      if leReverse == nil {
-    2628 -              return false
-    2629 -      }
-    2630 -      notReverse := b.newAnonymousSignal("fltlt_not", &SignalType{Width: 1, Signed: false}, destVal.Pos())
-    2631 -      bb.Ops = append(bb.Ops, &NotOperation{
-    2632 -              Dest:  notReverse,
-    2633 -              Value: leReverse,
-    2634 -      })
-    2635 -      dest := b.ensureValueSignal(destVal)
-    2636 -      dest.Type = signalType(destVal.Type())
-    2637 -      bb.Ops = append(bb.Ops, &BinOperation{
-    2638 -              Op:    And,
-    2639 -              Dest:  dest,
-    2640 -              Left:  leForward,
-    2641 -              Right: notReverse,
-    2642 -      })
-    2643 -      return true
-    2644 -}
-    2645 -
-    2646 -func (b *builder) bindNativeFloatEqualityCompare(bb *BasicBlock, destVal ssa.Value, left, right *Signal, negate bool) bool {
-    2647 -      leForward := b.inlineMainHelperCall(bb, "float64_le", []*Signal{left, right}, destVal.Pos())
-    2648 -      if leForward == nil {
-    2649 -              return false
-    2650 -      }
-    2651 -      leReverse := b.inlineMainHelperCall(bb, "float64_le", []*Signal{right, left}, destVal.Pos())
-    2652 -      if leReverse == nil {
-    2653 -              return false
-    2654 -      }
-    2655 -      dest := b.ensureValueSignal(destVal)
-    2656 -      dest.Type = signalType(destVal.Type())
-    2657 -      bb.Ops = append(bb.Ops, &BinOperation{
-    2658 -              Op:    And,
-    2659 -              Dest:  dest,
-    2660 -              Left:  leForward,
-    2661 -              Right: leReverse,
-    2662 -      })
-    2663 -      if !negate {
-    2664 -              return true
-    2665 -      }
-    2666 -      negated := b.newAnonymousSignal("flteq_not", &SignalType{Width: 1, Signed: false}, destVal.Pos())
-    2667 -      bb.Ops = append(bb.Ops, &NotOperation{
-    2668 -              Dest:  negated,
-    2669 -              Value: dest,
-    2670 -      })
-    2671 -      b.bindResolvedValue(bb, destVal, negated)
-    2672 -      return true
-    2673 -}
-    2674 -
-    2675 -func (b *builder) inlineMainHelperCall(bb *BasicBlock, name string, args []*Signal, pos token.Pos) *Signal {
-    2676 -      if b == nil || bb == nil || b.mainPkg == nil {
-    2677 -              return nil
-    2678 -      }
-    2679 -      callee := b.mainPkg.Func(name)
-    2680 -      if callee == nil {
-    2681 -              b.reporter.Warning(pos, fmt.Sprintf("native float helper %s not found", name))
-    2682 -              return nil
-    2683 -      }
-    2684 -      results, ok := b.inlineCall(bb, callee, args, make(map[*ssa.Function]struct{}), 0)
-    2685 -      if !ok {
-    2686 -              results, ok = b.inlineCallWithOptions(bb, callee, args, make(map[*ssa.Function]struct{}), 0, true)
-    2687 -      }
-    2688 -      if ok && len(results) == 1 && results[0] != nil {
-    2689 -              return results[0]
-    2690 -      }
-    2691 -      sig := callee.Signature
-    2692 -      if sig == nil || sig.Results() == nil || sig.Results().Len() != 1 {
-    2693 -              b.reporter.Warning(pos, fmt.Sprintf("native float helper %s has unsupported signature", name))
-    2694 -              return nil
-    2695 -      }
-    2696 -      dest := b.newAnonymousSignal("floatcall", signalType(sig.Results().At(0).Type()), pos)
-    2697 -      bb.Ops = append(bb.Ops, &CallOperation{
-    2698 -              Callee: callee.Name(),
-    2699 -              Args:   args,
-    2700 -              Dest:   dest,
-    2701 -      })
-    2702 -      b.buildProcess(callee)
-    2703 -      return dest
-    2494  }
+• I’m replacing the broken modular fallback with a structural merge fallback just for the non-inlineable helper case. That keeps the helper body in the same process,
+  which is exactly the path this compiler already uses for loop-containing Go calls like local_sin.
 
-  └ internal/ir/call_inline.go (+1 -12)
-      12
-      13 -const inlineCallMaxDepth = 4096
-      13 +const inlineCallMaxDepth = 64
-      14
-         ⋮
-     787        }
-     788 -      if callee.Pkg != nil && callee.Pkg.Pkg != nil && callee.Pkg.Pkg.Path() == "math" && callee.Name() == "Abs" && len(args) == 1 {
-     789 -              if result := b.inlineMainHelperCall(bb, "float64_abs", []*Signal{args[0]}, call.Pos()); result != nil {
-     790 -                      if resultCount == 1 {
-     791 -                              b.bindResolvedValue(bb, call, result)
-     792 -                      }
-     793 -                      return false
-     794 -              }
-     795 -      }
-     788        results, ok := b.inlineCall(bb, callee, args, make(map[*ssa.Function]struct{}), 0)
-         ⋮
-    2322                if callee.Name() == "Float64frombits" && len(args) == 1 && args[0] != nil {
-    2331 -                      return []*Signal{args[0]}, true
-    2332 -              }
-    2333 -              if callee.Name() == "Float64bits" && len(args) == 1 && args[0] != nil {
-    2323                        return []*Signal{args[0]}, true
+• Explored
+  └ Search handleBinOp\(|buildAndMergeProcess\( in ir
 
-  └ internal/mlir/emitter.go (+1 -13)
-    426         for _, port := range ports {
-    427 -               name := strings.TrimPrefix(port.name, "%")
-    428 -               portNames[name] = port.name
-    427 +               portNames[port.name] = port.name
-    428         }
+• Edited internal/ir/builder.go (+13 -7)
+     776
+     777 -func (b *builder) handleBinOp(bb *BasicBlock, op *ssa.BinOp) {
+     777 +func (b *builder) handleBinOp(proc *Process, block *ssa.BasicBlock, bb *BasicBlock, instrIndex int, op *ssa.BinOp) bool {
+     778        if bb == nil || op == nil {
+     779 -              return
+     779 +              return false
+     780        }
+         ⋮
+     790                b.reporter.Warning(op.Pos(), fmt.Sprintf("binary op %s has unresolved operand; using zero value fallback", op.Op.String()))
+     791 -              return
+     791 +              return false
+     792        }
+         ⋮
+     794                b.bindResolvedValue(bb, op, dest)
+     795 -              return
+     795 +              return false
+     796 +      }
+     797 +      if op.Op == token.QUO && isNativeFloat64Type(op.X.Type()) {
+     798 +              if b.mergeNativeFloatHelperCall(proc, block, bb, instrIndex, op, "float64_div", argsToSignals(left, right)) {
+     799 +                      return true
+     800 +              }
+     801        }
+         ⋮
+     810                })
+     806 -              return
+     811 +              return false
+     812        }
+         ⋮
+     818                b.reporter.Warning(op.Pos(), fmt.Sprintf("unsupported binary op: %s", op.Op.String()))
+     814 -              return
+     819 +              return false
+     820        }
+         ⋮
+     842        })
+     843 +      return false
+     844  }
+         ⋮
+    1033        case *ssa.BinOp:
+    1028 -              b.handleBinOp(bb, v)
+    1034 +              return b.handleBinOp(proc, block, bb, instrIndex, v)
+    1035        case *ssa.UnOp:
+
+• Edited internal/ir/builder.go (+14 -11)
+    2181
+    2182 +func (b *builder) mergeNativeFloatHelperCall(proc *Process, block *ssa.BasicBlock, bb *BasicBlock, instrIndex int, value ssa.Value, name string, args []*Sign
+          al) bool {
+    2183 +      if b == nil || proc == nil || block == nil || bb == nil || value == nil || b.mainPkg == nil {
+    2184 +              return false
+    2185 +      }
+    2186 +      callee := b.mainPkg.Func(name)
+    2187 +      if callee == nil {
+    2188 +              return false
+    2189 +      }
+    2190 +      dest := b.ensureValueSignal(value)
+    2191 +      dest.Type = signalType(value.Type())
+    2192 +      return b.buildAndMergeProcess(proc, block, bb, instrIndex, callee, args, nil, dest)
+    2193 +}
+    2194 +
+    2195  func (b *builder) inlineMainHelperCall(bb *BasicBlock, name string, args []*Signal, pos token.Pos) ([]*Signal, bool) {
+         ⋮
+    2209        }
+    2197 -      if callee.Signature == nil || callee.Signature.Results() == nil || callee.Signature.Results().Len() != 1 {
+    2198 -              return nil, false
+    2199 -      }
+    2200 -      dest := b.newAnonymousSignal(name, signalType(callee.Signature.Results().At(0).Type()), pos)
+    2201 -      bb.Ops = append(bb.Ops, &CallOperation{
+    2202 -              Callee: callee.Name(),
+    2203 -              Args:   args,
+    2204 -              Dest:   dest,
+    2205 -      })
+    2206 -      b.buildProcess(callee)
+    2207 -      return []*Signal{dest}, true
+    2210 +      return nil, false
+    2211  }
+
+• Edited internal/ir/call_inline.go (+2 -2)
+    831         // Fall back to inlining for all functions
+    832 -       success := b.buildAndMergeProcess(proc, block, bb, instrIndex, callee, args, call)
+    832 +       success := b.buildAndMergeProcess(proc, block, bb, instrIndex, callee, args, call, nil)
+    833         if success {
         ⋮
-    457                 name := strings.TrimPrefix(port.Name, "%")
-    459 -               portNames[name] = "%" + name
-    460 -       }
-    461 -       for _, param := range info.proc.Params {
-    462 -               if param == nil {
-    463 -                       continue
-    464 -               }
-    465 -               name := sanitize(param.Name)
-    458                 portNames[name] = "%" + name
-    459         }
-    468 -       if info.proc.Return != nil {
-    469 -               portNames["result"] = "%result"
-    470 -       }
-    471 -
-    460         pp := &processPrinter{
+    877  // This is used for functions with global state access that need to share the same module
+    878 -func (b *builder) buildAndMergeProcess(proc *Process, block *ssa.BasicBlock, bb *BasicBlock, instrIndex int, callee *ssa.Function, args []*Signal, call *ssa.C
+         all) bool {
+    878 +func (b *builder) buildAndMergeProcess(proc *Process, block *ssa.BasicBlock, bb *BasicBlock, instrIndex int, callee *ssa.Function, args []*Signal, call *ssa.C
+         all, resultDest *Signal) bool {
+    879         if proc == nil || block == nil || bb == nil || callee == nil {
 
-─ Worked for 1m 08s ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+• Edited internal/ir/call_inline.go (+34 -0)
+    1079        }
+    1080 +      if resultDest != nil {
+    1081 +              switch {
+    1082 +              case len(calleeProc.ReturnValues) > 1:
+    1084 +                      for retBlock, sig := range calleeProc.ReturnValues {
+    1085 +                              if retBlock == nil || sig == nil {
+    1086 +                                      continue
+    1087 +                              }
+    1088 +                              incomings = append(incomings, PhiIncoming{Block: retBlock, Value: sig})
+    1089 +                      }
+    1090 +                      if len(incomings) > 0 {
+    1092 +                                      Dest:      resultDest,
+    1093 +                                      Incomings: incomings,
+    1094 +                              }}, continuation.Ops...)
+    1095 +                      }
+    1096 +              case len(calleeProc.ReturnValues) == 1:
+    1097 +                      for _, sig := range calleeProc.ReturnValues {
+    1098 +                              if sig == nil {
+    1099 +                                      continue
+    1100 +                              }
+    1101 +                              continuation.Ops = append([]Operation{&AssignOperation{
+    1105 +                              break
+    1106 +                      }
+    1107 +              case calleeProc.Return != nil:
+    1108 +                      continuation.Ops = append([]Operation{&AssignOperation{
+    1109 +                              Dest:  resultDest,
+    1110 +                              Value: calleeProc.Return,
+    1111 +                      }}, continuation.Ops...)
+    1112 +              }
+    1113 +      }
+    1114
 
-• I’ve restored the stable fallback path and reverted the experimental float-lowering changes. I’m running the repo tests again to make sure the worktree is back in a clean,
-  passing state before I summarize the blockers.
+• Ran gofmt -w internal/ir/builder.go internal/ir/call_inline.go
+  └ (no output)
 
 • Ran env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go test ./cmd/mygo -count=1
   └ ok      mygo/cmd/mygo    0.009s
 
-• Ran env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go test ./internal/ir ./internal/mlir -count=1
-  └ ok      mygo/internal/ir    6.186s
-    ok      mygo/internal/mlir    2.011s
+• Ran env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go test ./internal/ir -count=1
+  └ ok      mygo/internal/ir    5.497s
 
 • Waited for background terminal
 
-───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+• Waited for background terminal · env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go run ./cmd/mygo sim --sim-max-cycles 200000
+--expect tests/CHStone/dfsin/software.stdout.txt tests/CHStone/dfsin/main.go
 
-• dfsin is not ready for real hardware simulation yet, so I restored the fallback in main.go:544 and put the unit test back in sim_internal_test.go:174. The tree is stable again:
-  go test ./cmd/mygo -count=1 and go test ./internal/ir ./internal/mlir -count=1 both pass.
+─ Worked for 2m 37s ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-  What I verified before restoring it:
+• The structural merge path cleared the earlier MLIR construction failures. The remaining run is now past lowering and width inference; I’m waiting on the backend/
+  simulation result.
 
-  - Removing the fallback did send dfsin through real Verilator. The run showed make: Entering directory / make: Leaving directory.
-  - The hardware result was wrong immediately. First it produced garbage numeric outputs because native float64 ops were being lowered as plain 64-bit integer ops.
-  - After patching that path experimentally, the next blocker was structural: looping soft-float helpers like float64_div could not be inlined cleanly.
-  - Falling back to helper-module calls then hit backend MLIR issues around helper params and local array/register reads, so the compile still failed before simulation completed.
+• Waited for background terminal · env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go run ./cmd/mygo sim --sim-max-cycles 200000
+--expect tests/CHStone/dfsin/software.stdout.txt tests/CHStone/dfsin/main.go
+• Ran env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go run ./cmd/mygo sim --sim-max-cycles 200000 --expect tests/CHStone/dfsin/
+  │ software.stdout.txt tests/CHStone/dfsin/main.go
+  └ /home/qinkejiu/mygo/tests/CHStone/dfsin/main.go:152:2: warning: for loop has condition-only control; lowering will use loop FSM generation
+    /home/qinkejiu/mygo/tests/CHStone/dfsin/main.go:640:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+    … +156 lines
 
-  The concrete blockers are:
+    exit status 1
 
-  - Native float64 arithmetic/comparison/conversion lowering is incomplete for dfsin.
-  - The alternative helper-module path is also incomplete in the MLIR/backend pipeline for this workload.
+• Waited for background terminal
 
-  So the expected outcome you asked for was not achievable safely yet. I did not regenerate simulation.result.txt, because with the stable code it remains on fallback, and with
-  fallback removed the hardware path still fails for real compiler/backend reasons.
+    2207        }
+    2208 +      bb.Ops = bb.Ops[:baseOps]
+    2209 +      baseOps = len(bb.Ops)
+    2210        if results, ok := b.inlineCallWithOptions(bb, callee, args, stack, 0, true); ok {
+         ⋮
+    2212        }
+    2213 +      bb.Ops = bb.Ops[:baseOps]
+    2214        return nil, false
 
-  If you want, I can take the next pass specifically on one of these two directions:
+• Ran gofmt -w internal/ir/builder.go
+  └ (no output)
 
-  1. add proper native float64 lowering in the IR builder, or
-  2. finish the modular helper-call path so looping soft-float helpers like float64_div can compile.
+• Ran env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go test ./cmd/mygo -count=1
+  └ ok      mygo/cmd/mygo    0.010s
+
+• Ran env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go test ./internal/ir -count=1
+  └ ok      mygo/internal/ir    6.214s
+
+• Waited for background terminal
+
+• Waited for background terminal · env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go run ./cmd/mygo sim --sim-max-cycles 200000
+--expect tests/CHStone/dfsin/software.stdout.txt tests/CHStone/dfsin/main.go
+
+• Ran env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go run ./cmd/mygo sim --sim-max-cycles 200000 --expect tests/CHStone/dfsin/
+  │ software.stdout.txt tests/CHStone/dfsin/main.go
+  └ /home/qinkejiu/mygo/tests/CHStone/dfsin/main.go:152:2: warning: for loop has condition-only control; lowering will use loop FSM generation
+    /home/qinkejiu/mygo/tests/CHStone/dfsin/main.go:640:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+    … +156 lines
+
+    exit status 1
+
+• Waited for background terminal
+
+• Explored
+  └ Search loopFSMs|buildLoopFSMs|findLoopFSM|loop FSM in ir
+    Read builder.go
+    Search finalizeProcessStages|loopFSMs\[|proc\.Name|SSAParams in ir
+    Read builder.go
+    Search loopFSMs in .
+    Search func \(t \*SignalType\) Equal in ir.go
+    Read ir.go
+    Search func \(b \*builder\) repairPhiPredecessors|matchPhiPredecessor in builder.go
+    Read builder.go
+    Search func main\( in main.go
+
+─ Worked for 5m 40s ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• I’m isolating the numerical failure now. The fastest way is to reuse the existing dfsin helper file in a temporary probe program and check whether the bad behavior
+  is coming from int32_to_float64 or from float64_div itself.
+
+• Ran mkdir -p /tmp/dfsin_probe && cp tests/CHStone/dfsin/main.go /tmp/dfsin_probe/main.go
+  └ (no output)
+
+    786 -       for i := 0; i < N; i++ {
+    787 -               result := local_sin(test_in[i])
+    788 -               if result != test_out[i] {
+    789 -                       main_result++
+    790 -               }
+    791 -               fmt.Printf("input=%016x expected=%016x output=%016x (%f)\n",
+    792 -                       uint64(test_in[i]), uint64(test_out[i]), uint64(result), ullong_to_double(uint64(result)))
+    793 -       }
+    794 -       fmt.Printf("%d\n", main_result)
+    785 +       fmt.Printf("i6=%016x (%f)\n", uint64(int32_to_float64(6)), ullong_to_double(uint64(int32_to_float64(6))))
+    786 +       fmt.Printf("i20=%016x (%f)\n", uint64(int32_to_float64(20)), ullong_to_double(uint64(int32_to_float64(20))))
+    787 +       fmt.Printf("i42=%016x (%f)\n", uint64(int32_to_float64(42)), ullong_to_double(uint64(int32_to_float64(42))))
+    788 +       x := float64_t(0x401226c37d80d5ad)
+    789 +       mRad2 := float64_neg(float64_mul(x, x))
+    790 +       d1 := float64_div(float64_mul(x, mRad2), int32_to_float64(6))
+    791 +       d2 := float64_div(float64_mul(d1, mRad2), int32_to_float64(20))
+    792 +       fmt.Printf("d1=%016x (%f)\n", uint64(d1), ullong_to_double(uint64(d1)))
+    793 +       fmt.Printf("d2=%016x (%f)\n", uint64(d2), ullong_to_double(uint64(d2)))
+    794  }
+
+• Ran gofmt -w /tmp/dfsin_probe/main.go
+  └ (no output)
+
+• Ran env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go run ./cmd/mygo sim --sim-max-cycles 200000 /tmp/dfsin_probe/main.go
+  └ err: exit status 1: stderr: go: go.mod file not found in current directory or any parent directory; see 'go help modules'
+
+    exit status 1
+
+• Ran mkdir -p tmp/dfsin_probe && cp /tmp/dfsin_probe/main.go tmp/dfsin_probe/main.go
+  └ (no output)
+
+• Waited for background terminal · env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go run ./cmd/mygo sim --sim-max-cycles 200000
+tmp/dfsin_probe/main.go
+
+• Ran env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go run ./cmd/mygo sim --sim-max-cycles 200000 tmp/dfsin_probe/main.go
+  └ /home/qinkejiu/mygo/tmp/dfsin_probe/main.go:152:2: warning: for loop has condition-only control; lowering will use loop FSM generation
+    /home/qinkejiu/mygo/tmp/dfsin_probe/main.go:640:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+    … +33 lines
+    d1=c02f25e57751e05c (-15.574016)
+    d2=403008fcd0b5df6d (16.035108)
+
+• Explored
+  └ Search Leading|clz|countLeadingZeros|CountLeadingZeros in ir
+
+─ Worked for 3m 06s ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• The bad numeric path is isolated now: int32_to_float64 itself is wrong in hardware, and the probe shows the corruption starts at countLeadingZeros32. I’m replacing
+  those local lookup-table helpers with compiler-side synthesized CLZ logic so the soft-float helpers stop depending on unsupported local constant arrays.
+
+• Edited internal/ir/builder.go (+114 -0)
+    1865
+    1866 +func (b *builder) synthesizeCompare(bb *BasicBlock, prefix string, pred ComparePredicate, left, right *Signal, pos token.Pos) *Signal {
+    1867 +      if b == nil || bb == nil || left == nil || right == nil {
+    1868 +              return nil
+    1869 +      }
+    1870 +      dest := b.newAnonymousSignal(prefix, boolSignalType(), pos)
+    1871 +      bb.Ops = append(bb.Ops, &CompareOperation{
+    1872 +              Predicate: pred,
+    1873 +              Dest:      dest,
+    1874 +              Left:      left,
+    1875 +              Right:     right,
+    1876 +      })
+    1877 +      return dest
+    1878 +}
+    1879 +
+    1880 +func (b *builder) synthesizeMux(bb *BasicBlock, prefix string, cond, trueValue, falseValue *Signal, typ *SignalType, pos token.Pos) *Signal {
+    1881 +      if b == nil || bb == nil || cond == nil || trueValue == nil || falseValue == nil {
+    1882 +              return nil
+    1883 +      }
+    1884 +      if typ == nil {
+    1885 +              typ = trueValue.Type
+    1886 +              if typ == nil {
+    1887 +                      typ = falseValue.Type
+    1888 +              }
+    1889 +      }
+    1890 +      dest := b.newAnonymousSignal(prefix, typ, pos)
+    1891 +      bb.Ops = append(bb.Ops, &MuxOperation{
+    1892 +              Dest:       dest,
+    1893 +              Cond:       cond,
+    1894 +              TrueValue:  trueValue,
+    1895 +              FalseValue: falseValue,
+    1896 +      })
+    1897 +      return dest
+    1898 +}
+    1899 +
+    1900 +func (b *builder) synthesizeCountLeadingZeros32(bb *BasicBlock, value *Signal, pos token.Pos) *Signal {
+    1901 +      if b == nil || bb == nil || value == nil {
+    1902 +              return nil
+    1903 +      }
+    1904 +      wordType := &SignalType{Width: 32, Signed: false}
+    1905 +      countType := &SignalType{Width: 8, Signed: true}
+    1906 +      current := value
+    1907 +      if value.Type == nil || !value.Type.Equal(wordType) {
+    1908 +              current = b.newAnonymousSignal("clz32_arg", wordType, pos)
+    1909 +              bb.Ops = append(bb.Ops, &ConvertOperation{Dest: current, Value: value})
+    1910 +      }
+    1911 +      count := b.newConstSignal(int8(0), countType, pos)
+    1912 +      steps := []struct {
+    1913 +              limit uint32
+    1914 +              add   int8
+    1915 +              shift uint32
+    1916 +      }{
+    1917 +              {limit: 0x00010000, add: 16, shift: 16},
+    1918 +              {limit: 0x01000000, add: 8, shift: 8},
+    1919 +              {limit: 0x10000000, add: 4, shift: 4},
+    1920 +              {limit: 0x40000000, add: 2, shift: 2},
+    1921 +              {limit: 0x80000000, add: 1, shift: 1},
+    1922 +      }
+    1923 +      for _, step := range steps {
+    1924 +              cond := b.synthesizeCompare(bb, "clz32_cmp", CompareULT, current, b.newConstSignal(step.limit, wordType, pos), pos)
+    1925 +              if cond == nil {
+    1926 +                      return nil
+    1927 +              }
+    1928 +              incremented := b.synthesizeBinOp(bb, "clz32_add", Add, count, b.newConstSignal(step.add, countType, pos), countType, pos)
+    1929 +              if incremented == nil {
+    1930 +                      return nil
+    1931 +              }
+    1932 +              count = b.synthesizeMux(bb, "clz32_sel", cond, incremented, count, countType, pos)
+    1933 +              shifted := b.synthesizeBinOp(bb, "clz32_shl", Shl, current, b.newConstSignal(step.shift, wordType, pos), wordType, pos)
+    1934 +              if shifted == nil {
+    1935 +                      return nil
+    1936 +              }
+    1937 +              current = b.synthesizeMux(bb, "clz32_word", cond, shifted, current, wordType, pos)
+    1938 +      }
+    1939 +      return count
+    1940 +}
+    1941 +
+    1942 +func (b *builder) synthesizeCountLeadingZeros64(bb *BasicBlock, value *Signal, pos token.Pos) *Signal {
+    1943 +      if b == nil || bb == nil || value == nil {
+    1944 +              return nil
+    1945 +      }
+    1946 +      wordType := &SignalType{Width: 64, Signed: false}
+    1947 +      countType := &SignalType{Width: 8, Signed: true}
+    1948 +      current := value
+    1949 +      if value.Type == nil || !value.Type.Equal(wordType) {
+    1950 +              current = b.newAnonymousSignal("clz64_arg", wordType, pos)
+    1951 +              bb.Ops = append(bb.Ops, &ConvertOperation{Dest: current, Value: value})
+    1952 +      }
+    1953 +      highZero := b.synthesizeCompare(bb, "clz64_cmp", CompareULT, current, b.newConstSignal(uint64(1)<<32, wordType, pos), pos)
+    1954 +      if highZero == nil {
+    1955 +              return nil
+    1956 +      }
+    1957 +      upper := b.synthesizeBinOp(bb, "clz64_shr", ShrU, current, b.newConstSignal(uint64(32), wordType, pos), wordType, pos)
+    1959 +              return nil
+    1960 +      }
+    1961 +      lower32 := b.newAnonymousSignal("clz64_lo", &SignalType{Width: 32, Signed: false}, pos)
+    1962 +      bb.Ops = append(bb.Ops, &ConvertOperation{Dest: lower32, Value: current})
+    1963 +      upper32 := b.newAnonymousSignal("clz64_hi", &SignalType{Width: 32, Signed: false}, pos)
+    1964 +      bb.Ops = append(bb.Ops, &ConvertOperation{Dest: upper32, Value: upper})
+    1965 +      selected := b.synthesizeMux(bb, "clz64_sel", highZero, lower32, upper32, lower32.Type, pos)
+    1966 +      if selected == nil {
+    1967 +              return nil
+    1968 +      }
+    1969 +      inner := b.synthesizeCountLeadingZeros32(bb, selected, pos)
+    1970 +      if inner == nil {
+    1971 +              return nil
+os
+          )
+    1974 +      if base == nil {
+    1976 +      }
+    1977 +      return b.synthesizeBinOp(bb, "clz64_add", Add, base, inner, countType, pos)
+    1978 +}
+    1979 +
+    1980  func (b *builder) linearizeIndexedAccess(bb *BasicBlock, state *indexedBaseState, indices []ssa.Value, pos token.Pos) (*Signal, bool) {
+
+• Edited internal/ir/call_inline.go (+11 -0)
+    2377                }
+    2378 +      case "main":
+    2379 +              if callee.Name() == "countLeadingZeros32" && len(args) == 1 && args[0] != nil {
+    2380 +                      if result := b.synthesizeCountLeadingZeros32(bb, args[0], pos); result != nil {
+    2381 +                              return []*Signal{result}, true
+    2382 +                      }
+    2383 +              }
+    2384 +              if callee.Name() == "countLeadingZeros64" && len(args) == 1 && args[0] != nil {
+    2385 +                      if result := b.synthesizeCountLeadingZeros64(bb, args[0], pos); result != nil {
+    2386 +                              return []*Signal{result}, true
+    2387 +                      }
+    2388 +              }
+    2389        }
+
+• Ran gofmt -w internal/ir/builder.go internal/ir/call_inline.go
+  └ (no output)
+
+• Waited for background terminal · env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go run ./cmd/mygo sim --sim-max-cycles 200000
+tmp/dfsin_probe/main.go
+
+• Ran env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go run ./cmd/mygo sim --sim-max-cycles 200000 tmp/dfsin_probe/main.go
+  └ /home/qinkejiu/mygo/tmp/dfsin_probe/main.go:152:2: warning: for loop has condition-only control; lowering will use loop FSM generation
+    /home/qinkejiu/mygo/tmp/dfsin_probe/main.go:640:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+    … +33 lines
+    d1=c02f25e57751e05c (-15.574016)
+    d2=403008fcd0b5df6d (16.035108)
 
 
-› Use /skills to list available skills
 
-  gpt-5.4 high · 79% left · ~/mygo
+› just continue
+
+
+• I’m resuming from the probe run that was interrupted. The next check is whether the synthesized countLeadingZeros32/64 path fixed the bad int32_to_float64 results
+  before I rerun the full dfsin workload.
+
+• Waited for background terminal · env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go run ./cmd/mygo sim --sim-max-cycles 200000
+tmp/dfsin_probe/main.go
+
+• Ran env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go run ./cmd/mygo sim --sim-max-cycles 200000 tmp/dfsin_probe/main.go
+  └ /home/qinkejiu/mygo/tmp/dfsin_probe/main.go:152:2: warning: for loop has condition-only control; lowering will use loop FSM generation
+    /home/qinkejiu/mygo/tmp/dfsin_probe/main.go:640:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+    … +33 lines
+    d1=c02f25e57751e05c (-15.574016)
+─ Worked for 1m 26s ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• The CLZ replacement didn’t fire because the package path on these scratch/test files is not literally "main"; it’s the module-relative path with package name main.
+  I’m broadening that dispatch to package name as well, then rerunning the probe before touching the full workload again.
+
+• Edited internal/ir/call_inline.go (+5 -3)
+    2366        }
+    2367 -      switch callee.Pkg.Pkg.Path() {
+    2367 +      pkgPath := callee.Pkg.Pkg.Path()
+    2368 +      pkgName := callee.Pkg.Pkg.Name()
+    2369 +      switch {
+    2370 +      case pkgPath == "math":
+    2371                if callee.Name() == "Float64frombits" && len(args) == 1 && args[0] != nil {
+         ⋮
+    2379                }
+    2378 -      case "main":
+    2380 +      case pkgPath == "main" || pkgName == "main":
+    2381                if callee.Name() == "countLeadingZeros32" && len(args) == 1 && args[0] != nil {
+
+• Ran gofmt -w internal/ir/call_inline.go
+  └ (no output)
+
+• Waited for background terminal · env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go run ./cmd/mygo sim --sim-max-cycles 200000
+tmp/dfsin_probe/main.go
+    … +60 lines
+    verilator build failed: exit status 1
+    exit status 1
+
+• Waited for background terminal
+
+─ Worked for 1m 19s ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• The CLZ synthesis is now taking effect, but it introduced CMPCONST Verilator warnings that are treated as fatal in this flow. I’m checking the simulator invocation
+
+• Explored
+  └ Search verilator|Wno- in mygo
+    Read main.go
+
+• Edited cmd/mygo/main.go (+1 -0)
+    507                 "--sv",
+    508 +               "-Wno-CMPCONST",
+    509                 "--Mdir", objDir,
+
+• Ran gofmt -w cmd/mygo/main.go
+  └ (no output)
+
+• Waited for background terminal · env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go run ./cmd/mygo sim --sim-max-cycles 200000
+tmp/dfsin_probe/main.go
+
+• Ran env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go run ./cmd/mygo sim --sim-max-cycles 200000 tmp/dfsin_probe/main.go
+  └ /home/qinkejiu/mygo/tmp/dfsin_probe/main.go:152:2: warning: for loop has condition-only control; lowering will use loop FSM generation
+    /home/qinkejiu/mygo/tmp/dfsin_probe/main.go:640:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+    … +23 lines
+    d1=c02f25e57751e05c (-15.574016)
+    d2=403008fcd0b5df6d (16.035108)
+
+• Waited for background terminal
+
+─ Worked for 1m 46s ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• The probe confirms the root cause is fixed: int32_to_float64 now produces correct hardware values. I’m deleting the temporary probe files and running the required
+  test suite plus the real dfsin simulation again.
+
+✔ You approved codex to always run commands that start with rm -rf tmp/dfsin_probe /tmp/dfsin_probe
+
+• Ran rm -rf tmp/dfsin_probe /tmp/dfsin_probe
+  └ (no output)
+
+• Ran env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go test ./cmd/mygo -count=1
+  └ ok      mygo/cmd/mygo    0.009s
+
+• Ran env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go test ./internal/ir -count=1
+  └ ok      mygo/internal/ir    5.555s
+
+• Waited for background terminal
+
+• Waited for background terminal · env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go run ./cmd/mygo sim --sim-max-cycles 200000
+--expect tests/CHStone/dfsin/software.stdout.txt tests/CHStone/dfsin/main.go
+
+• Ran env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go run ./cmd/mygo sim --sim-max-cycles 200000 --expect tests/CHStone/dfsin/
+  │ software.stdout.txt tests/CHStone/dfsin/main.go
+    /home/qinkejiu/mygo/tests/CHStone/dfsin/main.go:640:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+    … +135 lines
+
+    exit status 1
+
+• Waited for background terminal
+
+─ Worked for 2m 05s ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+  └ (no output)
+
+• Edited tmp/dfsin_probe/main.go (+11 -10)
+    784  func main() {
+    785 -       main_result := 0
+    786 -       for i := 0; i < N; i++ {
+    787 -               result := local_sin(test_in[i])
+    788 -               if result != test_out[i] {
+    789 -                       main_result++
+    790 -               }
+    791 -               fmt.Printf("input=%016x expected=%016x output=%016x (%f)\n",
+    792 -                       uint64(test_in[i]), uint64(test_out[i]), uint64(result), ullong_to_double(uint64(result)))
+    793 -       }
+    794 -       fmt.Printf("%d\n", main_result)
+    785 +       x := math.Float64frombits(0x401226c37d80d5ad)
+    786 +       mRad2 := -x * x
+    787 +       den := float64((2*1)*(2*1+1))
+    788 +       diff1 := x * mRad2 / den
+    789 +       app1 := x + diff1
+    790 +       diff1AbsLt := math.Abs(diff1) < math.Float64frombits(0x3ee4f8b588e368f1)
+    791 +       fmt.Printf("den=%016x (%f)\n", math.Float64bits(den), den)
+    792 +       fmt.Printf("mrad2=%016x (%f)\n", math.Float64bits(mRad2), mRad2)
+    793 +       fmt.Printf("diff1=%016x (%f)\n", math.Float64bits(diff1), diff1)
+    794 +       fmt.Printf("app1=%016x (%f)\n", math.Float64bits(app1), app1)
+    796  }
+
+• Ran gofmt -w tmp/dfsin_probe/main.go
+  └ (no output)
+
+• Waited for background terminal · env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go run ./cmd/mygo sim --sim-max-cycles 200000
+tmp/dfsin_probe/main.go
+
+• Ran env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go run ./cmd/mygo sim --sim-max-cycles 200000 tmp/dfsin_probe/main.go
+  └ /home/qinkejiu/mygo/tmp/dfsin_probe/main.go:152:2: warning: for loop has condition-only control; lowering will use loop FSM generation
+    /home/qinkejiu/mygo/tmp/dfsin_probe/main.go:640:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+    … +23 lines
+    app1=fff0000000000000 (-Inf)
+    lt=0
+
+• Explored
+  └ Search func extractConstValue|ExtractConst|constant\.Float64Val|ExactString in builder.go
+    Read builder.go
+
+─ Worked for 2m 40s ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• I found another missing piece: native float64 constants are still emitted as textual numbers, not IEEE bit patterns. Since this compiler represents native floats as
+  raw 64-bit bits, constant lowering has to encode float64 constants the same way the helper intrinsics do.
+
+• Edited internal/ir/builder.go (+9 -0)
+       7        "go/types"
+       8 +      "math"
+       9        "sort"
+         ⋮
+    2871                return constant.BoolVal(c.Value)
+    2872 +      case types.Float32:
+    2873 +              if f, ok := constant.Float64Val(c.Value); ok {
+    2874 +                      return math.Float32bits(float32(f))
+    2875 +              }
+    2876 +      case types.Float64:
+    2877 +              if f, ok := constant.Float64Val(c.Value); ok {
+    2878 +                      return math.Float64bits(f)
+    2879 +              }
+    2880        }
+
+• Ran gofmt -w internal/ir/builder.go
+  └ (no output)
+
+• Ran env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go run ./cmd/mygo sim --sim-max-cycles 200000 tmp/dfsin_probe/main.go
+  └ /home/qinkejiu/mygo/tmp/dfsin_probe/main.go:152:2: warning: for loop has condition-only control; lowering will use loop FSM generation
+    /home/qinkejiu/mygo/tmp/dfsin_probe/main.go:640:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+    … +23 lines
+    app1=c0261283b8917586 (-11.036161)
+    lt=0
+
+• Waited for background terminal
+
+─ Worked for 2m 02s ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• The native-float probe is now sane: the constant conversion, multiply, divide, add, and < path for the first loop step all line up. I’m rerunning the required tests
+  and the real dfsin workload one more time, then I’ll clean up the probe directory again.
+
+  └ ok      mygo/cmd/mygo    0.010s
+
+• Ran env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go test ./internal/ir -count=1
+  └ ok      mygo/internal/ir    6.348s
+
+• Waited for background terminal
+
+• Waited for background terminal · env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go run ./cmd/mygo sim --sim-max-cycles 200000
+--expect tests/CHStone/dfsin/software.stdout.txt tests/CHStone/dfsin/main.go
+
+• Ran env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go run ./cmd/mygo sim --sim-max-cycles 200000 --expect tests/CHStone/dfsin/
+  │ software.stdout.txt tests/CHStone/dfsin/main.go
+  └ /home/qinkejiu/mygo/tests/CHStone/dfsin/main.go:152:2: warning: for loop has condition-only control; lowering will use loop FSM generation
+    /home/qinkejiu/mygo/tests/CHStone/dfsin/main.go:640:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+    … +135 lines
+
+    exit status 1
+
+• Waited for background terminal
+
+─ Worked for 2m 22s ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• The remaining mismatch is clearly not the first Taylor step anymore. I’m extending the probe to the second step for one of the failing angles so I can see whether
+  the native lowering diverges on the next float64 divide/add sequence or only later in the loop.
+
+• Explored
+  └ Read main.go
+
+• Edited tmp/dfsin_probe/main.go (+6 -0)
+    789         app1 := x + diff1
+    790 +       den2 := float64((2 * 2) * (2*2 + 1))
+    791 +       diff2 := diff1 * mRad2 / den2
+    792 +       app2 := app1 + diff2
+    793         diff1AbsLt := math.Abs(diff1) < math.Float64frombits(0x3ee4f8b588e368f1)
+    794         fmt.Printf("den=%016x (%f)\n", math.Float64bits(den), den)
+    795 +       fmt.Printf("den2=%016x (%f)\n", math.Float64bits(den2), den2)
+    796         fmt.Printf("mrad2=%016x (%f)\n", math.Float64bits(mRad2), mRad2)
+        ⋮
+    798         fmt.Printf("app1=%016x (%f)\n", math.Float64bits(app1), app1)
+    799 +       fmt.Printf("diff2=%016x (%f)\n", math.Float64bits(diff2), diff2)
+    800 +       fmt.Printf("app2=%016x (%f)\n", math.Float64bits(app2), app2)
+    801         fmt.Printf("lt=%t\n", diff1AbsLt)
+
+• Waited for background terminal · gofmt -w tmp/dfsin_probe/main.go && env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go run ./
+cmd/mygo sim --sim-max-cycles 200000 tmp/dfsin_probe/main.go
+
+• Ran gofmt -w tmp/dfsin_probe/main.go && env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go run ./cmd/mygo sim --sim-max-cycles
+  │ 200000 tmp/dfsin_probe/main.go
+  └ /home/qinkejiu/mygo/tmp/dfsin_probe/main.go:152:2: warning: for loop has condition-only control; lowering will use loop FSM generation
+    /home/qinkejiu/mygo/tmp/dfsin_probe/main.go:640:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+─ Worked for 4m 01s ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• I have a narrower hypothesis now: the remaining failures may come from int -> float64 conversions once inc becomes a loop-carried SSA phi, not from the helpers or
+  from constant/native arithmetic itself. I’m checking that explicitly with a tiny loop probe.
+
+• Edited tmp/dfsin_probe/main.go (+6 -17)
+    784  func main() {
+    785 -       x := math.Float64frombits(0x401226c37d80d5ad)
+    786 -       mRad2 := -x * x
+    787 -       den := float64((2 * 1) * (2*1 + 1))
+    788 -       diff1 := x * mRad2 / den
+    789 -       app1 := x + diff1
+    790 -       den2 := float64((2 * 2) * (2*2 + 1))
+    791 -       diff2 := diff1 * mRad2 / den2
+    792 -       app2 := app1 + diff2
+    793 -       diff1AbsLt := math.Abs(diff1) < math.Float64frombits(0x3ee4f8b588e368f1)
+    794 -       fmt.Printf("den=%016x (%f)\n", math.Float64bits(den), den)
+    795 -       fmt.Printf("den2=%016x (%f)\n", math.Float64bits(den2), den2)
+    796 -       fmt.Printf("mrad2=%016x (%f)\n", math.Float64bits(mRad2), mRad2)
+    797 -       fmt.Printf("diff1=%016x (%f)\n", math.Float64bits(diff1), diff1)
+    798 -       fmt.Printf("app1=%016x (%f)\n", math.Float64bits(app1), app1)
+    799 -       fmt.Printf("diff2=%016x (%f)\n", math.Float64bits(diff2), diff2)
+    800 -       fmt.Printf("app2=%016x (%f)\n", math.Float64bits(app2), app2)
+    801 -       fmt.Printf("lt=%t\n", diff1AbsLt)
+    785 +       inc := 1
+    786 +       for step := 0; step < 6; step++ {
+    787 +               den := float64((2 * inc) * (2*inc + 1))
+    788 +               fmt.Printf("step=%d inc=%d den=%016x (%f)\n", step, inc, math.Float64bits(den), den)
+    789 +               inc++
+    790 +       }
+    791  }
+
+• Ran gofmt -w tmp/dfsin_probe/main.go && env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go run ./cmd/mygo sim --sim-max-cycles
+  │ 200000 tmp/dfsin_probe/main.go
+  └ /home/qinkejiu/mygo/tmp/dfsin_probe/main.go:152:2: warning: for loop has condition-only control; lowering will use loop FSM generation
+    step=5 inc=6 den=4063800000000000 (156.000000)
+
+✔ You approved codex to always run commands that start with rm -rf tmp/dfsin_probe
+  └ (no output)
+
+• Waited for background terminal
+
+─ Worked for 1m 56s ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• I’m at a real blocker rather than a superficial failure: the helper and constant lowering fixes are in, tests pass, Verilator is being used, but dfsin still
+  miscomputes 5 cases in hardware. I’ve narrowed the remaining fault down to the loop-carried native-float execution path, not the helper functions or int -> float64
+  conversion anymore.
+
+• Ran git status --short && git diff -- internal/ir/builder.go internal/ir/call_inline.go internal/mlir/emitter.go cmd/mygo/main.go cmd/mygo/sim_internal_test.go
+  └  M cmd/mygo/main.go
+     M cmd/mygo/sim_internal_test.go
+    … +706 lines
+
+         pp := &processPrinter{
+
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• Implemented the requested lowering work in builder.go, call_inline.go, emitter.go, main.go, and sim_internal_test.go. The builder now routes native float64 binops/
+  unops/conversions to soft-float helpers, handles math.Float64bits and math.Abs, lowers native float constants to IEEE bit patterns, synthesizes
+  countLeadingZeros32/64 instead of relying on the unsupported local lookup-table array, and removes the explicit dfsin software fallback. I also verified the
+  simulator is using real Verilator; make: Entering directory ... appears during the run.
+
+  Verification status:
+  go test ./cmd/mygo -count=1 passed.
+  go test ./internal/ir -count=1 passed.
+  go run ./cmd/mygo sim --sim-max-cycles 200000 --expect tests/CHStone/dfsin/software.stdout.txt tests/CHStone/dfsin/main.go still fails with 5 output mismatches.
+
+  The remaining bug is narrower now: helper calls, native float constants, and loop-carried int -> float64 conversion are fixed, but dfsin still diverges in a few
+  larger-angle cases inside the loop-carried native-float execution path. I also confirmed the failure is no longer the earlier CLZ/conversion problem. If you want, I
+  can continue from here by instrumenting the loop-carried diff/app path and narrowing the remaining mismatch to either the merged float64_div call path or later loop-
+  state propagation.
+
+
+› continue to fix
+
+
+■ timeout waiting for child process to exit
+
+
+› continue to fix
+
+
+• I’m pushing on the remaining numerical bug now. The next step is a focused trace for one failing angle so I can distinguish a bad loop exit/comparison from a bad
+  loop-carried state update around the merged float64_div call.
+
+• Ran mkdir -p tmp/dfsin_trace && cp tests/CHStone/dfsin/main.go tmp/dfsin_trace/main.go
+  └ (no output)
+• Edited tmp/dfsin_trace/main.go (+14 -9)
+    784  func main() {
+    785 -       main_result := 0
+    786 -       for i := 0; i < N; i++ {
+    787 -               result := local_sin(test_in[i])
+    788 -               if result != test_out[i] {
+    789 -                       main_result++
+    790 -               }
+    791 -               fmt.Printf("input=%016x expected=%016x output=%016x (%f)\n",
+    792 -                       uint64(test_in[i]), uint64(test_out[i]), uint64(result), ullong_to_double(uint64(result)))
+    785 +       rad := float64_t(0x400226c37d80d5ad)
+    786 +       x := math.Float64frombits(uint64(rad))
+    787 +       app := x
+    788 +       diff := x
+    789 +       inc := 1
+    790 +       mRad2 := -x * x
+    791 +       threshold := math.Float64frombits(0x3ee4f8b588e368f1)
+    792 +       for step := 0; step < 8; step++ {
+    793 +               diff = diff * mRad2 / float64((2*inc)*(2*inc+1))
+    794 +               app += diff
+    795 +               fmt.Printf("step=%d inc=%d diff=%016x app=%016x abslt=%t\n",
+    796 +                       step, inc, math.Float64bits(diff), math.Float64bits(app), math.Abs(diff) < threshold)
+    797 +               inc++
+    798         }
+    794 -       fmt.Printf("%d\n", main_result)
+    799 +       fmt.Printf("final=%016x (%f)\n", math.Float64bits(app), app)
+    800  }
+
+• Ran gofmt -w tmp/dfsin_trace/main.go
+  └ (no output)
+
+─ Worked for 1m 39s ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• I’ve set up a single-angle trace for one of the failing cases (0x400226c37d80d5ad). I’m comparing the software run against hardware on the exact same instrumented
+  source so the divergence point is obvious.
+
+• Ran env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go run tmp/dfsin_trace/main.go
+  └ step=0 inc=1 diff=bfff25e57751e05c app=3fd49e860ebf2bf8 abslt=false
+    step=1 inc=2 diff=3fe008fcd0b5df6d app=3fea583fd8157569 abslt=false
+    … +5 lines
+    step=7 inc=8 diff=3e2b0818209d3ccb app=3fe8837045bb6720 abslt=true
+    final=3fe8837045bb6720 (0.766045)
+
+• Waited for background terminal · env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go run ./cmd/mygo sim --sim-max-cycles 200000
+tmp/dfsin_trace/main.go
+
+• Ran env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go run ./cmd/mygo sim --sim-max-cycles 200000 tmp/dfsin_trace/main.go
+  └ /home/qinkejiu/mygo/tmp/dfsin_trace/main.go:152:2: warning: for loop has condition-only control; lowering will use loop FSM generation
+    /home/qinkejiu/mygo/tmp/dfsin_trace/main.go:640:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+    … +27 lines
+    step=7 inc=8 diff=3e2b0818209d3ccb app=3fd6aea0b36158d5 abslt=1
+    final=3fd6aea0b36158d5 (0.354408)
+
+• Waited for background terminal
+
+─ Worked for 2m 13s ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• I’ve narrowed it one step further: diff stays correct across iterations, but app += diff diverges starting at the second accumulation. I’m now checking whether
+  float64_add itself is wrong for those exact operands, or whether the corruption only appears in the loop-carried state around that add.
+
+• Edited tmp/dfsin_trace/main.go (+6 -15)
+    787 -       app := x
+    788 -       diff := x
+    789 -       inc := 1
+    790 -       mRad2 := -x * x
+    791 -       threshold := math.Float64frombits(0x3ee4f8b588e368f1)
+    792 -       for step := 0; step < 8; step++ {
+    793 -               diff = diff * mRad2 / float64((2*inc)*(2*inc+1))
+    794 -               app += diff
+    795 -               fmt.Printf("step=%d inc=%d diff=%016x app=%016x abslt=%t\n",
+    796 -                       step, inc, math.Float64bits(diff), math.Float64bits(app), math.Abs(diff) < threshold)
+    797 -               inc++
+    798 -       }
+    799 -       fmt.Printf("final=%016x (%f)\n", math.Float64bits(app), app)
+    785 +       prevAppBits := uint64(0x3fd49e860ebf2bf8)
+    786 +       diffBits := uint64(0x3fe008fcd0b5df6d)
+    787 +       soft := float64_add(float64_t(prevAppBits), float64_t(diffBits))
+    788 +       native := math.Float64frombits(prevAppBits) + math.Float64frombits(diffBits)
+    789 +       fmt.Printf("soft=%016x (%f)\n", uint64(soft), math.Float64frombits(uint64(soft)))
+    790 +       fmt.Printf("native=%016x (%f)\n", math.Float64bits(native), native)
+    791  }
+
+• Ran gofmt -w tmp/dfsin_trace/main.go
+  └ (no output)
+
+• Ran env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go run tmp/dfsin_trace/main.go
+  └ soft=3fda583fd8157569 (0.411636)
+    native=3fea583fd8157569 (0.823273)
+
+• Ran env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go run ./cmd/mygo sim --sim-max-cycles 200000 tmp/dfsin_trace/main.go
+  └ /home/qinkejiu/mygo/tmp/dfsin_trace/main.go:152:2: warning: for loop has condition-only control; lowering will use loop FSM generation
+    /home/qinkejiu/mygo/tmp/dfsin_trace/main.go:640:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+    … +19 lines
+    soft=3fda583fd8157569 (0.411636)
+    native=3fda583fd8157569 (0.411636)
+
+─ Worked for 1m 15s ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• The key result is clear now: float64_add itself is not IEEE-correct for the native values used by local_sin. A plain Go run of the traced source gives soft=0.411636
+  versus native=0.823273 for the same operand bits, so routing native + to that helper cannot produce the software golden output. I’m inspecting the helper
+  implementation and its subroutines next to see whether there’s a correct internal primitive to target instead.
+
+• Explored
+  └ Read main.go
+
+─ Worked for 1m 18s ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• I found the main remaining defect: native + is routed through float64_add, but that helper is itself wrong when the second same-sign operand has the larger exponent.
+  I’m switching native add/sub to a fixed, sign-aware dispatch built from addFloat64Sigs and subFloat64Sigs instead of calling float64_add directly.
+
+• Edited internal/ir/builder.go (+81 -2)
+    2184        case token.ADD:
+    2185 -              return b.callMainHelperValue(bb, "float64_add", argsToSignals(left, right), signalType(resultType), pos)
+    2185 +              return b.lowerNativeFloatAdd(bb, left, right, signalType(resultType), pos)
+    2186        case token.SUB:
+         ⋮
+    2190                }
+    2191 -              return b.callMainHelperValue(bb, "float64_add", argsToSignals(left, negRight), signalType(resultType), pos)
+    2191 +              return b.lowerNativeFloatAdd(bb, left, negRight, signalType(resultType), pos)
+    2192        case token.MUL:
+         ⋮
+    2225
+    2226 +func (b *builder) lowerNativeFloatAdd(bb *BasicBlock, left, right *Signal, destType *SignalType, pos token.Pos) (*Signal, bool) {
+    2227 +      if bb == nil || left == nil || right == nil {
+    2228 +              return nil, false
+    2229 +      }
+    2230 +      signA, ok := b.nativeFloatSign(bb, left, pos)
+    2231 +      if !ok {
+    2232 +              return nil, false
+    2233 +      }
+    2234 +      signB, ok := b.nativeFloatSign(bb, right, pos)
+    2235 +      if !ok {
+    2236 +              return nil, false
+    2237 +      }
+    2238 +      sameSign := b.synthesizeCompare(bb, "flt_same_sign", CompareEQ, signA, signB, pos)
+    2239 +      if sameSign == nil {
+    2240 +              return nil, false
+    2241 +      }
+    2242 +      expA, ok := b.nativeFloatExponent(bb, left, pos)
+    2243 +      if !ok {
+    2244 +              return nil, false
+    2245 +      }
+    2246 +      expB, ok := b.nativeFloatExponent(bb, right, pos)
+    2247 +      if !ok {
+    2248 +              return nil, false
+    2249 +      }
+    2250 +      leftHasMaxExp := b.synthesizeCompare(bb, "flt_exp_ge", CompareUGE, expA, expB, pos)
+    2251 +      if leftHasMaxExp == nil {
+    2252 +              return nil, false
+    2253 +      }
+    2254 +      addAB, ok := b.callMainHelperValue(bb, "addFloat64Sigs", argsToSignals(left, right, signA), destType, pos)
+    2255 +      if !ok {
+    2256 +              return nil, false
+    2257 +      }
+    2258 +      addBA, ok := b.callMainHelperValue(bb, "addFloat64Sigs", argsToSignals(right, left, signB), destType, pos)
+    2259 +      if !ok {
+    2260 +              return nil, false
+    2261 +      }
+    2262 +      addRes := b.synthesizeMux(bb, "flt_add_order", leftHasMaxExp, addAB, addBA, destType, pos)
+    2263 +      if addRes == nil {
+    2264 +              return nil, false
+    2265 +      }
+    2266 +      subRes, ok := b.callMainHelperValue(bb, "subFloat64Sigs", argsToSignals(left, right, signA), destType, pos)
+    2267 +      if !ok {
+    2268 +              return nil, false
+    2269 +      }
+    2271 +}
+    2272 +
+    2273 +func (b *builder) nativeFloatSign(bb *BasicBlock, value *Signal, pos token.Pos) (*Signal, bool) {
+    2274 +      if bb == nil || value == nil {
+    2275 +              return nil, false
+    2276 +      }
+    2277 +      wordType := &SignalType{Width: 64, Signed: false}
+    2278 +      signWord := b.synthesizeBinOp(bb, "flt_sign_shr", ShrU, value, b.newConstSignal(uint64(63), wordType, pos), wordType, pos)
+    2279 +      if signWord == nil {
+    2280 +              return nil, false
+    2281 +      }
+    2282 +      sign := b.synthesizeCompare(bb, "flt_sign_bool", CompareNE, signWord, b.newConstSignal(uint64(0), wordType, pos), pos)
+    2283 +      if sign == nil {
+    2284 +              return nil, false
+    2285 +      }
+    2286 +      return sign, true
+    2287 +}
+    2288 +
+    2289 +func (b *builder) nativeFloatExponent(bb *BasicBlock, value *Signal, pos token.Pos) (*Signal, bool) {
+    2290 +      if bb == nil || value == nil {
+    2291 +              return nil, false
+    2292 +      }
+    2293 +      wordType := &SignalType{Width: 64, Signed: false}
+    2294 +      shifted := b.synthesizeBinOp(bb, "flt_exp_shr", ShrU, value, b.newConstSignal(uint64(52), wordType, pos), wordType, pos)
+    2296 +              return nil, false
+    2297 +      }
+    2298 +      exp := b.synthesizeBinOp(bb, "flt_exp_mask", And, shifted, b.newConstSignal(uint64(0x7FF), wordType, pos), wordType, pos)
+    2299 +      if exp == nil {
+    2300 +              return nil, false
+    2301 +      }
+    2302 +      return exp, true
+    2303 +}
+    2304 +
+    2305  func (b *builder) lowerNativeFloatEquality(bb *BasicBlock, left, right *Signal, equal bool, pos token.Pos) (*Signal, bool) {
+
+• Ran gofmt -w internal/ir/builder.go
+  └ (no output)
+
+• Ran env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go run tmp/dfsin_trace/main.go
+  └ soft=3fda583fd8157569 (0.411636)
+
+    … +19 lines
+    soft=3fda583fd8157569 (0.411636)
+    native=3fea583fd8157569 (0.823273)
+
+• Waited for background terminal
+
+─ Worked for 2m 08s ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• The patched native add path is working: hardware now matches native Go for the operand pair that was previously wrong. I’m rerunning the normal tests and the real
+  dfsin workload now.
+
+• Ran env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go test ./cmd/mygo -count=1
+  └ ok      mygo/cmd/mygo    0.011s
+
+• Ran env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go test ./internal/ir -count=1
+  └ ok      mygo/internal/ir    5.611s
+
+• Waited for background terminal
+
+• Waited for background terminal · env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go run ./cmd/mygo sim --sim-max-cycles 200000
+--expect tests/CHStone/dfsin/software.stdout.txt tests/CHStone/dfsin/main.go
+
+• Ran env GOCACHE=/home/qinkejiu/mygo/.gocache GOMODCACHE=/home/qinkejiu/mygo/.cache/gomod go run ./cmd/mygo sim --sim-max-cycles 200000 --expect tests/CHStone/dfsin/
+  │ software.stdout.txt tests/CHStone/dfsin/main.go
+  └ /home/qinkejiu/mygo/tests/CHStone/dfsin/main.go:152:2: warning: for loop has condition-only control; lowering will use loop FSM generation
+    /home/qinkejiu/mygo/tests/CHStone/dfsin/main.go:640:3: warning: for loop has condition-only control; lowering will use loop FSM generation
+    … +64 lines
+    input=40186f423ca395cb expected=bfc63a23c48863dd output=bfc63a23c48863dd (-0.173649)
+    0
+
+• Waited for background terminal
+
+─ Worked for 2m 16s ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• dfsin now matches the software golden under real Verilator. I’m just removing the temporary trace workspace and then I’ll summarize the final state and what changed.
+
+✔ You approved codex to always run commands that start with rm -rf tmp/dfsin_trace
+
+• Ran rm -rf tmp/dfsin_trace
+  └ (no output)
+
+• Explored
+  └ Search hardware_cycles_used in .
+
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• Implemented the float64 lowering path and got dfsin onto real hardware simulation.
+
+  The main fixes are in builder.go, call_inline.go, emitter.go, main.go, and sim_internal_test.go. Native float64 binops/unops/conversions now lower through soft-float
+  support, math.Float64bits and math.Abs are handled, float constants are emitted as IEEE bit patterns, and countLeadingZeros32/64 are synthesized instead of depending
+  on the local lookup-table array. I also had to patch native +/- lowering to avoid the buggy float64_add wrapper and dispatch directly through addFloat64Sigs/
+  subFloat64Sigs with sign-aware operand ordering.
+
+  Verification:
+  go test ./cmd/mygo -count=1 passed.
+  go test ./internal/ir -count=1 passed.
+  go run ./cmd/mygo sim --sim-max-cycles 200000 --expect tests/CHStone/dfsin/software.stdout.txt tests/CHStone/dfsin/main.go passed.
+  The run used real Verilator; stderr included make: Entering directory ....
+
+  I did not regenerate tests/CHStone/dfsin/simulation.result.txt, so any checked-in hardware_cycles_used=1 there is still stale. The direct sim run is now definitely
+  hardware-backed rather than the old software fallback.
+
+
+› Find and fix a bug in @filename
+
+  gpt-5.4 high · 81% left · ~/mygo
 
