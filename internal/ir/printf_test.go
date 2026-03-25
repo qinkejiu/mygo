@@ -26,6 +26,17 @@ func main() {
 }
 `
 
+const printfBoolProgram = `
+package main
+
+import "fmt"
+
+func main() {
+	done := true
+	fmt.Printf("done=%t verbose=%v\n", done, done)
+}
+`
+
 func TestPrintfParsesZeroPaddedHexWidth(t *testing.T) {
 	design := buildDesignFromSource(t, printfZeroPaddedHexProgram)
 	seg := firstValuePrintSegment(t, design)
@@ -51,6 +62,19 @@ func TestPrintfParsesWidthWithoutZeroPad(t *testing.T) {
 	}
 	if seg.ZeroPad {
 		t.Fatalf("zeroPad = true, want false")
+	}
+}
+
+func TestPrintfParsesBoolVerbs(t *testing.T) {
+	design := buildDesignFromSource(t, printfBoolProgram)
+	segments := valuePrintSegments(t, design)
+	if len(segments) != 2 {
+		t.Fatalf("got %d value print segments, want 2", len(segments))
+	}
+	for i, seg := range segments {
+		if seg.Verb != PrintVerbBool {
+			t.Fatalf("segment %d verb = %v, want %v", i, seg.Verb, PrintVerbBool)
+		}
 	}
 }
 
@@ -94,9 +118,19 @@ func TestRemainderBuildsBinOp(t *testing.T) {
 
 func firstValuePrintSegment(t *testing.T, design *Design) PrintSegment {
 	t.Helper()
+	segments := valuePrintSegments(t, design)
+	if len(segments) == 0 {
+		t.Fatalf("no print value segment found")
+	}
+	return segments[0]
+}
+
+func valuePrintSegments(t *testing.T, design *Design) []PrintSegment {
+	t.Helper()
 	if design == nil || design.TopLevel == nil {
 		t.Fatalf("missing top-level design")
 	}
+	var out []PrintSegment
 	for _, proc := range design.TopLevel.Processes {
 		if proc == nil {
 			continue
@@ -112,14 +146,13 @@ func firstValuePrintSegment(t *testing.T, design *Design) PrintSegment {
 				}
 				for _, seg := range printOp.Segments {
 					if seg.Value != nil {
-						return seg
+						out = append(out, seg)
 					}
 				}
 			}
 		}
 	}
-	t.Fatalf("no print value segment found")
-	return PrintSegment{}
+	return out
 }
 
 func designContainsBinOp(design *Design, want BinOp) bool {

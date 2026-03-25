@@ -41,17 +41,27 @@ func TestPrintVerbSpecifier(t *testing.T) {
 			want: "%8x",
 		},
 		{
-			name: "zero pad ignored without width",
+			name: "hex default uses minimal width",
+			seg:  ir.PrintSegment{Verb: ir.PrintVerbHex},
+			want: "%0x",
+		},
+		{
+			name: "binary default uses minimal width",
 			seg: ir.PrintSegment{
 				Verb:    ir.PrintVerbBin,
 				ZeroPad: true,
 			},
-			want: "%b",
+			want: "%0b",
 		},
 		{
 			name: "float verb",
 			seg:  ir.PrintSegment{Verb: ir.PrintVerbFloat},
 			want: "%f",
+		},
+		{
+			name: "bool verb",
+			seg:  ir.PrintSegment{Verb: ir.PrintVerbBool},
+			want: "%0s",
 		},
 		{
 			name: "decimal no width uses zero flag",
@@ -133,7 +143,7 @@ func TestFSMPrintUsesLatestAssignedRegValue(t *testing.T) {
 		t.Fatalf("read mlir output: %v", err)
 	}
 	text := string(data)
-	if !strings.Contains(text, `sv.fwrite`) || !strings.Contains(text, `"%x`) {
+	if !strings.Contains(text, `sv.fwrite`) || !strings.Contains(text, `"%0x`) {
 		t.Fatalf("expected hex fwrite in MLIR output:\n%s", text)
 	}
 	if strings.Contains(text, "sv.read_inout %out") {

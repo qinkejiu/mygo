@@ -374,6 +374,7 @@ const (
 	PrintVerbHex
 	PrintVerbBin
 	PrintVerbFloat
+	PrintVerbBool
 )
 
 // PrintSegment represents either a literal chunk or a formatted value.

@@ -171,6 +171,60 @@ func TestDesignHasChannels(t *testing.T) {
 	}
 }
 
+func TestDesignHasConcurrentPrints(t *testing.T) {
+	t.Parallel()
+	printOp := &ir.PrintOperation{Segments: []ir.PrintSegment{{Text: "x"}}}
+	cases := []struct {
+		name   string
+		design *ir.Design
+		want   bool
+	}{
+		{name: "nil design", design: nil, want: false},
+		{
+			name: "single process print",
+			design: &ir.Design{Modules: []*ir.Module{{
+				Name: "main",
+				Processes: []*ir.Process{{
+					Name:   "main",
+					Blocks: []*ir.BasicBlock{{Ops: []ir.Operation{printOp}}},
+				}},
+			}}},
+			want: false,
+		},
+		{
+			name: "multiple print processes",
+			design: &ir.Design{Modules: []*ir.Module{{
+				Name: "main",
+				Processes: []*ir.Process{
+					{Name: "main", Blocks: []*ir.BasicBlock{{Ops: []ir.Operation{printOp}}}},
+					{Name: "worker", Blocks: []*ir.BasicBlock{{Ops: []ir.Operation{printOp}}}},
+				},
+			}}},
+			want: true,
+		},
+		{
+			name: "spawned print process",
+			design: &ir.Design{Modules: []*ir.Module{{
+				Name: "main",
+				Processes: []*ir.Process{
+					{Name: "main"},
+					{Name: "worker", Spawned: true, Blocks: []*ir.BasicBlock{{Ops: []ir.Operation{printOp}}}},
+				},
+			}}},
+			want: true,
+		},
+	}
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			if got := designHasConcurrentPrints(tc.design); got != tc.want {
+				t.Fatalf("designHasConcurrentPrints(%s)=%t, want %t", tc.name, got, tc.want)
+			}
+		})
+	}
+}
+
 func TestShouldFallbackSimToSoftware(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
@@ -227,6 +281,50 @@ func TestNormalizeSimulatorStdoutCompactsZeroPrefixedSingleHexDigits(t *testing.
 	want := "decrypto message\t00040a\n"
 	if got != want {
 		t.Fatalf("normalizeSimulatorStdout()=%q, want %q", got, want)
+	}
+}
+
+func TestOutputsDifferOnlyByLineOrder(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name string
+		want string
+		got  string
+		ok   bool
+	}{
+		{
+			name: "same lines different order",
+			want: "producer sent 0\nconsumer received 0\nproducer sent 1\n",
+			got:  "consumer received 0\nproducer sent 0\nproducer sent 1\n",
+			ok:   true,
+		},
+		{
+			name: "same order is not order-only mismatch",
+			want: "a\nb\n",
+			got:  "a\nb\n",
+			ok:   false,
+		},
+		{
+			name: "different content",
+			want: "a\nb\n",
+			got:  "a\nc\n",
+			ok:   false,
+		},
+		{
+			name: "duplicate counts matter",
+			want: "a\na\nb\n",
+			got:  "a\nb\nb\n",
+			ok:   false,
+		},
+	}
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			if got := outputsDifferOnlyByLineOrder([]byte(tc.want), []byte(tc.got)); got != tc.ok {
+				t.Fatalf("outputsDifferOnlyByLineOrder(%q,%q)=%t, want %t", tc.want, tc.got, got, tc.ok)
+			}
+		})
 	}
 }
 

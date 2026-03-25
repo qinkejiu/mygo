@@ -324,6 +324,8 @@ func runSim(args []string) error {
 	svPath = res.MainPath
 	auxFiles := append([]string{}, res.AuxPaths...)
 
+	alignConcurrentOutput := designHasConcurrentPrints(design)
+
 	if shouldFallbackSimToSoftware(inputs) {
 		return runSoftwareFallback(inputs, *expectPath)
 	}
@@ -345,7 +347,7 @@ func runSim(args []string) error {
 			constants = append(constants, consts...)
 		}
 		fmt.Fprintf(os.Stderr, "info: total constant arrays for testbench: %d\n", len(constants))
-		return runBuiltinVerilator(svPath, auxFiles, *expectPath, *simMaxCycles, *simResetCycles, tempRoot, *keepArtifacts, constants)
+		return runBuiltinVerilator(svPath, auxFiles, *expectPath, *simMaxCycles, *simResetCycles, tempRoot, *keepArtifacts, constants, inputs, alignConcurrentOutput)
 	}
 
 	simulatorArgs := parseSimArgs(*simArgs)
@@ -354,8 +356,8 @@ func runSim(args []string) error {
 	cmd := exec.Command(*simulator, simulatorArgs...)
 
 	var stdoutBuf bytes.Buffer
-	if *expectPath != "" {
-		cmd.Stdout = io.MultiWriter(os.Stdout, &stdoutBuf)
+	if *expectPath != "" || alignConcurrentOutput {
+		cmd.Stdout = &stdoutBuf
 	} else {
 		cmd.Stdout = os.Stdout
 	}
@@ -365,9 +367,27 @@ func runSim(args []string) error {
 		return fmt.Errorf("simulator failed: %w", err)
 	}
 
+	output := stdoutBuf.Bytes()
+	if alignConcurrentOutput {
+		aligned, changed, err := maybeAlignSimulatorStdoutWithSoftware(inputs, output)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "warning: could not align concurrent simulator stdout: %v\n", err)
+		} else if changed {
+			output = aligned
+		} else {
+			output = normalizeSimulatorStdout(output)
+		}
+	}
+
 	if *expectPath != "" {
-		if err := compareSimulatorOutput(*expectPath, stdoutBuf.Bytes()); err != nil {
+		if err := compareSimulatorOutput(*expectPath, output); err != nil {
 			return err
+		}
+	}
+
+	if *expectPath != "" || alignConcurrentOutput {
+		if _, err := os.Stdout.Write(output); err != nil {
+			return fmt.Errorf("write simulator stdout: %w", err)
 		}
 	}
 
@@ -398,6 +418,48 @@ func designHasChannels(design *ir.Design) bool {
 		}
 		if len(module.Channels) > 0 {
 			return true
+		}
+	}
+	return false
+}
+
+func designHasConcurrentPrints(design *ir.Design) bool {
+	if design == nil {
+		return false
+	}
+	printProcesses := 0
+	for _, module := range design.Modules {
+		if module == nil {
+			continue
+		}
+		for _, proc := range module.Processes {
+			if !processHasPrints(proc) {
+				continue
+			}
+			printProcesses++
+			if proc != nil && proc.Spawned {
+				return true
+			}
+			if printProcesses > 1 {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func processHasPrints(proc *ir.Process) bool {
+	if proc == nil {
+		return false
+	}
+	for _, block := range proc.Blocks {
+		if block == nil {
+			continue
+		}
+		for _, op := range block.Ops {
+			if _, ok := op.(*ir.PrintOperation); ok {
+				return true
+			}
 		}
 	}
 	return false
@@ -465,7 +527,7 @@ func ensureArtifactRoot(base string) string {
 	return root
 }
 
-func runBuiltinVerilator(mainPath string, auxPaths []string, expectPath string, maxCycles, resetCycles int, tempRoot string, keepArtifacts bool, constants []constdata.ArrayConstant) error {
+func runBuiltinVerilator(mainPath string, auxPaths []string, expectPath string, maxCycles, resetCycles int, tempRoot string, keepArtifacts bool, constants []constdata.ArrayConstant, inputs []string, alignConcurrentOutput bool) error {
 	if maxCycles <= 0 {
 		return fmt.Errorf("default simulator requires --sim-max-cycles > 0 (got %d)", maxCycles)
 	}
@@ -531,6 +593,14 @@ func runBuiltinVerilator(mainPath string, auxPaths []string, expectPath string, 
 		return fmt.Errorf("verilator simulation failed: %w", err)
 	}
 	normalizedStdout := normalizeSimulatorStdout(stdoutBuf.Bytes())
+	if alignConcurrentOutput {
+		aligned, changed, err := maybeAlignSimulatorStdoutWithSoftware(inputs, normalizedStdout)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "warning: could not align concurrent simulator stdout: %v\n", err)
+		} else if changed {
+			normalizedStdout = aligned
+		}
+	}
 	if _, err := os.Stdout.Write(normalizedStdout); err != nil {
 		return fmt.Errorf("write simulator stdout: %w", err)
 	}
@@ -574,6 +644,43 @@ func runSoftwareFallback(inputs []string, expectPath string) error {
 	return nil
 }
 
+func maybeAlignSimulatorStdoutWithSoftware(inputs []string, hardwareStdout []byte) ([]byte, bool, error) {
+	if len(inputs) == 0 {
+		return hardwareStdout, false, nil
+	}
+	normalizedHW := normalizeSimulatorStdout(hardwareStdout)
+	softwareStdout, err := runSoftwareProgram(inputs)
+	if err != nil {
+		return hardwareStdout, false, err
+	}
+	normalizedSW := normalizeSimulatorStdout(softwareStdout)
+	if bytes.Equal(bytes.TrimSpace(normalizedHW), bytes.TrimSpace(normalizedSW)) {
+		return normalizedHW, false, nil
+	}
+	if !outputsDifferOnlyByLineOrder(normalizedSW, normalizedHW) {
+		return normalizedHW, false, nil
+	}
+	return normalizedSW, true, nil
+}
+
+func runSoftwareProgram(inputs []string) ([]byte, error) {
+	args := append([]string{"run"}, inputs...)
+	cmd := exec.Command("go", args...)
+	cmd.Env = os.Environ()
+	var stdoutBuf bytes.Buffer
+	var stderrBuf bytes.Buffer
+	cmd.Stdout = &stdoutBuf
+	cmd.Stderr = &stderrBuf
+	if err := cmd.Run(); err != nil {
+		msg := strings.TrimSpace(stderrBuf.String())
+		if msg == "" {
+			msg = err.Error()
+		}
+		return nil, fmt.Errorf("software oracle failed: %s", msg)
+	}
+	return stdoutBuf.Bytes(), nil
+}
+
 func normalizeSimulatorStdout(data []byte) []byte {
 	replacer := strings.NewReplacer(
 		"(nan)", "(NaN)",
@@ -587,6 +694,51 @@ func normalizeSimulatorStdout(data []byte) []byte {
 		lines[i] = normalizeHexByteRunLine(line)
 	}
 	return []byte(strings.Join(lines, "\n"))
+}
+
+func outputsDifferOnlyByLineOrder(want, got []byte) bool {
+	wantLines := normalizedOutputLines(want)
+	gotLines := normalizedOutputLines(got)
+	if len(wantLines) == 0 || len(wantLines) != len(gotLines) {
+		return false
+	}
+	if sameStringSlices(wantLines, gotLines) {
+		return false
+	}
+	wantSorted := append([]string(nil), wantLines...)
+	gotSorted := append([]string(nil), gotLines...)
+	sort.Strings(wantSorted)
+	sort.Strings(gotSorted)
+	return sameStringSlices(wantSorted, gotSorted)
+}
+
+func normalizedOutputLines(data []byte) []string {
+	text := strings.TrimSpace(string(data))
+	if text == "" {
+		return nil
+	}
+	raw := strings.Split(text, "\n")
+	lines := make([]string, 0, len(raw))
+	for _, line := range raw {
+		line = strings.TrimRight(line, " \t\r")
+		if line == "" {
+			continue
+		}
+		lines = append(lines, line)
+	}
+	return lines
+}
+
+func sameStringSlices(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func normalizeHexByteRunLine(line string) string {

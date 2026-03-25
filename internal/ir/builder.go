@@ -2540,15 +2540,22 @@ func (b *builder) buildPrintfSegments(format string, args []ssa.Value) ([]PrintS
 		if argIndex >= len(args) {
 			return nil, fmt.Errorf("not enough arguments for format")
 		}
-		sig := b.signalForValue(args[argIndex])
+		arg := args[argIndex]
+		sig := b.signalForValue(arg)
 		if sig == nil {
-			return nil, fmt.Errorf("unsupported argument type %T", args[argIndex])
+			return nil, fmt.Errorf("unsupported argument type %T", arg)
 		}
 		argIndex++
 		var verb PrintVerb
 		switch verbChar {
-		case 'd', 'v':
+		case 'd':
 			verb = PrintVerbDec
+		case 'v':
+			if isBoolValue(arg) {
+				verb = PrintVerbBool
+			} else {
+				verb = PrintVerbDec
+			}
 		case 'x', 'X':
 			verb = PrintVerbHex
 		case 'b':
@@ -2556,7 +2563,7 @@ func (b *builder) buildPrintfSegments(format string, args []ssa.Value) ([]PrintS
 		case 'f':
 			verb = PrintVerbFloat
 		case 't':
-			verb = PrintVerbDec
+			verb = PrintVerbBool
 		default:
 			return nil, fmt.Errorf("unsupported verb %%%c", verbChar)
 		}
@@ -2611,7 +2618,11 @@ func (b *builder) buildPrintSegments(args []ssa.Value, newline bool) ([]PrintSeg
 		if sig == nil {
 			return nil, false, fmt.Errorf("unsupported argument %T", v)
 		}
-		return []PrintSegment{{Value: sig, Verb: PrintVerbDec}}, true, nil
+		verb := PrintVerbDec
+		if isBoolValue(v) {
+			verb = PrintVerbBool
+		}
+		return []PrintSegment{{Value: sig, Verb: verb}}, true, nil
 	}
 	emittedCount := 0
 	for _, arg := range args {
@@ -2646,6 +2657,14 @@ func appendLiteralSegment(segments []PrintSegment, text string) []PrintSegment {
 		return segments
 	}
 	return append(segments, PrintSegment{Text: text})
+}
+
+func isBoolValue(v ssa.Value) bool {
+	if v == nil || v.Type() == nil {
+		return false
+	}
+	basic, ok := v.Type().Underlying().(*types.Basic)
+	return ok && basic.Kind() == types.Bool
 }
 
 func (b *builder) expandCallArgs(args []ssa.Value) ([]ssa.Value, error) {

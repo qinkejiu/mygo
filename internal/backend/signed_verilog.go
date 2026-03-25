@@ -264,6 +264,15 @@ func rewriteFwriteArgs(args []string, info printInfo, signedNames map[string]str
 			break
 		}
 		operand := info.operands[opIdx]
+		if operand.verb == ir.PrintVerbBool {
+			raw := args[i]
+			leading, core, trailing := trimArg(raw)
+			if core == "" {
+				continue
+			}
+			args[i] = leading + "((" + core + ") ? \"true\" : \"false\")" + trailing
+			continue
+		}
 		if operand.verb == ir.PrintVerbFloat {
 			raw := args[i]
 			leading, core, trailing := trimArg(raw)

@@ -2612,11 +2612,25 @@ func printVerbSpecifier(seg ir.PrintSegment) string {
 	}
 	switch seg.Verb {
 	case ir.PrintVerbHex:
-		builder.WriteByte('x')
+		if seg.Width == 0 {
+			builder.WriteString("0x")
+		} else {
+			builder.WriteByte('x')
+		}
 	case ir.PrintVerbBin:
-		builder.WriteByte('b')
+		if seg.Width == 0 {
+			builder.WriteString("0b")
+		} else {
+			builder.WriteByte('b')
+		}
 	case ir.PrintVerbFloat:
 		builder.WriteByte('f')
+	case ir.PrintVerbBool:
+		if seg.Width == 0 {
+			builder.WriteString("0s")
+		} else {
+			builder.WriteByte('s')
+		}
 	default:
 		if seg.Width == 0 {
 			builder.WriteString("0d")
