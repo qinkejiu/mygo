@@ -1,0 +1,45 @@
+module main(
+  input clk,
+        rst
+);
+
+  reg signed [31:0] varargs;
+  initial
+    varargs = 32'h0;
+  wire [31:0] _GEN = 32'h8;
+  wire [31:0] _GEN_0 = 32'hC;
+  reg         state_reg8;
+  initial
+    state_reg8 = 1'h0;
+  reg  [15:0] print_reg10;
+  initial
+    print_reg10 = 16'h0;
+  reg  [15:0] print_reg12;
+  initial
+    print_reg12 = 16'h0;
+  reg  [15:0] print_reg14;
+  initial
+    print_reg14 = 16'h0;
+  wire [15:0] _GEN_1 = {8'h0, 8'hAB} << _GEN[15:0] | {8'h0, 8'hCD};
+  always @(posedge clk) begin
+    if (rst)
+      state_reg8 <= 1'h0;
+    else begin
+      case (state_reg8)
+        1'b0: begin
+          print_reg10 = _GEN_1;
+          print_reg12 = _GEN_1 >> _GEN_0[15:0] & 16'hF;
+          print_reg14 = _GEN_1 & 16'hFF;
+          $write("word=0x%0x high=%0d low=0x%0x\n", print_reg10,
+                  print_reg12, print_reg14);
+          state_reg8 <= 1'h1;
+        end
+        1'b1:
+          state_reg8 <= state_reg8;
+        default:
+          state_reg8 <= state_reg8;
+      endcase
+    end
+  end // always @(posedge)
+endmodule
+

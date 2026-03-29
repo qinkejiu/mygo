@@ -1,8 +1,2 @@
 /home/qinkejiu/mygo/tests/CHStone/gsm/main.go:292:4: warning: for loop has variable bound; lowering will use loop FSM generation
 /home/qinkejiu/mygo/tests/CHStone/gsm/main.go:312:3: warning: for loop has variable bound; lowering will use loop FSM generation
-[DEBUG] ExtractConstants called for: tests/CHStone/gsm/main.go
-[DEBUG] Read 10492 bytes from source
-[DEBUG] Parsed 23 declarations
-[DEBUG] AST walk: 14 GenDecls, 9 ValueSpecs, 4 CompositeLits, 0 ArrayTypes
-info: extracted 0 constant arrays from tests/CHStone/gsm/main.go
-info: total constant arrays for testbench: 0

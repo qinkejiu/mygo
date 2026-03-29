@@ -1,0 +1,73 @@
+module {
+  hw.module @main(in %clk: i1, in %rst: i1) {
+    %c_init_varargs = hw.constant 0 : i32
+    %varargs = sv.reg : !hw.inout<i32>
+    sv.initial {
+      sv.bpassign %varargs, %c_init_varargs : i32
+    }
+    %c0 = hw.constant -85 : i8
+    %c1 = hw.constant 15 : i16
+    %c2 = hw.constant 255 : i16
+    %c3 = hw.constant 8 : i32
+    %c4 = hw.constant -51 : i8
+    %c5 = hw.constant 12 : i32
+    %state_const6 = hw.constant 0 : i1
+    %state_const7 = hw.constant 1 : i1
+    %state_reg8 = sv.reg : !hw.inout<i1>
+    sv.initial {
+      sv.bpassign %state_reg8, %state_const6 : i1
+    }
+    %state9 = sv.read_inout %state_reg8 : !hw.inout<i1>
+    %print_reg10 = sv.reg : !hw.inout<i16>
+    %print_zero11 = hw.constant 0 : i16
+    sv.initial {
+      sv.bpassign %print_reg10, %print_zero11 : i16
+    }
+    %print_reg12 = sv.reg : !hw.inout<i16>
+    %print_zero13 = hw.constant 0 : i16
+    sv.initial {
+      sv.bpassign %print_reg12, %print_zero13 : i16
+    }
+    %print_reg14 = sv.reg : !hw.inout<i16>
+    %print_zero15 = hw.constant 0 : i16
+    sv.initial {
+      sv.bpassign %print_reg14, %print_zero15 : i16
+    }
+    %zext_pad17 = hw.constant 0 : i8
+    %v16 = comb.concat %zext_pad17, %c0 : i8, i8
+    %v18 = comb.extract %c3 from 0 : (i32) -> i16
+    %v19 = comb.shl %v16, %v18 : i16
+    %zext_pad21 = hw.constant 0 : i8
+    %v20 = comb.concat %zext_pad21, %c4 : i8, i8
+    %v22 = comb.or %v19, %v20 : i16
+    %v23 = comb.extract %c5 from 0 : (i32) -> i16
+    %v24 = comb.shru %v22, %v23 : i16
+    %v25 = comb.and %v24, %c1 : i16
+    %v26 = comb.and %v22, %c2 : i16
+    %stdout_fd27 = hw.constant 2147483649 : i32
+    sv.always posedge %clk {
+      sv.if %rst {
+        sv.passign %state_reg8, %state_const6 : i1
+      } else {
+        sv.case %state9 : i1
+        case b0: {
+          sv.bpassign %print_reg10, %v22 : i16
+          %print_val28 = sv.read_inout %print_reg10 : !hw.inout<i16>
+          sv.bpassign %print_reg12, %v25 : i16
+          %print_val29 = sv.read_inout %print_reg12 : !hw.inout<i16>
+          sv.bpassign %print_reg14, %v26 : i16
+          %print_val30 = sv.read_inout %print_reg14 : !hw.inout<i16>
+          sv.fwrite %stdout_fd27, "word=0x%0x high=%0d low=0x%0x\n"(%print_val28, %print_val29, %print_val30) : i16, i16, i16
+          sv.passign %state_reg8, %state_const7 : i1
+        }
+        case b1: {
+          sv.passign %state_reg8, %state9 : i1
+        }
+        default: {
+          sv.passign %state_reg8, %state9 : i1
+        }
+      }
+    }
+    hw.output
+  }
+}

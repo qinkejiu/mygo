@@ -183,8 +183,8 @@ func TestEmitVerilogInlinesGeneratedFIFO(t *testing.T) {
 		t.Fatalf("read output: %v", err)
 	}
 	text := string(data)
-	if !strings.Contains(text, "module mygo_fifo_i32_d1 (") {
-		t.Fatalf("expected generated fifo module to be inlined:\n%s", text)
+	if !strings.Contains(text, "module mygo_fifo #(") {
+		t.Fatalf("expected shared parametric fifo module to be inlined:\n%s", text)
 	}
 	if strings.Contains(text, "module mygo_fifo_i32_d1();") {
 		t.Fatalf("expected fifo stub to be replaced:\n%s", text)
@@ -224,35 +224,79 @@ func TestEmitVerilogReplacesAnnotatedFifoStubs(t *testing.T) {
 	if strings.Contains(text, "endmodule : mygo_fifo_i32_d1") {
 		t.Fatalf("expected annotated fifo stub to be removed:\n%s", text)
 	}
-	if !strings.Contains(text, "module mygo_fifo_i32_d1 (") {
-		t.Fatalf("expected generated fifo module to be present:\n%s", text)
+	if !strings.Contains(text, "module mygo_fifo #(") {
+		t.Fatalf("expected shared parametric fifo module to be present:\n%s", text)
+	}
+}
+
+func TestGenerateReusableParametricFIFOVerilog(t *testing.T) {
+	text := GenerateReusableParametricFIFOVerilog("mygo_fifo")
+	if !strings.Contains(text, "parameter integer DATA_WIDTH = 32") {
+		t.Fatalf("expected reusable fifo parameters:\n%s", text)
+	}
+	if !strings.Contains(text, "parameter bit USE_REGISTERED_READ = 1'b0") {
+		t.Fatalf("expected reusable fifo to accept precomputed read-path policy:\n%s", text)
+	}
+	if !strings.Contains(text, "if (USE_REGISTERED_READ != 1'b0) begin : gen_registered_read") {
+		t.Fatalf("expected reusable fifo generate split to depend on Go-computed policy:\n%s", text)
+	}
+	if !strings.Contains(text, "if (ASYNC_RESET != 1'b0) begin : gen_async_reset") {
+		t.Fatalf("expected reusable fifo reset-policy generate split:\n%s", text)
+	}
+	if strings.Contains(text, "$clog2") {
+		t.Fatalf("expected reusable fifo to avoid deriving widths in Verilog:\n%s", text)
+	}
+}
+
+func TestRewriteFIFOStubInstances(t *testing.T) {
+	content := "  mygo_fifo_i32_d4 t0_fifo (\n    .clk(clk)\n  );\n"
+	decl := &ir.FIFODecl{
+		ModuleName:            "mygo_fifo_i32_d4",
+		ReusableModuleName:    "mygo_fifo",
+		DataWidth:             32,
+		Depth:                 4,
+		AddrWidth:             2,
+		CountWidth:            3,
+		LastPtrValue:          3,
+		DepthCountValue:       4,
+		AlmostFullLevel:       3,
+		AlmostEmptyLevel:      1,
+		AlmostFullCountValue:  3,
+		AlmostEmptyCountValue: 1,
+	}
+	rewritten, err := rewriteFIFOStubInstances(content, decl)
+	if err != nil {
+		t.Fatalf("rewriteFIFOStubInstances() error: %v", err)
+	}
+	if !strings.Contains(rewritten, "mygo_fifo #(.DATA_WIDTH(32), .DEPTH(4), .ADDR_WIDTH(2), .COUNT_WIDTH(3), .LAST_PTR_VALUE(3), .DEPTH_COUNT_VALUE(4), .ALMOST_FULL_LEVEL(3), .ALMOST_EMPTY_LEVEL(1), .ALMOST_FULL_COUNT_VALUE(3), .ALMOST_EMPTY_COUNT_VALUE(1), .USE_REGISTERED_READ(0), .ALMOST_EMPTY_USES_EMPTY(0), .ASYNC_RESET(0)) t0_fifo (") {
+		t.Fatalf("expected parametric fifo instance rewrite, got:\n%s", rewritten)
+	}
+	if strings.Contains(rewritten, "mygo_fifo_i32_d4 t0_fifo") {
+		t.Fatalf("expected shape-specific fifo instance name to be replaced, got:\n%s", rewritten)
 	}
 }
 
 func TestGenerateFIFOVerilogSelectsImplementationStyle(t *testing.T) {
 	shallow := GenerateFIFOVerilog("fifo_shallow", 32, 16, false, 0)
-	if !strings.Contains(shallow, "Register-based circular buffer") {
-		t.Fatalf("expected shallow fifo to use register-based style:\n%s", shallow)
-	}
-	if strings.Contains(shallow, "rd_data_reg") {
-		t.Fatalf("shallow fifo unexpectedly used deep fifo read register:\n%s", shallow)
-	}
 	if !strings.Contains(shallow, "localparam integer ALMOST_FULL_LEVEL = 15;") {
 		t.Fatalf("expected default almost-full level to clamp to depth-1:\n%s", shallow)
 	}
+	if !strings.Contains(shallow, "localparam integer USE_REGISTERED_READ = 0;") {
+		t.Fatalf("expected shallow fifo to precompute direct-read policy:\n%s", shallow)
+	}
+	if !strings.Contains(shallow, "mygo_fifo #(") {
+		t.Fatalf("expected concrete fifo wrapper to bind the reusable fifo module:\n%s", shallow)
+	}
 
 	deep := GenerateFIFOVerilog("fifo_deep", 8, 256, true, 300)
-	if !strings.Contains(deep, "RAM-oriented style for deeper FIFOs.") {
-		t.Fatalf("expected deep fifo RAM-oriented style:\n%s", deep)
-	}
-	if !strings.Contains(deep, "rd_data_reg") {
-		t.Fatalf("expected deep fifo registered read datapath:\n%s", deep)
-	}
-	if !strings.Contains(deep, "always @(posedge clk or negedge rst_n)") {
-		t.Fatalf("expected async reset sensitivity list:\n%s", deep)
-	}
 	if !strings.Contains(deep, "localparam integer ALMOST_FULL_LEVEL = 256;") {
 		t.Fatalf("expected almost-full level to clamp to depth:\n%s", deep)
+	}
+	if !strings.Contains(deep, "localparam integer USE_REGISTERED_READ = 1;") {
+		t.Fatalf("expected deep fifo to precompute registered-read policy:\n%s", deep)
+	}
+	if !strings.Contains(deep, "localparam integer ASYNC_RESET = 1;") {
+		t.Fatalf("expected deep fifo wrapper to precompute async reset policy:\n%s", deep)
 	}
 }
 

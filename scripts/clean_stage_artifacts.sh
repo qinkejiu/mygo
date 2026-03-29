@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Remove generated stage artifacts (ssa/ir/mlir/sv and *_fifos.sv).
+# Remove transient stage artifacts while preserving checked-in *.golden baselines.
 # Usage: ./scripts/clean_stage_artifacts.sh [case ...]
 # When no cases are provided, cleans all under tests/stages.
 
@@ -19,7 +19,13 @@ clean_case() {
 		-name 'main.ir' -o \
 		-name 'main.mlir' -o \
 		-name 'main.sv' -o \
-		-name '*_fifos.sv' \
+		-name '*_fifos.sv' -o \
+		-name 'hardware.stderr.txt' -o \
+		-name 'hardware.stdout.txt' -o \
+		-name 'software.stderr.txt' -o \
+		-name 'software.stdout.txt' -o \
+		-name 'simulation.result.txt' -o \
+		-name 'sw_hw.diff.txt' \
 	\) -print -delete
 }
 

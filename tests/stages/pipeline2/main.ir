@@ -3,117 +3,171 @@ module main
     in  clk 1bu
     in  rst 1bu
   signals:
-    const_1  const 32bu = 0
-    const_13 const 32bu = 24
-    const_15 const 32bu = 16
-    const_18 const 32bu = 8
-    const_22 const 32bu = 1
-    const_23 const 1bu = true
-    const_26 const 32bu = 0
-    const_28 const 32bu = 4
-    const_3  const 32bu = 4
-    const_31 const 32bu = 1
-    const_32 const 32bu = 4
-    const_34 const 32bu = 0
-    const_36 const 32bu = 4
-    const_39 const 32bu = 1
-    t0_24    wire  32bu
-    t0_33    wire  32bu
-    t10_12   wire  32bu
-    t11_14   wire  32bu
-    t11_27   wire  32bu
-    t12_16   wire  32bu
+    const_0  const 1bu = true
+    const_18 const 32bu = 24
+    const_20 const 32bu = 16
+    const_23 const 32bu = 8
+    const_27 const 32bs = 0
+    const_28 const 32bu = 1
+    const_29 const 1bu = true
+    const_31 const 8bu = 0
+    const_32 const 8bu = 0
+    const_33 const 8bu = 0
+    const_34 const 8bu = 4
+    const_36 const 32bu = 0
+    const_38 const 32bu = 4
+    const_41 const 32bu = 24
+    const_43 const 32bu = 255
+    const_46 const 32bu = 16
+    const_48 const 32bu = 255
+    const_51 const 32bu = 8
+    const_53 const 32bu = 255
+    const_56 const 32bu = 255
+    const_59 const 32bs = 0
+    const_6  const 32bu = 0
+    const_60 const 32bu = 1
+    const_61 const 32bu = 4
+    const_63 const 32bu = 0
+    const_65 const 32bu = 4
+    const_68 const 32bs = 0
+    const_69 const 32bu = 1
+    const_71 const 32bs = 0
+    const_8  const 32bu = 4
+    t0_1     wire  8bu
+    t0_30    wire  32bu
+    t0_62    wire  32bu
+    t10_14   wire  8bu
+    t10_52   wire  32bu
+    t11_15   wire  32bu
+    t11_54   wire  32bu
+    t12_16   wire  8bu
+    t12_55   wire  8bu
     t13_17   wire  32bu
+    t13_57   wire  32bu
     t14_19   wire  32bu
-    t15_20   wire  32bu
-    t16_21   wire  32bu
-    t1_0     wire  32bu
-    t1_37    wire  1bu
-    t22_2    wire  32bu
-    t2_25    wire  32bu
-    t2_38    wire  32bu
-    t2_4     wire  1bu
-    t3_29    wire  1bu
-    t3_5     wire  8bu
-    t4_30    wire  32bu
-    t4_6     wire  32bu
-    t5_7     wire  8bu
-    t6_8     wire  32bu
-    t7_9     wire  8bu
-    t8_10    wire  32bu
-    t8_35    wire  32bu
-    t8_40    wire  1bu
-    t9_11    wire  8bu
+    t14_58   wire  8bu
+    t15_21   wire  32bu
+    t16_22   wire  32bu
+    t17_24   wire  32bu
+    t18_25   wire  32bu
+    t19_26   wire  32bu
+    t1_2     wire  8bu
+    t1_35    wire  32bu
+    t1_66    wire  1bu
+    t20_37   wire  32bu
+    t25_7    wire  32bu
+    t2_3     wire  8bu
+    t2_39    wire  1bu
+    t2_67    wire  32bu
+    t3_4     wire  8bu
+    t3_40    wire  32bu
+    t4_42    wire  32bu
+    t4_5     wire  32bu
+    t5_44    wire  32bu
+    t5_9     wire  1bu
+    t6_10    wire  8bu
+    t6_45    wire  8bu
+    t7_11    wire  32bu
+    t7_47    wire  32bu
+    t8_12    wire  8bu
+    t8_49    wire  32bu
+    t8_64    wire  32bu
+    t8_70    wire  1bu
+    t9_13    wire  32bu
+    t9_50    wire  8bu
     varargs  reg   32bs
   channels:
-    t0       depth=1 type=32bu
+    t0       depth=2 type=32bu
     t1       depth=8 type=8bu
-    t2       depth=1 type=1bu
+    t2       depth=2 type=1bu
   process 0 main (stage=0, sequential)
     block entry
       go stage3(stage=1)(ch:t1, t2)
       go stage2(stage=2)(ch:t0, t1)
       go stage1(stage=3)(ch:t0)
-      t8_40 <- t2
-      print "finished is "%!d(string=t8_40)"\n"
+      t8_70 <- t2
+      print "finished is "%0s(t8_70)"\n"
       return
   process 1 stage3 (stage=1, sequential)
     block entry
+      t0_1 <- t1
+      t1_2 <- t1
+      t2_3 <- t1
+      t3_4 <- t1
       jump for.loop
     block for.loop
-      t1_0 := phi[entry:const_1, for.body:t22_2]
-      t2_4 := cmp(t1_0 <u const_3)
-      br t2_4 ? for.body : for.done
+      t4_5 := phi[entry:const_6, for.body:t25_7]
+      t5_9 := cmp(t4_5 <u const_8)
+      br t5_9 ? for.body : for.done
     block for.done
-      send t2 <- const_23
+      send t2 <- const_29
       return
     block for.body
-      t3_5 <- t1
-      t4_6 := convert(t3_5)
-      t5_7 <- t1
-      t6_8 := convert(t5_7)
-      t7_9 <- t1
-      t8_10 := convert(t7_9)
-      t9_11 <- t1
-      t10_12 := convert(t9_11)
-      t11_14 := t4_6 << const_13
-      t12_16 := t6_8 << const_15
-      t13_17 := t11_14 | t12_16
-      t14_19 := t8_10 << const_18
-      t15_20 := t13_17 | t14_19
-      t16_21 := t15_20 | t10_12
-      print "stage 3: reconstructed integer "%!d(string=t16_21)"\n"
-      t22_2 := t1_0 + const_22
+      t6_10 <- t1
+      t7_11 := convert(t6_10)
+      t8_12 <- t1
+      t9_13 := convert(t8_12)
+      t10_14 <- t1
+      t11_15 := convert(t10_14)
+      t12_16 <- t1
+      t13_17 := convert(t12_16)
+      t14_19 := t7_11 << const_18
+      t15_21 := t9_13 << const_20
+      t16_22 := t14_19 | t15_21
+      t17_24 := t11_15 << const_23
+      t18_25 := t16_22 | t17_24
+      t19_26 := t18_25 | t13_17
+      print "stage 3: reconstructed integer "%0d(t19_26)"\n"
+      t25_7 := t4_5 + const_28
       jump for.loop
   process 2 stage2 (stage=2, sequential)
     block entry
-      t0_24 <- t0
+      t0_30 <- t0
+      send t1 <- const_31
+      send t1 <- const_32
+      send t1 <- const_33
+      send t1 <- const_34
       jump for.loop
     block for.loop
-      t2_25 := phi[entry:const_26, for.body:t11_27]
-      t3_29 := cmp(t2_25 <u const_28)
-      br t3_29 ? for.body : for.done
+      t1_35 := phi[entry:const_36, for.body:t20_37]
+      t2_39 := cmp(t1_35 <u const_38)
+      br t2_39 ? for.body : for.done
     block for.done
       return
     block for.body
-      t4_30 <- t0
-      print "stage 2: emitted 4 bytes for "%!d(string=t4_30)"\n"
-      t11_27 := t2_25 + const_31
+      t3_40 <- t0
+      t4_42 := t3_40 >> const_41
+      t5_44 := t4_42 & const_43
+      t6_45 := convert(t5_44)
+      send t1 <- t6_45
+      t7_47 := t3_40 >> const_46
+      t8_49 := t7_47 & const_48
+      t9_50 := convert(t8_49)
+      send t1 <- t9_50
+      t10_52 := t3_40 >> const_51
+      t11_54 := t10_52 & const_53
+      t12_55 := convert(t11_54)
+      send t1 <- t12_55
+      t13_57 := t3_40 & const_56
+      t14_58 := convert(t13_57)
+      send t1 <- t14_58
+      print "stage 2: emitted 4 bytes for "%0d(t3_40)"\n"
+      t20_37 := t1_35 + const_60
       jump for.loop
   process 3 stage1 (stage=3, sequential)
     block entry
-      send t0 <- const_32
+      send t0 <- const_61
       jump for.loop
     block for.loop
-      t0_33 := phi[entry:const_34, for.body:t8_35]
-      t1_37 := cmp(t0_33 <u const_36)
-      br t1_37 ? for.body : for.done
+      t0_62 := phi[entry:const_63, for.body:t8_64]
+      t1_66 := cmp(t0_62 <u const_65)
+      br t1_66 ? for.body : for.done
     block for.done
       return
     block for.body
-      t2_38 := t0_33 + t0_33
-      send t0 <- t2_38
-      print "stage 1: sent integer "%!d(string=t2_38)"\n"
-      t8_35 := t0_33 + const_39
+      t2_67 := t0_62 + t0_62
+      send t0 <- t2_67
+      print "stage 1: sent integer "%0d(t2_67)"\n"
+      t8_64 := t0_62 + const_69
       jump for.loop
 

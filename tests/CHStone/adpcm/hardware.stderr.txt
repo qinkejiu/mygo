@@ -1,8 +1,0 @@
-[DEBUG] ExtractConstants called for: tests/CHStone/adpcm/main.go
-[DEBUG] Read 19753 bytes from source
-[DEBUG] Parsed 77 declarations
-[DEBUG] Found constant array: test_data with 100 values (type int32)
-[DEBUG] AST walk: 82 GenDecls, 79 ValueSpecs, 13 CompositeLits, 0 ArrayTypes
-info: extracted 1 constant arrays from tests/CHStone/adpcm/main.go
-  - test_data: 100 values
-info: total constant arrays for testbench: 1

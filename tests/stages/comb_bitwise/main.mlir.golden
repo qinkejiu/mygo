@@ -1,0 +1,61 @@
+module {
+  hw.module @main(in %clk: i1, in %rst: i1) {
+    %c_init_varargs = hw.constant 0 : i32
+    %varargs = sv.reg : !hw.inout<i32>
+    sv.initial {
+      sv.bpassign %varargs, %c_init_varargs : i32
+    }
+    %c0 = hw.constant 13260 : i16
+    %c1 = hw.constant 3855 : i16
+    %state_const2 = hw.constant 0 : i1
+    %state_const3 = hw.constant 1 : i1
+    %state_reg4 = sv.reg : !hw.inout<i1>
+    sv.initial {
+      sv.bpassign %state_reg4, %state_const2 : i1
+    }
+    %state5 = sv.read_inout %state_reg4 : !hw.inout<i1>
+    %print_reg6 = sv.reg : !hw.inout<i16>
+    %print_zero7 = hw.constant 0 : i16
+    sv.initial {
+      sv.bpassign %print_reg6, %print_zero7 : i16
+    }
+    %print_reg8 = sv.reg : !hw.inout<i16>
+    %print_zero9 = hw.constant 0 : i16
+    sv.initial {
+      sv.bpassign %print_reg8, %print_zero9 : i16
+    }
+    %print_reg10 = sv.reg : !hw.inout<i16>
+    %print_zero11 = hw.constant 0 : i16
+    sv.initial {
+      sv.bpassign %print_reg10, %print_zero11 : i16
+    }
+    %v12 = comb.and %c0, %c1 : i16
+    %v13 = comb.or %c0, %c1 : i16
+    %v14 = comb.xor %c0, %c1 : i16
+    %stdout_fd15 = hw.constant 2147483649 : i32
+    sv.always posedge %clk {
+      sv.if %rst {
+        sv.passign %state_reg4, %state_const2 : i1
+      } else {
+        sv.case %state5 : i1
+        case b0: {
+          sv.bpassign %print_reg6, %v12 : i16
+          %print_val16 = sv.read_inout %print_reg6 : !hw.inout<i16>
+          sv.bpassign %print_reg8, %v13 : i16
+          %print_val17 = sv.read_inout %print_reg8 : !hw.inout<i16>
+          sv.bpassign %print_reg10, %v14 : i16
+          %print_val18 = sv.read_inout %print_reg10 : !hw.inout<i16>
+          sv.fwrite %stdout_fd15, "and=0x%0x or=0x%0x xor=0x%0x\n"(%print_val16, %print_val17, %print_val18) : i16, i16, i16
+          sv.passign %state_reg4, %state_const3 : i1
+        }
+        case b1: {
+          sv.passign %state_reg4, %state5 : i1
+        }
+        default: {
+          sv.passign %state_reg4, %state5 : i1
+        }
+      }
+    }
+    hw.output
+  }
+}

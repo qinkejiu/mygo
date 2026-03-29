@@ -1,0 +1,33 @@
+module main(
+  input clk,
+        rst
+);
+
+  reg signed [31:0] varargs;
+  initial
+    varargs = 32'h0;
+  reg        state_reg3;
+  initial
+    state_reg3 = 1'h0;
+  reg signed [31:0] print_reg5;
+  initial
+    print_reg5 = 32'h0;
+  always @(posedge clk) begin
+    if (rst)
+      state_reg3 <= 1'h0;
+    else begin
+      case (state_reg3)
+        1'b0: begin
+          print_reg5 = 32'h2A;
+          $write("x=%0d\n", print_reg5);
+          state_reg3 <= 1'h1;
+        end
+        1'b1:
+          state_reg3 <= state_reg3;
+        default:
+          state_reg3 <= state_reg3;
+      endcase
+    end
+  end // always @(posedge)
+endmodule
+

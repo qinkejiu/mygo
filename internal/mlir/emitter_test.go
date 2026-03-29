@@ -169,6 +169,26 @@ func main() {
 }
 `
 
+const multiProducerArbitrationProgram = `
+package main
+
+func writer0(out chan<- int32) {
+	out <- 1
+}
+
+func writer1(out chan<- int32) {
+	out <- 2
+}
+
+func main() {
+	ch := make(chan int32, 1)
+	go writer0(ch)
+	go writer1(ch)
+	_ = <-ch
+	_ = <-ch
+}
+`
+
 func TestFSMPrintAfterInlineSliceMutationUsesUpdatedValues(t *testing.T) {
 	design := buildMLIRDesignFromSource(t, fsmPrintAfterInlineSliceMutationProgram)
 	out := filepath.Join(t.TempDir(), "design.mlir")
@@ -185,6 +205,40 @@ func TestFSMPrintAfterInlineSliceMutationUsesUpdatedValues(t *testing.T) {
 	}
 	if !strings.Contains(text, "sv.fwrite") || !strings.Contains(text, "%print_val") {
 		t.Fatalf("expected print to use scratch-backed values:\n%s", text)
+	}
+}
+
+func TestEmitMultiProducerChannelArbitration(t *testing.T) {
+	design := buildMLIRDesignFromSource(t, multiProducerArbitrationProgram)
+	out := filepath.Join(t.TempDir(), "design.mlir")
+	if err := Emit(design, out); err != nil {
+		t.Fatalf("Emit failed: %v", err)
+	}
+	data, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatalf("read mlir output: %v", err)
+	}
+	text := string(data)
+	if !strings.Contains(text, "chan_t0_prod0_writer0_wdata") {
+		t.Fatalf("expected dedicated write wires for writer0:\n%s", text)
+	}
+	if !strings.Contains(text, "chan_t0_prod1_writer1_wdata") {
+		t.Fatalf("expected dedicated write wires for writer1:\n%s", text)
+	}
+	if !strings.Contains(text, "sv.assign %chan_t0_wvalid") || !strings.Contains(text, "comb.and") {
+		t.Fatalf("expected top-level arbitration on the shared FIFO write interface:\n%s", text)
+	}
+	if !strings.Contains(text, "sv.assign %chan_t0_prod0_writer0_wready") {
+		t.Fatalf("expected ready to be routed back to writer0-specific wires:\n%s", text)
+	}
+	if !strings.Contains(text, "sv.assign %chan_t0_prod1_writer1_wready") {
+		t.Fatalf("expected ready to be routed back to writer1-specific wires:\n%s", text)
+	}
+	if !strings.Contains(text, "chan_t0_wdata: %chan_t0_prod0_writer0_wdata") {
+		t.Fatalf("expected writer0 instance to bind to producer-local wires:\n%s", text)
+	}
+	if !strings.Contains(text, "chan_t0_wdata: %chan_t0_prod1_writer1_wdata") {
+		t.Fatalf("expected writer1 instance to bind to producer-local wires:\n%s", text)
 	}
 }
 

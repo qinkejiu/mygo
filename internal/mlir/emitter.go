@@ -28,9 +28,9 @@ func Emit(design *ir.Design, outputPath string) error {
 	}
 
 	em := &emitter{
-		w:           w,
-		fifoDecls:   make(map[string]*fifoInfo),
-		modulePorts: make(map[string][]portDesc),
+		w:               w,
+		loweredChannels: ir.LowerChannelsToFIFO(design),
+		modulePorts:     make(map[string][]portDesc),
 	}
 	fmt.Fprintln(w, "module {")
 	em.indent++
@@ -44,12 +44,12 @@ func Emit(design *ir.Design, outputPath string) error {
 }
 
 type emitter struct {
-	w            io.Writer
-	indent       int
-	fifoDecls    map[string]*fifoInfo
-	seqClockName string
-	modulePorts  map[string][]portDesc // Track module ports for instances
-	globalTempID int                   // Global counter for unique temporary names
+	w               io.Writer
+	indent          int
+	loweredChannels *ir.LoweredChannelDesign
+	seqClockName    string
+	modulePorts     map[string][]portDesc // Track module ports for instances
+	globalTempID    int                   // Global counter for unique temporary names
 }
 
 func (e *emitter) emitModule(module *ir.Module) {
@@ -128,8 +128,9 @@ func (e *emitter) emitTopLevelModule(module *ir.Module, root *processInfo, proce
 	fmt.Fprintln(e.w, " {")
 	e.indent++
 
-	channelWires := e.emitChannelWires(module)
-	e.emitChannelFifos(module, channelWires)
+	loweredModule := e.loweredChannels.ModuleFor(module)
+	channelWires := e.emitChannelWires(loweredModule)
+	e.emitChannelFifos(loweredModule, channelWires)
 	e.emitInternalSignals(module, moduleUsesFSM(module))
 	if root != nil {
 		e.emitRootProcess(module, root, channelWires)
@@ -146,36 +147,34 @@ func (e *emitter) emitTopLevelModule(module *ir.Module, root *processInfo, proce
 	return channelWires
 }
 
-func (e *emitter) emitChannelWires(module *ir.Module) map[*ir.Channel]*channelWireSet {
+func (e *emitter) emitChannelWires(loweredModule *ir.LoweredChannelModule) map[*ir.Channel]*channelWireSet {
 	wires := make(map[*ir.Channel]*channelWireSet)
-	if module == nil {
+	if loweredModule == nil {
 		return wires
 	}
-	names := make([]string, 0, len(module.Channels))
-	for name := range module.Channels {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	for _, name := range names {
-		ch := module.Channels[name]
-		s := sanitize(ch.Name)
+	for _, loweredFIFO := range loweredModule.FIFOs {
+		ch := loweredFIFO.Channel
+		if ch == nil {
+			continue
+		}
 		wireSet := &channelWireSet{
-			writeData:   fmt.Sprintf("%%chan_%s_wdata", s),
-			writeValid:  fmt.Sprintf("%%chan_%s_wvalid", s),
-			writeReady:  fmt.Sprintf("%%chan_%s_wready", s),
-			readData:    fmt.Sprintf("%%chan_%s_rdata", s),
-			readValid:   fmt.Sprintf("%%chan_%s_rvalid", s),
-			readReady:   fmt.Sprintf("%%chan_%s_rready", s),
-			full:        fmt.Sprintf("%%chan_%s_full", s),
-			almostFull:  fmt.Sprintf("%%chan_%s_almost_full", s),
-			empty:       fmt.Sprintf("%%chan_%s_empty", s),
-			almostEmpty: fmt.Sprintf("%%chan_%s_almost_empty", s),
+			writeData:      "%" + loweredFIFO.Wires.WriteData.Name,
+			writeValid:     "%" + loweredFIFO.Wires.WriteValid.Name,
+			writeReady:     "%" + loweredFIFO.Wires.WriteReady.Name,
+			readData:       "%" + loweredFIFO.Wires.ReadData.Name,
+			readValid:      "%" + loweredFIFO.Wires.ReadValid.Name,
+			readReady:      "%" + loweredFIFO.Wires.ReadReady.Name,
+			full:           "%" + loweredFIFO.Wires.Full.Name,
+			almostFull:     "%" + loweredFIFO.Wires.AlmostFull.Name,
+			empty:          "%" + loweredFIFO.Wires.Empty.Name,
+			almostEmpty:    "%" + loweredFIFO.Wires.AlmostEmpty.Name,
+			producerWrites: make(map[*ir.Process]*channelProducerWireSet),
 		}
 		wires[ch] = wireSet
 		e.printIndent()
 		fmt.Fprintf(e.w, "// channel %s depth=%d type=%s\n", ch.Name, ch.Depth, typeString(ch.Type))
 		e.printIndent()
-		fmt.Fprintf(e.w, "%s = sv.wire : %s\n", wireSet.writeData, inoutTypeString(ch.Type))
+		fmt.Fprintf(e.w, "%s = sv.wire : %s\n", wireSet.writeData, inoutTypeString(loweredFIFO.Wires.WriteData.Type))
 		e.printIndent()
 		fmt.Fprintf(e.w, "%s = sv.wire : !hw.inout<i1>\n", wireSet.writeValid)
 		e.printIndent()
@@ -194,54 +193,72 @@ func (e *emitter) emitChannelWires(module *ir.Module) map[*ir.Channel]*channelWi
 		fmt.Fprintf(e.w, "%s = sv.wire : !hw.inout<i1>\n", wireSet.empty)
 		e.printIndent()
 		fmt.Fprintf(e.w, "%s = sv.wire : !hw.inout<i1>\n", wireSet.almostEmpty)
+		if len(loweredFIFO.Producers) > 1 {
+			for _, producer := range loweredFIFO.Producers {
+				if producer == nil || producer.Process == nil {
+					continue
+				}
+				producerWireSet := &channelProducerWireSet{
+					writeData:  "%" + producer.Wires.WriteData.Name,
+					writeValid: "%" + producer.Wires.WriteValid.Name,
+					writeReady: "%" + producer.Wires.WriteReady.Name,
+				}
+				wireSet.producerWrites[producer.Process] = producerWireSet
+				e.printIndent()
+				fmt.Fprintf(e.w, "%s = sv.wire : %s\n", producerWireSet.writeData, inoutTypeString(producer.Wires.WriteData.Type))
+				e.printIndent()
+				fmt.Fprintf(e.w, "%s = sv.wire : !hw.inout<i1>\n", producerWireSet.writeValid)
+				e.printIndent()
+				fmt.Fprintf(e.w, "%s = sv.wire : !hw.inout<i1>\n", producerWireSet.writeReady)
+			}
+		}
 		e.emitChannelMetadata(ch)
 	}
 	return wires
 }
 
-func (e *emitter) emitChannelFifos(module *ir.Module, wires map[*ir.Channel]*channelWireSet) {
-	if module == nil || len(module.Channels) == 0 {
+func (e *emitter) emitChannelFifos(loweredModule *ir.LoweredChannelModule, wires map[*ir.Channel]*channelWireSet) {
+	if loweredModule == nil || len(loweredModule.FIFOs) == 0 {
 		return
 	}
-	names := make([]string, 0, len(module.Channels))
-	for name := range module.Channels {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	for _, name := range names {
-		ch := module.Channels[name]
+	for _, loweredFIFO := range loweredModule.FIFOs {
+		ch := loweredFIFO.Channel
+		if ch == nil {
+			continue
+		}
 		wireSet := wires[ch]
-		elemInout := inoutTypeString(ch.Type)
-		s := sanitize(ch.Name)
-		oneConst := fmt.Sprintf("%%chan_%s_one", s)
-		rstN := fmt.Sprintf("%%chan_%s_rst_n", s)
-		fullVal := fmt.Sprintf("%%chan_%s_full_val", s)
-		emptyVal := fmt.Sprintf("%%chan_%s_empty_val", s)
-		notFullVal := fmt.Sprintf("%%chan_%s_not_full", s)
-		notEmptyVal := fmt.Sprintf("%%chan_%s_not_empty", s)
+		oneConst := "%" + loweredFIFO.Helpers.OneConst
+		rstN := "%" + loweredFIFO.Helpers.ResetN
+		fullVal := "%" + loweredFIFO.Helpers.FullValue
+		emptyVal := "%" + loweredFIFO.Helpers.EmptyValue
+		notFullVal := "%" + loweredFIFO.Helpers.NotFull
+		notEmptyVal := "%" + loweredFIFO.Helpers.NotEmpty
 		e.printIndent()
 		fmt.Fprintf(e.w, "%s = hw.constant 1 : i1\n", oneConst)
 		e.printIndent()
 		fmt.Fprintf(e.w, "%s = comb.xor %%rst, %s : i1\n", rstN, oneConst)
-		moduleName := fifoModuleName(ch)
-		e.recordFifo(moduleName, ch)
 		e.printIndent()
-		fmt.Fprintf(e.w, "hw.instance \"%s_fifo\" @%s(", s, moduleName)
+		fmt.Fprintf(e.w, "hw.instance \"%s\" @%s(", loweredFIFO.Instance.Name, loweredFIFO.Instance.ModuleName)
 		ports := []struct {
 			name  string
 			value string
 			typ   string
-		}{
-			{name: "clk", value: "%clk", typ: "i1"},
-			{name: "rst_n", value: rstN, typ: "i1"},
-			{name: "wr_en", value: wireSet.writeValid, typ: "!hw.inout<i1>"},
-			{name: "wr_data", value: wireSet.writeData, typ: elemInout},
-			{name: "full", value: wireSet.full, typ: "!hw.inout<i1>"},
-			{name: "almost_full", value: wireSet.almostFull, typ: "!hw.inout<i1>"},
-			{name: "rd_en", value: wireSet.readReady, typ: "!hw.inout<i1>"},
-			{name: "rd_data", value: wireSet.readData, typ: elemInout},
-			{name: "empty", value: wireSet.empty, typ: "!hw.inout<i1>"},
-			{name: "almost_empty", value: wireSet.almostEmpty, typ: "!hw.inout<i1>"},
+		}{}
+		for _, binding := range loweredFIFO.Instance.Ports {
+			typeStr := typeString(binding.Type)
+			if binding.InOut {
+				typeStr = fmt.Sprintf("!hw.inout<%s>", typeStr)
+			}
+			value := "%" + binding.Wire
+			ports = append(ports, struct {
+				name  string
+				value string
+				typ   string
+			}{
+				name:  binding.Port,
+				value: value,
+				typ:   typeStr,
+			})
 		}
 		for i, port := range ports {
 			if i > 0 {
@@ -254,14 +271,100 @@ func (e *emitter) emitChannelFifos(module *ir.Module, wires map[*ir.Channel]*cha
 		fmt.Fprintf(e.w, "%s = sv.read_inout %s : !hw.inout<i1>\n", fullVal, wireSet.full)
 		e.printIndent()
 		fmt.Fprintf(e.w, "%s = comb.xor %s, %s : i1\n", notFullVal, fullVal, oneConst)
-		e.printIndent()
-		fmt.Fprintf(e.w, "sv.assign %s, %s : i1\n", wireSet.writeReady, notFullVal)
+		if len(loweredFIFO.Producers) > 1 {
+			e.emitMultiProducerArbitration(loweredFIFO, wireSet, notFullVal)
+		} else {
+			for _, conn := range loweredFIFO.Connects {
+				if conn.Dst == loweredFIFO.Wires.WriteReady.Name {
+					e.printIndent()
+					fmt.Fprintf(e.w, "sv.assign %s, %s : %s\n", wireSet.writeReady, "%"+conn.Src, typeString(conn.Type))
+				}
+			}
+		}
 		e.printIndent()
 		fmt.Fprintf(e.w, "%s = sv.read_inout %s : !hw.inout<i1>\n", emptyVal, wireSet.empty)
 		e.printIndent()
 		fmt.Fprintf(e.w, "%s = comb.xor %s, %s : i1\n", notEmptyVal, emptyVal, oneConst)
+		for _, conn := range loweredFIFO.Connects {
+			if conn.Dst == loweredFIFO.Wires.ReadValid.Name {
+				e.printIndent()
+				fmt.Fprintf(e.w, "sv.assign %s, %s : %s\n", wireSet.readValid, "%"+conn.Src, typeString(conn.Type))
+			}
+		}
+	}
+}
+
+func (e *emitter) emitMultiProducerArbitration(loweredFIFO *ir.LoweredChannelFIFO, wireSet *channelWireSet, fifoReady string) {
+	if loweredFIFO == nil || wireSet == nil || len(loweredFIFO.Producers) <= 1 {
+		return
+	}
+	oneConst := "%" + loweredFIFO.Helpers.OneConst
+	typeStr := typeString(loweredFIFO.Channel.Type)
+	validValues := make([]string, 0, len(loweredFIFO.Producers))
+	dataValues := make([]string, 0, len(loweredFIFO.Producers))
+	grantValues := make([]string, 0, len(loweredFIFO.Producers))
+	var priorValid string
+	for idx, producer := range loweredFIFO.Producers {
+		if producer == nil || producer.Process == nil {
+			continue
+		}
+		producerWires := wireSet.sendPortsFor(producer.Process)
+		if producerWires == nil {
+			continue
+		}
+		validVal := e.freshValueName("mp_valid")
 		e.printIndent()
-		fmt.Fprintf(e.w, "sv.assign %s, %s : i1\n", wireSet.readValid, notEmptyVal)
+		fmt.Fprintf(e.w, "%s = sv.read_inout %s : !hw.inout<i1>\n", validVal, producerWires.writeValid)
+		dataVal := e.freshValueName("mp_data")
+		e.printIndent()
+		fmt.Fprintf(e.w, "%s = sv.read_inout %s : %s\n", dataVal, producerWires.writeData, inoutTypeString(loweredFIFO.Channel.Type))
+		validValues = append(validValues, validVal)
+		dataValues = append(dataValues, dataVal)
+
+		grantVal := validVal
+		if idx > 0 && priorValid != "" {
+			noPriorValid := e.freshValueName("mp_no_prior")
+			e.printIndent()
+			fmt.Fprintf(e.w, "%s = comb.xor %s, %s : i1\n", noPriorValid, priorValid, oneConst)
+			grantVal = e.freshValueName("mp_grant")
+			e.printIndent()
+			fmt.Fprintf(e.w, "%s = comb.and %s, %s : i1\n", grantVal, validVal, noPriorValid)
+		}
+		grantValues = append(grantValues, grantVal)
+		if priorValid == "" {
+			priorValid = validVal
+		} else {
+			nextPrior := e.freshValueName("mp_prior")
+			e.printIndent()
+			fmt.Fprintf(e.w, "%s = comb.or %s, %s : i1\n", nextPrior, priorValid, validVal)
+			priorValid = nextPrior
+		}
+	}
+	writeValid := e.orSignals(validValues)
+	e.printIndent()
+	fmt.Fprintf(e.w, "sv.assign %s, %s : i1\n", wireSet.writeValid, writeValid)
+	writeData := e.muxByPredicates(grantValues, dataValues, loweredFIFO.Channel.Type)
+	e.printIndent()
+	fmt.Fprintf(e.w, "sv.assign %s, %s : %s\n", wireSet.writeData, writeData, typeStr)
+	for idx, producer := range loweredFIFO.Producers {
+		if producer == nil || producer.Process == nil || idx >= len(grantValues) {
+			continue
+		}
+		producerWires := wireSet.sendPortsFor(producer.Process)
+		if producerWires == nil {
+			continue
+		}
+		readyVal := grantValues[idx]
+		if readyVal == "" || readyVal == "%unknown" {
+			readyVal = e.boolConst(false)
+		} else {
+			gatedReady := e.freshValueName("mp_ready")
+			e.printIndent()
+			fmt.Fprintf(e.w, "%s = comb.and %s, %s : i1\n", gatedReady, readyVal, fifoReady)
+			readyVal = gatedReady
+		}
+		e.printIndent()
+		fmt.Fprintf(e.w, "sv.assign %s, %s : i1\n", producerWires.writeReady, readyVal)
 	}
 }
 
@@ -384,9 +487,17 @@ func (e *emitter) emitProcessInstance(idx int, info *processInfo, wires map[*ir.
 			continue
 		}
 		if role.send {
-			connections[portSet.sendData] = wire.writeData
-			connections[portSet.sendValid] = wire.writeValid
-			connections[portSet.sendReady] = wire.writeReady
+			sendPorts := wire.sendPortsFor(info.proc)
+			if sendPorts == nil {
+				sendPorts = &channelProducerWireSet{
+					writeData:  wire.writeData,
+					writeValid: wire.writeValid,
+					writeReady: wire.writeReady,
+				}
+			}
+			connections[portSet.sendData] = sendPorts.writeData
+			connections[portSet.sendValid] = sendPorts.writeValid
+			connections[portSet.sendReady] = sendPorts.writeReady
 		}
 		if role.recv {
 			connections[portSet.recvData] = wire.readData
@@ -572,6 +683,85 @@ func (e *emitter) printIndent() {
 	}
 }
 
+func (e *emitter) freshValueName(prefix string) string {
+	if prefix == "" {
+		prefix = "tmp"
+	}
+	name := fmt.Sprintf("%%%s%d", prefix, e.globalTempID)
+	e.globalTempID++
+	return name
+}
+
+func (e *emitter) boolConst(val bool) string {
+	name := e.freshValueName("c_bool")
+	e.printIndent()
+	intVal := 0
+	if val {
+		intVal = 1
+	}
+	fmt.Fprintf(e.w, "%s = hw.constant %d : i1\n", name, intVal)
+	return name
+}
+
+func (e *emitter) typedZeroConst(t *ir.SignalType) string {
+	name := e.freshValueName("c_zero")
+	e.printIndent()
+	fmt.Fprintf(e.w, "%s = hw.constant 0 : %s\n", name, typeString(t))
+	return name
+}
+
+func (e *emitter) orSignals(signals []string) string {
+	filtered := make([]string, 0, len(signals))
+	for _, sig := range signals {
+		if sig == "" || sig == "%unknown" {
+			continue
+		}
+		filtered = append(filtered, sig)
+	}
+	if len(filtered) == 0 {
+		return e.boolConst(false)
+	}
+	if len(filtered) == 1 {
+		return filtered[0]
+	}
+	result := filtered[0]
+	for _, sig := range filtered[1:] {
+		name := e.freshValueName("or")
+		e.printIndent()
+		fmt.Fprintf(e.w, "%s = comb.or %s, %s : i1\n", name, result, sig)
+		result = name
+	}
+	return result
+}
+
+func (e *emitter) muxByPredicates(predicates []string, values []string, t *ir.SignalType) string {
+	if len(predicates) == 0 || len(values) == 0 {
+		return e.typedZeroConst(t)
+	}
+	count := len(predicates)
+	if len(values) < count {
+		count = len(values)
+	}
+	defaultValue := e.typedZeroConst(t)
+	result := defaultValue
+	typeStr := typeString(t)
+	for i := count - 1; i >= 0; i-- {
+		pred := predicates[i]
+		if pred == "" || pred == "%unknown" {
+			continue
+		}
+		val := values[i]
+		if val == "" || val == "%unknown" {
+			val = defaultValue
+		}
+		name := e.freshValueName("mux")
+		e.printIndent()
+		fmt.Fprintf(e.w, "%s = comb.mux %s, %s, %s : %s\n", name, pred, val, result, typeStr)
+		result = name
+	}
+	return result
+}
+
 type portDesc struct {
 	name  string
 	typ   string
@@ -592,23 +782,40 @@ type channelPortSet struct {
 	recvReady string
 }
 
-type channelWireSet struct {
-	writeData   string
-	writeValid  string
-	writeReady  string
-	readData    string
-	readValid   string
-	readReady   string
-	full        string
-	almostFull  string
-	empty       string
-	almostEmpty string
+type channelProducerWireSet struct {
+	writeData  string
+	writeValid string
+	writeReady string
 }
 
-type fifoInfo struct {
-	moduleName string
-	elemType   *ir.SignalType
-	depth      int
+type channelWireSet struct {
+	writeData      string
+	writeValid     string
+	writeReady     string
+	readData       string
+	readValid      string
+	readReady      string
+	full           string
+	almostFull     string
+	empty          string
+	almostEmpty    string
+	producerWrites map[*ir.Process]*channelProducerWireSet
+}
+
+func (w *channelWireSet) sendPortsFor(proc *ir.Process) *channelProducerWireSet {
+	if w == nil {
+		return nil
+	}
+	if proc != nil && w.producerWrites != nil {
+		if producer := w.producerWrites[proc]; producer != nil {
+			return producer
+		}
+	}
+	return &channelProducerWireSet{
+		writeData:  w.writeData,
+		writeValid: w.writeValid,
+		writeReady: w.writeReady,
+	}
 }
 
 func channelPortsFromWires(info *processInfo, wires map[*ir.Channel]*channelWireSet) map[*ir.Channel]*channelPortSet {
@@ -624,9 +831,13 @@ func channelPortsFromWires(info *processInfo, wires map[*ir.Channel]*channelWire
 		}
 		set := &channelPortSet{}
 		if role.send {
-			set.sendData = wire.writeData
-			set.sendValid = wire.writeValid
-			set.sendReady = wire.writeReady
+			sendPorts := wire.sendPortsFor(info.proc)
+			if sendPorts == nil {
+				continue
+			}
+			set.sendData = sendPorts.writeData
+			set.sendValid = sendPorts.writeValid
+			set.sendReady = sendPorts.writeReady
 		}
 		if role.recv {
 			set.recvData = wire.readData
@@ -2832,36 +3043,18 @@ func normalizeHWConstantBits(bits uint64, width int) string {
 	return strconv.FormatUint(bits, 10)
 }
 
-func (e *emitter) recordFifo(moduleName string, ch *ir.Channel) {
-	if ch == nil {
-		return
-	}
-	if _, ok := e.fifoDecls[moduleName]; ok {
-		return
-	}
-	info := &fifoInfo{
-		moduleName: moduleName,
-		elemType:   ch.Type,
-		depth:      ch.Depth,
-	}
-	e.fifoDecls[moduleName] = info
-}
-
 func (e *emitter) emitFifoExterns() {
-	if len(e.fifoDecls) == 0 {
+	if e.loweredChannels == nil || len(e.loweredChannels.FIFODecls) == 0 {
 		return
 	}
-	names := make([]string, 0, len(e.fifoDecls))
-	for name := range e.fifoDecls {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	for _, name := range names {
-		info := e.fifoDecls[name]
-		elemType := typeString(info.elemType)
+	for _, decl := range e.loweredChannels.FIFODecls {
+		if decl == nil {
+			continue
+		}
+		elemType := typeString(decl.DataType)
 		e.printIndent()
 		fmt.Fprintf(e.w, "hw.module @%s(in %%clk: i1, in %%rst_n: i1, inout %%wr_en: i1, inout %%wr_data: %s, inout %%full: i1, inout %%almost_full: i1, inout %%rd_en: i1, inout %%rd_data: %s, inout %%empty: i1, inout %%almost_empty: i1) {\n",
-			info.moduleName,
+			decl.ModuleName,
 			elemType,
 			elemType,
 		)
@@ -2872,17 +3065,6 @@ func (e *emitter) emitFifoExterns() {
 		e.printIndent()
 		fmt.Fprintln(e.w, "}")
 	}
-}
-
-func fifoModuleName(ch *ir.Channel) string {
-	if ch == nil {
-		return "mygo_fifo_i1_d1"
-	}
-	depth := ch.Depth
-	if depth <= 0 {
-		depth = 1
-	}
-	return fmt.Sprintf("mygo_fifo_%s_d%d", sanitize(typeString(ch.Type)), depth)
 }
 
 func signalWidth(t *ir.SignalType) int {

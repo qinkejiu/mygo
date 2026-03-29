@@ -7,7 +7,6 @@ module main
     const_1  const 32bs = 1
     const_3  const 16bs = 2
     const_6  const 32bs = 0
-    const_7  const 32bs = 0
     t0_2     wire  64bs
     t1_4     wire  64bs
     t2_5     wire  64bs
@@ -17,6 +16,6 @@ module main
       t0_2 := convert(const_1)
       t1_4 := convert(const_3)
       t2_5 := t0_2 + t1_4
-      print "The result is small: "%d(t2_5)"\n"
+      print "The result is small: "%0d(t2_5)"\n"
       return
 

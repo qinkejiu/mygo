@@ -25,7 +25,17 @@ var (
 	verilogLiteralRe = regexp.MustCompile(`\b(\d+)'([bBdDhH])([0-9a-fA-F_xXzZ?]+)\b`)
 	declRe           = regexp.MustCompile(`^(\s*)(wire|reg|inout|input|output)\s+(signed\s+)?(\[[^\]]+\]\s+)?([A-Za-z_][A-Za-z0-9_$]*)\b(.*)$`)
 	assignRe         = regexp.MustCompile(`^(\s*)assign\s+([A-Za-z_][A-Za-z0-9_$]*)\s*=\s*(.*?);\s*$`)
+	moduleStartRe    = regexp.MustCompile(`^\s*module\s+([A-Za-z_][A-Za-z0-9_$]*)\b`)
+	endmoduleRe      = regexp.MustCompile(`^\s*endmodule\b`)
 )
+
+type signedNamesByModule map[string]map[string]struct{}
+
+type verilogModuleSpan struct {
+	name  string
+	start int
+	end   int
+}
 
 func applySignedVerilog(design *ir.Design, verilogPath string) error {
 	if design == nil || verilogPath == "" {
@@ -43,9 +53,7 @@ func applySignedVerilog(design *ir.Design, verilogPath string) error {
 	if err != nil {
 		return err
 	}
-	for name := range printNames {
-		signedNames[name] = struct{}{}
-	}
+	mergeSignedNames(signedNames, printNames)
 	rewritten = rewriteSignedDeclsAndAssigns(rewritten, signedNames)
 
 	if rewritten != src {
@@ -99,8 +107,8 @@ func collectPrintInfos(design *ir.Design) []printInfo {
 	return prints
 }
 
-func collectSignedNames(design *ir.Design) map[string]struct{} {
-	signed := make(map[string]struct{})
+func collectSignedNames(design *ir.Design) signedNamesByModule {
+	signed := make(signedNamesByModule)
 	if design == nil {
 		return signed
 	}
@@ -108,25 +116,26 @@ func collectSignedNames(design *ir.Design) map[string]struct{} {
 		if module == nil {
 			continue
 		}
+		moduleName := sanitize(module.Name)
 		for _, port := range module.Ports {
 			if port.Type == nil || !port.Type.Signed || port.Type.Width <= 1 {
 				continue
 			}
-			signed[sanitize(port.Name)] = struct{}{}
+			signed.add(moduleName, sanitize(port.Name))
 		}
 		for _, sig := range module.Signals {
 			if sig == nil || sig.Type == nil || !sig.Type.Signed || sig.Type.Width <= 1 {
 				continue
 			}
-			signed[sanitize(sig.Name)] = struct{}{}
+			signed.add(moduleName, sanitize(sig.Name))
 		}
 		for _, ch := range module.Channels {
 			if ch == nil || ch.Type == nil || !ch.Type.Signed || ch.Type.Width <= 1 {
 				continue
 			}
 			name := sanitize(ch.Name)
-			signed["chan_"+name+"_wdata"] = struct{}{}
-			signed["chan_"+name+"_rdata"] = struct{}{}
+			signed.add(moduleName, "chan_"+name+"_wdata")
+			signed.add(moduleName, "chan_"+name+"_rdata")
 		}
 	}
 	return signed
@@ -178,11 +187,13 @@ func processModuleName(module *ir.Module, proc *ir.Process) string {
 	return modName + "__proc"
 }
 
-func rewriteFwriteCalls(src string, prints []printInfo) (string, map[string]struct{}, error) {
-	signedNames := make(map[string]struct{})
+func rewriteFwriteCalls(src string, prints []printInfo) (string, signedNamesByModule, error) {
+	signedNames := make(signedNamesByModule)
+	moduleSpans := parseVerilogModuleSpans(src)
 	var out strings.Builder
 	idx := 0
 	i := 0
+	moduleIdx := 0
 	for i < len(src) {
 		start := strings.Index(src[i:], "$fwrite")
 		if start == -1 {
@@ -225,7 +236,12 @@ func rewriteFwriteCalls(src string, prints []printInfo) (string, map[string]stru
 		}
 
 		if idx < len(prints) {
-			args, signedNames = rewriteFwriteArgs(args, prints[idx], signedNames)
+			currentModule := moduleNameForOffset(moduleSpans, start, &moduleIdx)
+			var localSigned map[string]struct{}
+			args, localSigned = rewriteFwriteArgs(args, prints[idx], nil)
+			for name := range localSigned {
+				signedNames.add(currentModule, name)
+			}
 			idx++
 		}
 
@@ -306,18 +322,33 @@ func rewriteFwriteArgs(args []string, info printInfo, signedNames map[string]str
 	return args, signedNames
 }
 
-func rewriteSignedDeclsAndAssigns(src string, signedNames map[string]struct{}) string {
+func rewriteSignedDeclsAndAssigns(src string, signedNames signedNamesByModule) string {
 	if len(signedNames) == 0 {
 		return src
 	}
 	lines := strings.Split(src, "\n")
+	currentModule := ""
 	for i, line := range lines {
+		if matches := moduleStartRe.FindStringSubmatch(line); matches != nil {
+			currentModule = matches[1]
+			lines[i] = line
+			continue
+		}
+		if endmoduleRe.MatchString(line) {
+			currentModule = ""
+			lines[i] = line
+			continue
+		}
+		if currentModule == "" {
+			lines[i] = line
+			continue
+		}
 		if matches := declRe.FindStringSubmatch(line); matches != nil {
 			name := matches[5]
-			if _, ok := signedNames[name]; ok && matches[3] == "" && matches[4] != "" {
+			if signedNames.has(currentModule, name) && matches[3] == "" && matches[4] != "" {
 				line = matches[1] + matches[2] + " signed " + matches[4] + name + matches[6]
 			}
-			if _, ok := signedNames[name]; ok {
+			if signedNames.has(currentModule, name) {
 				if eq := strings.Index(line, "="); eq != -1 {
 					before := line[:eq+1]
 					after := rewriteSignedLiterals(line[eq+1:])
@@ -329,7 +360,7 @@ func rewriteSignedDeclsAndAssigns(src string, signedNames map[string]struct{}) s
 		}
 		if matches := assignRe.FindStringSubmatch(line); matches != nil {
 			name := matches[2]
-			if _, ok := signedNames[name]; ok {
+			if signedNames.has(currentModule, name) {
 				expr := rewriteSignedLiterals(matches[3])
 				line = matches[1] + "assign " + name + " = " + expr + ";"
 				lines[i] = line
@@ -337,6 +368,89 @@ func rewriteSignedDeclsAndAssigns(src string, signedNames map[string]struct{}) s
 		}
 	}
 	return strings.Join(lines, "\n")
+}
+
+func (s signedNamesByModule) add(moduleName, name string) {
+	if moduleName == "" || name == "" {
+		return
+	}
+	if s[moduleName] == nil {
+		s[moduleName] = make(map[string]struct{})
+	}
+	s[moduleName][name] = struct{}{}
+}
+
+func (s signedNamesByModule) has(moduleName, name string) bool {
+	if moduleName == "" || name == "" {
+		return false
+	}
+	names := s[moduleName]
+	if len(names) == 0 {
+		return false
+	}
+	_, ok := names[name]
+	return ok
+}
+
+func mergeSignedNames(dst, src signedNamesByModule) {
+	for moduleName, names := range src {
+		for name := range names {
+			dst.add(moduleName, name)
+		}
+	}
+}
+
+func parseVerilogModuleSpans(src string) []verilogModuleSpan {
+	lines := strings.SplitAfter(src, "\n")
+	if len(lines) == 0 {
+		return nil
+	}
+	spans := make([]verilogModuleSpan, 0, 4)
+	currentName := ""
+	currentStart := 0
+	offset := 0
+	for _, line := range lines {
+		if currentName == "" {
+			if matches := moduleStartRe.FindStringSubmatch(line); matches != nil {
+				currentName = matches[1]
+				currentStart = offset
+			}
+		}
+		offset += len(line)
+		if currentName != "" && endmoduleRe.MatchString(line) {
+			spans = append(spans, verilogModuleSpan{
+				name:  currentName,
+				start: currentStart,
+				end:   offset,
+			})
+			currentName = ""
+		}
+	}
+	if currentName != "" {
+		spans = append(spans, verilogModuleSpan{
+			name:  currentName,
+			start: currentStart,
+			end:   len(src),
+		})
+	}
+	return spans
+}
+
+func moduleNameForOffset(spans []verilogModuleSpan, offset int, idx *int) string {
+	if idx == nil {
+		i := 0
+		idx = &i
+	}
+	for *idx < len(spans) && offset >= spans[*idx].end {
+		*idx = *idx + 1
+	}
+	if *idx < len(spans) {
+		span := spans[*idx]
+		if offset >= span.start && offset < span.end {
+			return span.name
+		}
+	}
+	return ""
 }
 
 func splitArgsWithSeps(argsStr string) ([]string, []string, error) {

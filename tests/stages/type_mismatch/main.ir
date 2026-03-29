@@ -3,20 +3,23 @@ module main
     in  clk 1bu
     in  rst 1bu
   signals:
-    const_0  const 8bu = 5
-    const_2  const 16bs = -12
-    const_5  const 32bu = 1024
-    t0_1     wire  16bs
-    t1_3     wire  16bs
-    t2_4     wire  32bu
-    t3_6     wire  32bu
+    const_0  const 1bu = true
+    const_1  const 8bu = 5
+    const_3  const 16bs = -12
+    const_6  const 32bu = 1024
+    const_8  const 32bs = 0
+    const_9  const 32bs = 0
+    t0_2     wire  16bs
+    t1_4     wire  16bs
+    t2_5     wire  32bu
+    t3_7     wire  32bu
     varargs  reg   32bs
   process 0 main (stage=0, sequential)
     block entry
-      t0_1 := convert(const_0)
-      t1_3 := t0_1 + const_2
-      t2_4 := convert(t1_3)
-      t3_6 := t2_4 + const_5
-      print "acc="%!d(string=t1_3)" wide="%!d(string=t3_6)"\n"
+      t0_2 := convert(const_1)
+      t1_4 := t0_2 + const_3
+      t2_5 := convert(t1_4)
+      t3_7 := t2_5 + const_6
+      print "acc="%0d(t1_4)" wide="%0d(t3_7)"\n"
       return
 

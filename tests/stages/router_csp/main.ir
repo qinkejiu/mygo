@@ -3,93 +3,158 @@ module main
     in  clk 1bu
     in  rst 1bu
   signals:
-    const_0  const 32bu = 0
+    const_0  const 1bu = true
+    const_101 const 32bu = 10
+    const_103 const 32bu = 16
+    const_105 const 32bu = 16777216
+    const_107 const 32bu = 65535
     const_11 const 32bu = 16
+    const_110 const 32bs = 0
+    const_111 const 32bs = 0
+    const_112 const 32bs = 0
+    const_113 const 32bu = 1
+    const_114 const 32bu = 1
+    const_115 const 1bu = true
+    const_117 const 32bs = 0
+    const_119 const 32bs = 5
+    const_122 const 32bs = 1
+    const_123 const 32bs = 0
+    const_124 const 32bs = 4
     const_13 const 32bu = 255
     const_15 const 32bu = 65535
-    const_17 const 32bu = 1
-    const_18 const 1bu = true
-    const_19 const 32bu = 1
+    const_17 const 32bs = 0
+    const_18 const 32bs = 0
+    const_19 const 32bs = 0
     const_2  const 32bu = 0
+    const_20 const 32bs = 0
     const_21 const 32bu = 0
-    const_23 const 32bu = 4
-    const_27 const 32bu = 1
-    const_28 const 32bu = 0
-    const_29 const 32bu = 0
-    const_31 const 32bu = 0
-    const_33 const 32bu = 4
-    const_36 const 32bu = 1
-    const_38 const 32bu = 10
+    const_22 const 32bu = 1
+    const_23 const 1bu = true
+    const_25 const 32bu = 0
+    const_27 const 32bu = 4
+    const_30 const 32bu = 24
+    const_32 const 32bu = 255
+    const_34 const 32bu = 16
+    const_36 const 32bu = 255
+    const_38 const 32bu = 65535
     const_4  const 32bu = 4
-    const_41 const 32bu = 24
-    const_43 const 32bu = 16
-    const_46 const 32bu = 65535
-    const_49 const 32bu = 1
-    const_50 const 32bu = 1
-    const_51 const 32bu = 1
-    const_53 const 32bs = 0
-    const_55 const 32bs = 2
-    const_58 const 32bs = 1
-    const_59 const 32bs = 4
+    const_40 const 32bs = 0
+    const_41 const 32bs = 0
+    const_42 const 32bs = 0
+    const_43 const 32bs = 0
+    const_44 const 32bu = 1
+    const_45 const 32bu = 1
+    const_46 const 1bu = true
+    const_48 const 32bu = 0
+    const_50 const 32bu = 4
+    const_53 const 32bu = 16
+    const_55 const 32bu = 255
+    const_57 const 32bu = 1
+    const_59 const 32bu = 0
+    const_61 const 1bu = true
+    const_63 const 32bu = 16
+    const_65 const 32bu = 255
+    const_67 const 32bu = 1
+    const_69 const 32bu = 0
     const_7  const 32bu = 24
+    const_71 const 32bu = 1
+    const_73 const 32bu = 0
+    const_75 const 32bu = 4
+    const_77 const 32bu = 1
+    const_79 const 32bu = 16
+    const_81 const 32bu = 0
+    const_83 const 32bu = 65535
+    const_86 const 32bs = 0
+    const_87 const 32bs = 0
+    const_88 const 32bs = 0
+    const_89 const 32bu = 0
     const_9  const 32bu = 255
+    const_90 const 32bu = 1
+    const_91 const 1bu = true
+    const_93 const 32bu = 0
+    const_95 const 32bu = 4
+    const_97 const 32bu = 1
+    const_99 const 32bu = 1
     t0_1     wire  32bu
-    t0_20    wire  32bu
-    t0_30    wire  32bu
-    t10_48   wire  32bu
-    t15_52   wire  32bs
-    t16_56   wire  1bu
-    t17_57   wire  1bu
-    t18_54   wire  32bs
+    t0_24    wire  32bu
+    t0_47    wire  32bu
+    t0_72    wire  32bu
+    t0_92    wire  32bu
+    t10_68   wire  32bu
+    t11_70   wire  1bu
+    t12_49   wire  32bu
+    t16_74   wire  32bu
+    t18_116  wire  32bs
+    t18_94   wire  32bu
+    t19_120  wire  1bu
+    t19_26   wire  32bu
     t19_3    wire  32bu
-    t1_24    wire  1bu
-    t1_34    wire  1bu
+    t1_28    wire  1bu
     t1_5     wire  1bu
-    t20_32   wire  32bu
-    t2_25    wire  32bu
-    t2_35    wire  32bu
+    t1_51    wire  1bu
+    t1_76    wire  1bu
+    t1_96    wire  1bu
+    t20_121  wire  1bu
+    t21_118  wire  32bs
+    t2_29    wire  32bu
+    t2_52    wire  32bu
     t2_6     wire  32bu
-    t3_37    wire  32bu
+    t2_78    wire  32bu
+    t2_98    wire  32bu
+    t3_100   wire  32bu
+    t3_31    wire  32bu
+    t3_54    wire  32bu
     t3_8     wire  32bu
+    t3_80    wire  32bu
     t4_10    wire  32bu
-    t4_26    wire  32bu
-    t4_39    wire  32bu
+    t4_102   wire  32bu
+    t4_33    wire  32bu
+    t4_56    wire  32bu
+    t4_82    wire  32bu
+    t5_104   wire  32bu
     t5_12    wire  32bu
-    t5_40    wire  32bu
+    t5_35    wire  32bu
+    t5_58    wire  32bu
+    t5_84    wire  32bu
+    t6_106   wire  32bu
     t6_14    wire  32bu
-    t6_22    wire  32bu
-    t6_42    wire  32bu
+    t6_37    wire  32bu
+    t6_60    wire  1bu
+    t6_85    wire  32bu
+    t7_108   wire  32bu
     t7_16    wire  32bu
-    t7_44    wire  32bu
-    t8_45    wire  32bu
-    t9_47    wire  32bu
+    t7_39    wire  32bu
+    t7_62    wire  32bu
+    t8_109   wire  32bu
+    t8_64    wire  32bu
+    t9_66    wire  32bu
     varargs  reg   32bs
   channels:
-    t0       depth=1 type=32bu
-    t1       depth=1 type=32bu
-    t2       depth=1 type=32bu
-    t3       depth=1 type=32bu
-    t4       depth=2 type=1bu
+    t0       depth=2 type=32bu
+    t1       depth=2 type=32bu
+    t2       depth=2 type=32bu
+    t3       depth=2 type=32bu
+    t4       depth=5 type=1bu
   process 0 main (stage=0, sequential)
     block entry
-      go consumer(stage=2)(const_0; ch:t2, t4)
-      go consumer(stage=2)(const_19; ch:t3, t4)
-      go router(stage=3)(ch:t0, t1, t2, t3)
-      go producer(stage=5)(const_28, const_29; ch:t0)
-      go producer(stage=5)(const_50, const_51; ch:t1)
+      go consumer0(stage=1)(ch:t2, t4)
+      go consumer1(stage=2)(ch:t3, t4)
+      go router(stage=3)(ch:t0, t1, t2, t3, t4)
+      go producer0(stage=4)(ch:t0, t4)
+      go producer1(stage=5)(ch:t1, t4)
       jump for.loop
     block for.loop
-      t15_52 := phi[entry:const_53, for.body:t18_54]
-      t16_56 := cmp(t15_52 <s const_55)
-      br t16_56 ? for.body : for.done
+      t18_116 := phi[entry:const_117, for.body:t21_118]
+      t19_120 := cmp(t18_116 <s const_119)
+      br t19_120 ? for.body : for.done
     block for.done
-      print "router complete packets="%!d(string=const_59)"\n"
+      print "router complete packets="%0d(const_124)"\n"
       return
     block for.body
-      t17_57 <- t4
-      t18_54 := t15_52 + const_58
+      t20_121 <- t4
+      t21_118 := t18_116 + const_122
       jump for.loop
-  process 1 consumer (stage=2, sequential)
+  process 1 consumer0 (stage=1, sequential)
     block entry
       jump for.loop
     block for.loop
@@ -97,7 +162,7 @@ module main
       t1_5 := cmp(t0_1 <u const_4)
       br t1_5 ? for.body : for.done
     block for.done
-      send t4 <- const_18
+      send t4 <- const_23
       return
     block for.body
       t2_6 <- t2
@@ -106,44 +171,108 @@ module main
       t5_12 := t2_6 >> const_11
       t6_14 := t5_12 & const_13
       t7_16 := t2_6 & const_15
-      print "consumer "%!d(string=const_0)" got src="%!d(string=t4_10)" dest="%!d(string=t6_14)" payload="%!d(string=t7_16)"\n"
-      t19_3 := t0_1 + const_17
+      print "consumer "%0d(const_21)" got src="%0d(t4_10)" dest="%0d(t6_14)" payload="%0d(t7_16)"\n"
+      t19_3 := t0_1 + const_22
       jump for.loop
-  process 2 router (stage=3, sequential)
+  process 2 consumer1 (stage=2, sequential)
     block entry
       jump for.loop
     block for.loop
-      t0_20 := phi[entry:const_21, for.body:t6_22]
-      t1_24 := cmp(t0_20 <u const_23)
-      br t1_24 ? for.body : for.done
+      t0_24 := phi[entry:const_25, for.body:t19_26]
+      t1_28 := cmp(t0_24 <u const_27)
+      br t1_28 ? for.body : for.done
     block for.done
+      send t4 <- const_46
       return
     block for.body
-      t2_25 <- t0
-      t4_26 <- t1
-      t6_22 := t0_20 + const_27
+      t2_29 <- t3
+      t3_31 := t2_29 >> const_30
+      t4_33 := t3_31 & const_32
+      t5_35 := t2_29 >> const_34
+      t6_37 := t5_35 & const_36
+      t7_39 := t2_29 & const_38
+      print "consumer "%0d(const_44)" got src="%0d(t4_33)" dest="%0d(t6_37)" payload="%0d(t7_39)"\n"
+      t19_26 := t0_24 + const_45
       jump for.loop
-  process 3 producer (stage=5, sequential)
+  process 3 router (stage=3, sequential)
     block entry
       jump for.loop
     block for.loop
-      t0_30 := phi[entry:const_31, for.body:t20_32]
-      t1_34 := cmp(t0_30 <u const_33)
-      br t1_34 ? for.body : for.done
+      t0_47 := phi[entry:const_48, if.done:t12_49]
+      t1_51 := cmp(t0_47 <u const_50)
+      br t1_51 ? for.body : for.done
     block for.done
+      send t4 <- const_61
       return
     block for.body
-      t2_35 := const_29 + t0_30
-      t3_37 := t2_35 & const_36
-      t4_39 := const_28 * const_38
-      t5_40 := t4_39 + t0_30
-      t6_42 := const_28 << const_41
-      t7_44 := t3_37 << const_43
-      t8_45 := t6_42 | t7_44
-      t9_47 := t5_40 & const_46
-      t10_48 := t8_45 | t9_47
-      send t0 <- t10_48
-      print "producer "%!d(string=const_28)" sent dest="%!d(string=t3_37)" payload="%!d(string=t5_40)"\n"
-      t20_32 := t0_30 + const_49
+      t2_52 <- t0
+      t3_54 := t2_52 >> const_53
+      t4_56 := t3_54 & const_55
+      t5_58 := t4_56 & const_57
+      t6_60 := cmp(t5_58 == const_59)
+      br t6_60 ? if.then : if.else
+    block if.else
+      send t3 <- t2_52
+      jump if.done
+    block if.then
+      send t2 <- t2_52
+      jump if.done
+    block if.done
+      t7_62 <- t1
+      t8_64 := t7_62 >> const_63
+      t9_66 := t8_64 & const_65
+      t10_68 := t9_66 & const_67
+      t11_70 := cmp(t10_68 == const_69)
+      br t11_70 ? if.then : if.else
+    block if.else
+      send t3 <- t7_62
+      jump if.done
+    block if.then
+      send t2 <- t7_62
+      jump if.done
+    block if.done
+      t12_49 := t0_47 + const_71
+      jump for.loop
+  process 4 producer0 (stage=4, sequential)
+    block entry
+      jump for.loop
+    block for.loop
+      t0_72 := phi[entry:const_73, for.body:t16_74]
+      t1_76 := cmp(t0_72 <u const_75)
+      br t1_76 ? for.body : for.done
+    block for.done
+      send t4 <- const_91
+      return
+    block for.body
+      t2_78 := t0_72 & const_77
+      t3_80 := t2_78 << const_79
+      t4_82 := const_81 | t3_80
+      t5_84 := t0_72 & const_83
+      t6_85 := t4_82 | t5_84
+      send t0 <- t6_85
+      print "producer "%0d(const_89)" sent dest="%0d(t2_78)" payload="%0d(t0_72)"\n"
+      t16_74 := t0_72 + const_90
+      jump for.loop
+  process 5 producer1 (stage=5, sequential)
+    block entry
+      jump for.loop
+    block for.loop
+      t0_92 := phi[entry:const_93, for.body:t18_94]
+      t1_96 := cmp(t0_92 <u const_95)
+      br t1_96 ? for.body : for.done
+    block for.done
+      send t4 <- const_115
+      return
+    block for.body
+      t2_98 := const_97 + t0_92
+      t3_100 := t2_98 & const_99
+      t4_102 := const_101 + t0_92
+      t5_104 := t3_100 << const_103
+      t6_106 := const_105 | t5_104
+      t7_108 := t4_102 & const_107
+      t8_109 := t6_106 | t7_108
+      send t1 <- t8_109
+      print "producer "%0d(const_113)" sent dest="%0d(t3_100)" payload="%0d(t4_102)"\n"
+      t18_94 := t0_92 + const_114
       jump for.loop
 

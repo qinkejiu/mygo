@@ -18,13 +18,11 @@ mygo compile tests/stages/simple/main.go > /tmp/simple.mlir
 ```bash
 mygo compile \
   -emit=verilog \
-  --fifo-src=internal/backend/templates/simple_fifo.sv \
   -o /tmp/pipeline1.sv \
   tests/stages/pipeline1/main.go
 ```
 
 - Verilog emission requires `-o` because the backend writes auxiliary FIFO/IP bundles next to that file.
-- `--fifo-src` is required whenever the design instantiates channels; point it at a single `.sv` file or a directory of helper IP.
 - The backend mirrors the FIFO assets alongside `pipeline1.sv` (e.g. `design_fifos.sv` or `design_fifo_lib/`).
 - CIRCT scratch files (`design.mlir`, `design.pipeline.mlir`, etc.) now live under `<workload>/.mygo-tmp/.mygo-circt-*`. They are cleaned automatically unless the command fails.
 
@@ -40,7 +38,7 @@ mygo compile \
 | `--circt-pipeline` | Pass pipeline string forwarded to `circt-opt --pass-pipeline`. Useful for experiments. |
 | `--circt-lowering-options` | Comma-separated string passed via `--lowering-options`. Helpful when reproducing CI comparisons. |
 | `--circt-mlir` | File path to dump the MLIR handed off to CIRCT before lowering. |
-| `--fifo-src` | FIFO/handshake IP source. Required when `designHasChannels` is true. |
+| `--fifo-src` | Deprecated compatibility flag. The compiler now generates FIFO support inline and ignores this option. |
 
 ## SSA + IR Dump Modes
 
@@ -66,9 +64,23 @@ The stage harness (`tests/stages/stages_test.go`) consumes the compile command i
 
 1. **MLIR goldens**: `TestMLIRGeneration` writes `main.mlir` to a temp file and diffs it against `tests/stages/<case>/main.mlir.golden` if present.
 2. **Verilog goldens**: `TestVerilogGeneration` runs the `-emit=verilog` path with deterministic lowering options when `circt-opt` is available.
-3. **Channel awareness**: Workloads with `NeedsFIFO` automatically append `--fifo-src internal/backend/templates/simple_fifo.sv`.
+3. **Channel workloads**: Channel-heavy cases use the same compile path; no external FIFO source flag is required.
 
-When you introduce a new workload, populate `main.mlir.golden` / `main.sv.golden` as needed and update `testCases` accordingly. Run `go test ./tests/stages` to validate the diffs locally.
+When you introduce a new workload, populate `main.mlir.golden` / `main.sv.golden` as needed and update `testCases` accordingly.
+
+Use the following verification split:
+
+```bash
+# Fast path
+go test ./...
+
+# Full artifact validation
+MYGO_COMPARE_GOLDENS=1 go test ./...
+```
+
+The full mode enables stage goldens and the targeted CHStone hardware regressions; the fast path keeps those artifact-heavy checks disabled while still exercising the pure-Go suite.
+
+To refresh the committed stage baselines, use `scripts/regenerate_stage_artifacts.sh`.
 
 ## Lint-Only Workflow
 
@@ -85,5 +97,5 @@ mygo lint -concurrency=false tests/stages/simple/main.go
 ## Troubleshooting Tips
 
 - **Missing `circt-opt`**: The Verilog path returns a skip/failure message. Install CIRCT or point `--circt-opt` at a custom build.
-- **`--fifo-src` errors**: Designs without channels do not need the flag. If you see `requires --fifo-src`, double-check whether your Go code introduces buffered channels.
+- **`--fifo-src` usage**: The flag is deprecated and ignored. If you still see it in local scripts, remove it rather than debugging around it.
 - **Pass debugging**: Use `--circt-mlir` to capture the MLIR right before the CIRCT step, then run `circt-opt` manually with experimental pipelines.

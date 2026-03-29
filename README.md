@@ -26,22 +26,23 @@ go run ./cmd/mygo sim tests/stages/simple/main.go
 
 ### Extended Regression
 ```bash
-# Pure Go unit+integration coverage
+# Fast verification: pure-Go unit/integration coverage plus skip-aware simulator tests
 go test ./...
 
-# Stage harness (MLIR, SV, Sim goldens)
-go test ./tests/stages
+# Full artifact validation: stage goldens plus targeted CHStone hardware/software checks
+MYGO_COMPARE_GOLDENS=1 go test ./...
 ```
-These suites gracefully skip Verilog/Sim checks if `circt-opt` or `verilator` is missing, so it is safe to run them in CI and local shells.
+The default command keeps artifact-heavy checks disabled so a plain Go toolchain can still run the suite. Full validation enables stage goldens and the targeted `aes`/`dfsin`/`sha` CHStone regressions; simulator-dependent tests still skip if `circt-opt` or `verilator` is missing.
+
+To refresh the committed stage baselines, run `scripts/regenerate_stage_artifacts.sh`.
 
 ---
 
 ## Docs
 - `docs/compile.md` – full `mygo compile` flag reference, SSA/IR dump modes, lint workflow notes, FIFO guidance, and golden generation tips.
 - `docs/sim.md` – simulator options, default Verilator flow, test structure, and how goldens/expectations work.
-- `docs/phi-repro.md` – current known issues such as the `phi_loop` workload.
 - `docs/backend/testdata.md` – catalog of backend SystemVerilog fixtures used in unit tests.
-- `docs/archive/` – historical plans and previous READMEs for citation only.
+- `docs/fix_audit_recommendations.md` – audit follow-up checklist for regression hardening and repository cleanup.
 
 Always update the relevant doc instead of bloating this README when you add flags or tweak flows.
 

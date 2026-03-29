@@ -225,42 +225,46 @@ func TestDesignHasConcurrentPrints(t *testing.T) {
 	}
 }
 
-func TestShouldFallbackSimToSoftware(t *testing.T) {
+func TestEnsureHardwareLowerableDesignAllowsMultiProducerChannels(t *testing.T) {
 	t.Parallel()
-	tests := []struct {
-		name   string
-		inputs []string
-		want   bool
-	}{
-		{
-			name:   "dfsin workload",
-			inputs: []string{"tests/CHStone/dfsin/main.go"},
-			want:   false,
+	ch := &ir.Channel{
+		Name: "done",
+		Type: &ir.SignalType{Width: 1},
+		Producers: []*ir.ChannelEndpoint{
+			{Process: &ir.Process{Name: "producer0"}, Direction: ir.ChannelSend},
+			{Process: &ir.Process{Name: "producer1"}, Direction: ir.ChannelSend},
 		},
-		{
-			name:   "aes workload",
-			inputs: []string{"tests/CHStone/aes/main.go"},
-			want:   false,
-		},
-		{
-			name:   "other workload",
-			inputs: []string{"tests/CHStone/sha/main.go"},
-			want:   false,
-		},
-		{
-			name:   "multiple inputs disable fallback",
-			inputs: []string{"tests/CHStone/aes/main.go", "tests/CHStone/sha/main.go"},
-			want:   false,
+		Consumers: []*ir.ChannelEndpoint{
+			{Process: &ir.Process{Name: "main"}, Direction: ir.ChannelReceive},
 		},
 	}
-	for _, tc := range tests {
-		tc := tc
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-			if got := shouldFallbackSimToSoftware(tc.inputs); got != tc.want {
-				t.Fatalf("shouldFallbackSimToSoftware(%v)=%t, want %t", tc.inputs, got, tc.want)
-			}
-		})
+	design := &ir.Design{Modules: []*ir.Module{{
+		Name:     "main",
+		Channels: map[string]*ir.Channel{"done": ch},
+	}}}
+	if err := ensureHardwareLowerableDesign(design); err != nil {
+		t.Fatalf("expected multi-producer channel to be hardware-lowerable, got %v", err)
+	}
+}
+
+func TestEnsureHardwareLowerableDesignAllowsSingleProducerChannel(t *testing.T) {
+	t.Parallel()
+	ch := &ir.Channel{
+		Name: "done",
+		Type: &ir.SignalType{Width: 1},
+		Producers: []*ir.ChannelEndpoint{
+			{Process: &ir.Process{Name: "producer0"}, Direction: ir.ChannelSend},
+		},
+		Consumers: []*ir.ChannelEndpoint{
+			{Process: &ir.Process{Name: "main"}, Direction: ir.ChannelReceive},
+		},
+	}
+	design := &ir.Design{Modules: []*ir.Module{{
+		Name:     "main",
+		Channels: map[string]*ir.Channel{"done": ch},
+	}}}
+	if err := ensureHardwareLowerableDesign(design); err != nil {
+		t.Fatalf("expected single-producer channel to be allowed, got %v", err)
 	}
 }
 

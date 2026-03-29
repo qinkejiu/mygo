@@ -1,4 +1,4 @@
-generated=2026-03-17 13:40:05
+generated=2026-03-29 15:35:53
 case=tests/CHStone/dfsin
 ssa_ok=True
 ssa_return_code=0

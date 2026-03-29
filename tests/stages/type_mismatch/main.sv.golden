@@ -1,0 +1,38 @@
+module main(
+  input clk,
+        rst
+);
+
+  reg signed [31:0] varargs;
+  initial
+    varargs = 32'h0;
+  reg         state_reg5;
+  initial
+    state_reg5 = 1'h0;
+  reg signed [15:0] print_reg7;
+  initial
+    print_reg7 = 16'h0;
+  reg  [31:0] print_reg9;
+  initial
+    print_reg9 = 32'h0;
+  wire [15:0] _GEN = {8'h0, 8'h5} - 16'hC;
+  always @(posedge clk) begin
+    if (rst)
+      state_reg5 <= 1'h0;
+    else begin
+      case (state_reg5)
+        1'b0: begin
+          print_reg7 = _GEN;
+          print_reg9 = {{16{_GEN[15]}}, _GEN} + 32'h400;
+          $write("acc=%0d wide=%0d\n", print_reg7, print_reg9);
+          state_reg5 <= 1'h1;
+        end
+        1'b1:
+          state_reg5 <= state_reg5;
+        default:
+          state_reg5 <= state_reg5;
+      endcase
+    end
+  end // always @(posedge)
+endmodule
+

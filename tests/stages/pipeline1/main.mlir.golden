@@ -1,0 +1,556 @@
+module {
+  hw.module @main(in %clk: i1, in %rst: i1) {
+    // channel t0 depth=2 type=i32
+    %chan_t0_wdata = sv.wire : !hw.inout<i32>
+    %chan_t0_wvalid = sv.wire : !hw.inout<i1>
+    %chan_t0_wready = sv.wire : !hw.inout<i1>
+    %chan_t0_rdata = sv.wire : !hw.inout<i32>
+    %chan_t0_rvalid = sv.wire : !hw.inout<i1>
+    %chan_t0_rready = sv.wire : !hw.inout<i1>
+    %chan_t0_full = sv.wire : !hw.inout<i1>
+    %chan_t0_almost_full = sv.wire : !hw.inout<i1>
+    %chan_t0_empty = sv.wire : !hw.inout<i1>
+    %chan_t0_almost_empty = sv.wire : !hw.inout<i1>
+    // channel t0 occupancy 2/2
+    //   producer source stage 3
+    //   consumer filter stage 2
+    // channel t1 depth=4 type=i32
+    %chan_t1_wdata = sv.wire : !hw.inout<i32>
+    %chan_t1_wvalid = sv.wire : !hw.inout<i1>
+    %chan_t1_wready = sv.wire : !hw.inout<i1>
+    %chan_t1_rdata = sv.wire : !hw.inout<i32>
+    %chan_t1_rvalid = sv.wire : !hw.inout<i1>
+    %chan_t1_rready = sv.wire : !hw.inout<i1>
+    %chan_t1_full = sv.wire : !hw.inout<i1>
+    %chan_t1_almost_full = sv.wire : !hw.inout<i1>
+    %chan_t1_empty = sv.wire : !hw.inout<i1>
+    %chan_t1_almost_empty = sv.wire : !hw.inout<i1>
+    // channel t1 occupancy 2/4
+    //   producer filter stage 2
+    //   consumer sink stage 1
+    // channel t2 depth=2 type=i1
+    %chan_t2_wdata = sv.wire : !hw.inout<i1>
+    %chan_t2_wvalid = sv.wire : !hw.inout<i1>
+    %chan_t2_wready = sv.wire : !hw.inout<i1>
+    %chan_t2_rdata = sv.wire : !hw.inout<i1>
+    %chan_t2_rvalid = sv.wire : !hw.inout<i1>
+    %chan_t2_rready = sv.wire : !hw.inout<i1>
+    %chan_t2_full = sv.wire : !hw.inout<i1>
+    %chan_t2_almost_full = sv.wire : !hw.inout<i1>
+    %chan_t2_empty = sv.wire : !hw.inout<i1>
+    %chan_t2_almost_empty = sv.wire : !hw.inout<i1>
+    // channel t2 occupancy 0/2
+    //   producer sink stage 1
+    //   consumer main stage 0
+    %chan_t0_one = hw.constant 1 : i1
+    %chan_t0_rst_n = comb.xor %rst, %chan_t0_one : i1
+    hw.instance "t0_fifo" @mygo_fifo_i32_d2(clk: %clk : i1, rst_n: %chan_t0_rst_n : i1, wr_en: %chan_t0_wvalid : !hw.inout<i1>, wr_data: %chan_t0_wdata : !hw.inout<i32>, full: %chan_t0_full : !hw.inout<i1>, almost_full: %chan_t0_almost_full : !hw.inout<i1>, rd_en: %chan_t0_rready : !hw.inout<i1>, rd_data: %chan_t0_rdata : !hw.inout<i32>, empty: %chan_t0_empty : !hw.inout<i1>, almost_empty: %chan_t0_almost_empty : !hw.inout<i1>) -> ()
+    %chan_t0_full_val = sv.read_inout %chan_t0_full : !hw.inout<i1>
+    %chan_t0_not_full = comb.xor %chan_t0_full_val, %chan_t0_one : i1
+    sv.assign %chan_t0_wready, %chan_t0_not_full : i1
+    %chan_t0_empty_val = sv.read_inout %chan_t0_empty : !hw.inout<i1>
+    %chan_t0_not_empty = comb.xor %chan_t0_empty_val, %chan_t0_one : i1
+    sv.assign %chan_t0_rvalid, %chan_t0_not_empty : i1
+    %chan_t1_one = hw.constant 1 : i1
+    %chan_t1_rst_n = comb.xor %rst, %chan_t1_one : i1
+    hw.instance "t1_fifo" @mygo_fifo_i32_d4(clk: %clk : i1, rst_n: %chan_t1_rst_n : i1, wr_en: %chan_t1_wvalid : !hw.inout<i1>, wr_data: %chan_t1_wdata : !hw.inout<i32>, full: %chan_t1_full : !hw.inout<i1>, almost_full: %chan_t1_almost_full : !hw.inout<i1>, rd_en: %chan_t1_rready : !hw.inout<i1>, rd_data: %chan_t1_rdata : !hw.inout<i32>, empty: %chan_t1_empty : !hw.inout<i1>, almost_empty: %chan_t1_almost_empty : !hw.inout<i1>) -> ()
+    %chan_t1_full_val = sv.read_inout %chan_t1_full : !hw.inout<i1>
+    %chan_t1_not_full = comb.xor %chan_t1_full_val, %chan_t1_one : i1
+    sv.assign %chan_t1_wready, %chan_t1_not_full : i1
+    %chan_t1_empty_val = sv.read_inout %chan_t1_empty : !hw.inout<i1>
+    %chan_t1_not_empty = comb.xor %chan_t1_empty_val, %chan_t1_one : i1
+    sv.assign %chan_t1_rvalid, %chan_t1_not_empty : i1
+    %chan_t2_one = hw.constant 1 : i1
+    %chan_t2_rst_n = comb.xor %rst, %chan_t2_one : i1
+    hw.instance "t2_fifo" @mygo_fifo_i1_d2(clk: %clk : i1, rst_n: %chan_t2_rst_n : i1, wr_en: %chan_t2_wvalid : !hw.inout<i1>, wr_data: %chan_t2_wdata : !hw.inout<i1>, full: %chan_t2_full : !hw.inout<i1>, almost_full: %chan_t2_almost_full : !hw.inout<i1>, rd_en: %chan_t2_rready : !hw.inout<i1>, rd_data: %chan_t2_rdata : !hw.inout<i1>, empty: %chan_t2_empty : !hw.inout<i1>, almost_empty: %chan_t2_almost_empty : !hw.inout<i1>) -> ()
+    %chan_t2_full_val = sv.read_inout %chan_t2_full : !hw.inout<i1>
+    %chan_t2_not_full = comb.xor %chan_t2_full_val, %chan_t2_one : i1
+    sv.assign %chan_t2_wready, %chan_t2_not_full : i1
+    %chan_t2_empty_val = sv.read_inout %chan_t2_empty : !hw.inout<i1>
+    %chan_t2_not_empty = comb.xor %chan_t2_empty_val, %chan_t2_one : i1
+    sv.assign %chan_t2_rvalid, %chan_t2_not_empty : i1
+    %c_init_varargs = hw.constant 0 : i32
+    %varargs = sv.reg : !hw.inout<i32>
+    sv.initial {
+      sv.bpassign %varargs, %c_init_varargs : i32
+    }
+    %state_const0 = hw.constant 0 : i2
+    %state_const1 = hw.constant 1 : i2
+    %state_const2 = hw.constant 2 : i2
+    %state_const3 = hw.constant 3 : i2
+    %state_reg4 = sv.reg : !hw.inout<i2>
+    sv.initial {
+      sv.bpassign %state_reg4, %state_const0 : i2
+    }
+    %state5 = sv.read_inout %state_reg4 : !hw.inout<i2>
+    %recv_reg6 = sv.reg : !hw.inout<i1>
+    %v7 = sv.read_inout %recv_reg6 : !hw.inout<i1>
+    %print_reg8 = sv.reg : !hw.inout<i1>
+    %print_zero9 = hw.constant 0 : i1
+    sv.initial {
+      sv.bpassign %print_reg8, %print_zero9 : i1
+    }
+    // spawn sink stage=1 parent_stage=0
+    // spawn filter stage=2 parent_stage=0
+    // spawn source stage=3 parent_stage=0
+    %stdout_fd10 = hw.constant 2147483649 : i32
+    %state_is11 = comb.icmp eq %state5, %state_const1 : i2
+    sv.assign %chan_t2_rready, %state_is11 : i1
+    %recv_valid12 = sv.read_inout %chan_t2_rvalid : !hw.inout<i1>
+    %recv_data13 = sv.read_inout %chan_t2_rdata : !hw.inout<i1>
+    sv.always posedge %clk {
+      sv.if %rst {
+        sv.passign %state_reg4, %state_const0 : i2
+      } else {
+        sv.case %state5 : i2
+        case b00: {
+          sv.passign %state_reg4, %state_const1 : i2
+        }
+        case b01: {
+          sv.if %recv_valid12 {
+            sv.passign %recv_reg6, %recv_data13 : i1
+            sv.passign %state_reg4, %state_const2 : i2
+          } else {
+            sv.passign %state_reg4, %state5 : i2
+          }
+        }
+        case b10: {
+          sv.bpassign %print_reg8, %v7 : i1
+          %print_val14 = sv.read_inout %print_reg8 : !hw.inout<i1>
+          sv.fwrite %stdout_fd10, "finished is %0s\n"(%print_val14) : i1
+          sv.passign %state_reg4, %state_const3 : i2
+        }
+        case b11: {
+          sv.passign %state_reg4, %state5 : i2
+        }
+        default: {
+          sv.passign %state_reg4, %state5 : i2
+        }
+      }
+    }
+    hw.instance "filter_inst0" @main__proc_filter(clk: %clk : i1, rst: %rst : i1, chan_t0_rdata: %chan_t0_rdata : !hw.inout<i32>, chan_t0_rvalid: %chan_t0_rvalid : !hw.inout<i1>, chan_t0_rready: %chan_t0_rready : !hw.inout<i1>, chan_t1_wdata: %chan_t1_wdata : !hw.inout<i32>, chan_t1_wvalid: %chan_t1_wvalid : !hw.inout<i1>, chan_t1_wready: %chan_t1_wready : !hw.inout<i1>) -> ()
+    hw.instance "sink_inst1" @main__proc_sink(clk: %clk : i1, rst: %rst : i1, chan_t1_rdata: %chan_t1_rdata : !hw.inout<i32>, chan_t1_rvalid: %chan_t1_rvalid : !hw.inout<i1>, chan_t1_rready: %chan_t1_rready : !hw.inout<i1>, chan_t2_wdata: %chan_t2_wdata : !hw.inout<i1>, chan_t2_wvalid: %chan_t2_wvalid : !hw.inout<i1>, chan_t2_wready: %chan_t2_wready : !hw.inout<i1>) -> ()
+    hw.instance "source_inst2" @main__proc_source(clk: %clk : i1, rst: %rst : i1, chan_t0_wdata: %chan_t0_wdata : !hw.inout<i32>, chan_t0_wvalid: %chan_t0_wvalid : !hw.inout<i1>, chan_t0_wready: %chan_t0_wready : !hw.inout<i1>) -> ()
+    hw.output
+  }
+  hw.module @main__proc_filter(in %clk: i1, in %rst: i1, inout %chan_t0_rdata: i32, inout %chan_t0_rvalid: i1, inout %chan_t0_rready: i1, inout %chan_t1_wdata: i32, inout %chan_t1_wvalid: i1, inout %chan_t1_wready: i1) {
+    %c15 = hw.constant 5 : i32
+    %c16 = hw.constant 0 : i32
+    %c17 = hw.constant 5 : i32
+    %c18 = hw.constant 426771240 : i32
+    %c19 = hw.constant 537200675 : i32
+    %c20 = hw.constant 537334308 : i32
+    %c21 = hw.constant 1 : i32
+    %c22 = hw.constant 426770689 : i32
+    %state_const23 = hw.constant 0 : i5
+    %state_const24 = hw.constant 1 : i5
+    %state_const25 = hw.constant 2 : i5
+    %state_const26 = hw.constant 3 : i5
+    %state_const27 = hw.constant 4 : i5
+    %state_const28 = hw.constant 5 : i5
+    %state_const29 = hw.constant 6 : i5
+    %state_const30 = hw.constant 7 : i5
+    %state_const31 = hw.constant 8 : i5
+    %state_const32 = hw.constant 9 : i5
+    %state_const33 = hw.constant 10 : i5
+    %state_const34 = hw.constant 11 : i5
+    %state_const35 = hw.constant 12 : i5
+    %state_const36 = hw.constant 13 : i5
+    %state_const37 = hw.constant 14 : i5
+    %state_const38 = hw.constant 15 : i5
+    %state_const39 = hw.constant 16 : i5
+    %state_reg40 = sv.reg : !hw.inout<i5>
+    sv.initial {
+      sv.bpassign %state_reg40, %state_const23 : i5
+    }
+    %state41 = sv.read_inout %state_reg40 : !hw.inout<i5>
+    %recv_reg42 = sv.reg : !hw.inout<i32>
+    %v43 = sv.read_inout %recv_reg42 : !hw.inout<i32>
+    %recv_reg44 = sv.reg : !hw.inout<i32>
+    %v45 = sv.read_inout %recv_reg44 : !hw.inout<i32>
+    %phi_reg46 = sv.reg : !hw.inout<i32>
+    %v47 = sv.read_inout %phi_reg46 : !hw.inout<i32>
+    %v48 = comb.icmp ult %v47, %c17 : i32
+    %v49 = comb.icmp eq %v45, %c18 : i32
+    %v50 = comb.icmp eq %v45, %c22 : i32
+    %phi_reg51 = sv.reg : !hw.inout<i32>
+    %v52 = sv.read_inout %phi_reg51 : !hw.inout<i32>
+    %v53 = comb.add %v47, %c21 : i32
+    %state_is54 = comb.icmp eq %state41, %state_const26 : i5
+    %state_is55 = comb.icmp eq %state41, %state_const37 : i5
+    %state_is56 = comb.icmp eq %state41, %state_const24 : i5
+    %state_is57 = comb.icmp eq %state41, %state_const31 : i5
+    %or58 = comb.or %state_is54, %state_is55 : i1
+    sv.assign %chan_t1_wvalid, %or58 : i1
+    %c_zero59 = hw.constant 0 : i32
+    %mux60 = comb.mux %state_is55, %v52, %c_zero59 : i32
+    %mux61 = comb.mux %state_is54, %c15, %mux60 : i32
+    sv.assign %chan_t1_wdata, %mux61 : i32
+    %send_ready62 = sv.read_inout %chan_t1_wready : !hw.inout<i1>
+    %or63 = comb.or %state_is56, %state_is57 : i1
+    sv.assign %chan_t0_rready, %or63 : i1
+    %recv_valid64 = sv.read_inout %chan_t0_rvalid : !hw.inout<i1>
+    %recv_data65 = sv.read_inout %chan_t0_rdata : !hw.inout<i32>
+    sv.always posedge %clk {
+      sv.if %rst {
+        sv.passign %state_reg40, %state_const23 : i5
+      } else {
+        sv.case %state41 : i5
+        case b00000: {
+          sv.passign %state_reg40, %state_const24 : i5
+        }
+        case b00001: {
+          sv.if %recv_valid64 {
+            sv.passign %recv_reg42, %recv_data65 : i32
+            sv.passign %state_reg40, %state_const25 : i5
+          } else {
+            sv.passign %state_reg40, %state41 : i5
+          }
+        }
+        case b00010: {
+          sv.passign %state_reg40, %state_const26 : i5
+        }
+        case b00011: {
+          sv.if %send_ready62 {
+            sv.passign %state_reg40, %state_const27 : i5
+          } else {
+            sv.passign %state_reg40, %state41 : i5
+          }
+        }
+        case b00100: {
+          sv.passign %state_reg40, %state_const28 : i5
+          sv.passign %phi_reg46, %c16 : i32
+        }
+        case b00101: {
+          sv.if %v48 {
+            sv.passign %state_reg40, %state_const30 : i5
+          } else {
+            sv.passign %state_reg40, %state_const29 : i5
+          }
+        }
+        case b00110: {
+          sv.passign %state_reg40, %state_const39 : i5
+        }
+        case b00111: {
+          sv.passign %state_reg40, %state_const31 : i5
+        }
+        case b01000: {
+          sv.if %recv_valid64 {
+            sv.passign %recv_reg44, %recv_data65 : i32
+            sv.passign %state_reg40, %state_const32 : i5
+          } else {
+            sv.passign %state_reg40, %state41 : i5
+          }
+        }
+        case b01001: {
+          sv.if %v49 {
+            sv.passign %state_reg40, %state_const35 : i5
+          } else {
+            sv.passign %state_reg40, %state_const33 : i5
+          }
+        }
+        case b01010: {
+          sv.if %v50 {
+            sv.passign %state_reg40, %state_const34 : i5
+          } else {
+            sv.passign %state_reg40, %state_const36 : i5
+            sv.passign %phi_reg51, %v45 : i32
+          }
+        }
+        case b01011: {
+          sv.passign %state_reg40, %state_const36 : i5
+          sv.passign %phi_reg51, %c20 : i32
+        }
+        case b01100: {
+          sv.passign %state_reg40, %state_const36 : i5
+          sv.passign %phi_reg51, %c19 : i32
+        }
+        case b01101: {
+          sv.passign %state_reg40, %state_const37 : i5
+        }
+        case b01110: {
+          sv.if %send_ready62 {
+            sv.passign %state_reg40, %state_const38 : i5
+          } else {
+            sv.passign %state_reg40, %state41 : i5
+          }
+        }
+        case b01111: {
+          sv.passign %state_reg40, %state_const28 : i5
+          sv.passign %phi_reg46, %v53 : i32
+        }
+        case b10000: {
+          sv.passign %state_reg40, %state41 : i5
+        }
+        default: {
+          sv.passign %state_reg40, %state41 : i5
+        }
+      }
+    }
+  }
+  hw.module @main__proc_sink(in %clk: i1, in %rst: i1, inout %chan_t1_rdata: i32, inout %chan_t1_rvalid: i1, inout %chan_t1_rready: i1, inout %chan_t2_wdata: i1, inout %chan_t2_wvalid: i1, inout %chan_t2_wready: i1) {
+    %c66 = hw.constant 1 : i32
+    %c67 = hw.constant 1 : i1
+    %c68 = hw.constant 0 : i32
+    %c69 = hw.constant 5 : i32
+    %state_const70 = hw.constant 0 : i4
+    %state_const71 = hw.constant 1 : i4
+    %state_const72 = hw.constant 2 : i4
+    %state_const73 = hw.constant 3 : i4
+    %state_const74 = hw.constant 4 : i4
+    %state_const75 = hw.constant 5 : i4
+    %state_const76 = hw.constant 6 : i4
+    %state_const77 = hw.constant 7 : i4
+    %state_const78 = hw.constant 8 : i4
+    %state_const79 = hw.constant 9 : i4
+    %state_const80 = hw.constant 10 : i4
+    %state_reg81 = sv.reg : !hw.inout<i4>
+    sv.initial {
+      sv.bpassign %state_reg81, %state_const70 : i4
+    }
+    %state82 = sv.read_inout %state_reg81 : !hw.inout<i4>
+    %recv_reg83 = sv.reg : !hw.inout<i32>
+    %v84 = sv.read_inout %recv_reg83 : !hw.inout<i32>
+    %recv_reg85 = sv.reg : !hw.inout<i32>
+    %v86 = sv.read_inout %recv_reg85 : !hw.inout<i32>
+    %print_reg87 = sv.reg : !hw.inout<i32>
+    %print_zero88 = hw.constant 0 : i32
+    sv.initial {
+      sv.bpassign %print_reg87, %print_zero88 : i32
+    }
+    %print_reg89 = sv.reg : !hw.inout<i32>
+    %print_zero90 = hw.constant 0 : i32
+    sv.initial {
+      sv.bpassign %print_reg89, %print_zero90 : i32
+    }
+    %phi_reg91 = sv.reg : !hw.inout<i32>
+    %v92 = sv.read_inout %phi_reg91 : !hw.inout<i32>
+    %v93 = comb.icmp ult %v92, %c69 : i32
+    %v94 = comb.add %v92, %c66 : i32
+    %stdout_fd95 = hw.constant 2147483649 : i32
+    %state_is96 = comb.icmp eq %state82, %state_const75 : i4
+    %state_is97 = comb.icmp eq %state82, %state_const71 : i4
+    %state_is98 = comb.icmp eq %state82, %state_const78 : i4
+    sv.assign %chan_t2_wvalid, %state_is96 : i1
+    %c_zero99 = hw.constant 0 : i1
+    %mux100 = comb.mux %state_is96, %c67, %c_zero99 : i1
+    sv.assign %chan_t2_wdata, %mux100 : i1
+    %send_ready101 = sv.read_inout %chan_t2_wready : !hw.inout<i1>
+    %or102 = comb.or %state_is97, %state_is98 : i1
+    sv.assign %chan_t1_rready, %or102 : i1
+    %recv_valid103 = sv.read_inout %chan_t1_rvalid : !hw.inout<i1>
+    %recv_data104 = sv.read_inout %chan_t1_rdata : !hw.inout<i32>
+    sv.always posedge %clk {
+      sv.if %rst {
+        sv.passign %state_reg81, %state_const70 : i4
+      } else {
+        sv.case %state82 : i4
+        case b0000: {
+          sv.passign %state_reg81, %state_const71 : i4
+        }
+        case b0001: {
+          sv.if %recv_valid103 {
+            sv.passign %recv_reg83, %recv_data104 : i32
+            sv.passign %state_reg81, %state_const72 : i4
+          } else {
+            sv.passign %state_reg81, %state82 : i4
+          }
+        }
+        case b0010: {
+          sv.passign %state_reg81, %state_const73 : i4
+          sv.passign %phi_reg91, %c68 : i32
+        }
+        case b0011: {
+          sv.if %v93 {
+            sv.passign %state_reg81, %state_const77 : i4
+          } else {
+            sv.passign %state_reg81, %state_const74 : i4
+          }
+        }
+        case b0100: {
+          sv.passign %state_reg81, %state_const75 : i4
+        }
+        case b0101: {
+          sv.if %send_ready101 {
+            sv.passign %state_reg81, %state_const76 : i4
+          } else {
+            sv.passign %state_reg81, %state82 : i4
+          }
+        }
+        case b0110: {
+          sv.passign %state_reg81, %state_const80 : i4
+        }
+        case b0111: {
+          sv.passign %state_reg81, %state_const78 : i4
+        }
+        case b1000: {
+          sv.if %recv_valid103 {
+            sv.passign %recv_reg85, %recv_data104 : i32
+            sv.passign %state_reg81, %state_const79 : i4
+          } else {
+            sv.passign %state_reg81, %state82 : i4
+          }
+        }
+        case b1001: {
+          sv.bpassign %print_reg87, %v92 : i32
+          %print_val105 = sv.read_inout %print_reg87 : !hw.inout<i32>
+          sv.bpassign %print_reg89, %v86 : i32
+          %print_val106 = sv.read_inout %print_reg89 : !hw.inout<i32>
+          sv.fwrite %stdout_fd95, "output: count %0d got integer 0x%0x\n"(%print_val105, %print_val106) : i32, i32
+          sv.passign %state_reg81, %state_const73 : i4
+          sv.passign %phi_reg91, %v94 : i32
+        }
+        case b1010: {
+          sv.passign %state_reg81, %state82 : i4
+        }
+        default: {
+          sv.passign %state_reg81, %state82 : i4
+        }
+      }
+    }
+  }
+  hw.module @main__proc_source(in %clk: i1, in %rst: i1, inout %chan_t0_wdata: i32, inout %chan_t0_wvalid: i1, inout %chan_t0_wready: i1) {
+    %c107 = hw.constant 5 : i32
+    %c108 = hw.constant 0 : i32
+    %c109 = hw.constant 5 : i32
+    %c110 = hw.constant 1 : i32
+    %c111 = hw.constant 426771240 : i32
+    %c112 = hw.constant 426770689 : i32
+    %c113 = hw.constant 1 : i32
+    %c114 = hw.constant 2 : i32
+    %state_const115 = hw.constant 0 : i4
+    %state_const116 = hw.constant 1 : i4
+    %state_const117 = hw.constant 2 : i4
+    %state_const118 = hw.constant 3 : i4
+    %state_const119 = hw.constant 4 : i4
+    %state_const120 = hw.constant 5 : i4
+    %state_const121 = hw.constant 6 : i4
+    %state_const122 = hw.constant 7 : i4
+    %state_const123 = hw.constant 8 : i4
+    %state_const124 = hw.constant 9 : i4
+    %state_const125 = hw.constant 10 : i4
+    %state_const126 = hw.constant 11 : i4
+    %state_const127 = hw.constant 12 : i4
+    %state_reg128 = sv.reg : !hw.inout<i4>
+    sv.initial {
+      sv.bpassign %state_reg128, %state_const115 : i4
+    }
+    %state129 = sv.read_inout %state_reg128 : !hw.inout<i4>
+    %print_reg130 = sv.reg : !hw.inout<i32>
+    %print_zero131 = hw.constant 0 : i32
+    sv.initial {
+      sv.bpassign %print_reg130, %print_zero131 : i32
+    }
+    %print_reg132 = sv.reg : !hw.inout<i32>
+    %print_zero133 = hw.constant 0 : i32
+    sv.initial {
+      sv.bpassign %print_reg132, %print_zero133 : i32
+    }
+    %phi_reg134 = sv.reg : !hw.inout<i32>
+    %v135 = sv.read_inout %phi_reg134 : !hw.inout<i32>
+    %v136 = comb.icmp ult %v135, %c109 : i32
+    %v137 = comb.icmp eq %v135, %c110 : i32
+    %v138 = comb.icmp eq %v135, %c114 : i32
+    %phi_reg139 = sv.reg : !hw.inout<i32>
+    %v140 = sv.read_inout %phi_reg139 : !hw.inout<i32>
+    %v141 = comb.add %v135, %c113 : i32
+    %stdout_fd142 = hw.constant 2147483649 : i32
+    %state_is143 = comb.icmp eq %state129, %state_const116 : i4
+    %state_is144 = comb.icmp eq %state129, %state_const125 : i4
+    %or145 = comb.or %state_is143, %state_is144 : i1
+    sv.assign %chan_t0_wvalid, %or145 : i1
+    %c_zero146 = hw.constant 0 : i32
+    %mux147 = comb.mux %state_is144, %v140, %c_zero146 : i32
+    %mux148 = comb.mux %state_is143, %c107, %mux147 : i32
+    sv.assign %chan_t0_wdata, %mux148 : i32
+    %send_ready149 = sv.read_inout %chan_t0_wready : !hw.inout<i1>
+    sv.always posedge %clk {
+      sv.if %rst {
+        sv.passign %state_reg128, %state_const115 : i4
+      } else {
+        sv.case %state129 : i4
+        case b0000: {
+          sv.passign %state_reg128, %state_const116 : i4
+        }
+        case b0001: {
+          sv.if %send_ready149 {
+            sv.passign %state_reg128, %state_const117 : i4
+          } else {
+            sv.passign %state_reg128, %state129 : i4
+          }
+        }
+        case b0010: {
+          sv.passign %state_reg128, %state_const118 : i4
+          sv.passign %phi_reg134, %c108 : i32
+        }
+        case b0011: {
+          sv.if %v136 {
+            sv.passign %state_reg128, %state_const120 : i4
+          } else {
+            sv.passign %state_reg128, %state_const119 : i4
+          }
+        }
+        case b0100: {
+          sv.passign %state_reg128, %state_const127 : i4
+        }
+        case b0101: {
+          sv.if %v137 {
+            sv.passign %state_reg128, %state_const123 : i4
+          } else {
+            sv.passign %state_reg128, %state_const121 : i4
+          }
+        }
+        case b0110: {
+          sv.if %v138 {
+            sv.passign %state_reg128, %state_const122 : i4
+          } else {
+            sv.passign %state_reg128, %state_const124 : i4
+            sv.passign %phi_reg139, %v135 : i32
+          }
+        }
+        case b0111: {
+          sv.passign %state_reg128, %state_const124 : i4
+          sv.passign %phi_reg139, %c112 : i32
+        }
+        case b1000: {
+          sv.passign %state_reg128, %state_const124 : i4
+          sv.passign %phi_reg139, %c111 : i32
+        }
+        case b1001: {
+          sv.passign %state_reg128, %state_const125 : i4
+        }
+        case b1010: {
+          sv.if %send_ready149 {
+            sv.passign %state_reg128, %state_const126 : i4
+          } else {
+            sv.passign %state_reg128, %state129 : i4
+          }
+        }
+        case b1011: {
+          sv.bpassign %print_reg130, %v135 : i32
+          %print_val150 = sv.read_inout %print_reg130 : !hw.inout<i32>
+          sv.bpassign %print_reg132, %v140 : i32
+          %print_val151 = sv.read_inout %print_reg132 : !hw.inout<i32>
+          sv.fwrite %stdout_fd142, "input: count %0d sent integer 0x%0x\n"(%print_val150, %print_val151) : i32, i32
+          sv.passign %state_reg128, %state_const118 : i4
+          sv.passign %phi_reg134, %v141 : i32
+        }
+        case b1100: {
+          sv.passign %state_reg128, %state129 : i4
+        }
+        default: {
+          sv.passign %state_reg128, %state129 : i4
+        }
+      }
+    }
+  }
+  hw.module @mygo_fifo_i1_d2(in %clk: i1, in %rst_n: i1, inout %wr_en: i1, inout %wr_data: i1, inout %full: i1, inout %almost_full: i1, inout %rd_en: i1, inout %rd_data: i1, inout %empty: i1, inout %almost_empty: i1) {
+    hw.output
+  }
+  hw.module @mygo_fifo_i32_d2(in %clk: i1, in %rst_n: i1, inout %wr_en: i1, inout %wr_data: i32, inout %full: i1, inout %almost_full: i1, inout %rd_en: i1, inout %rd_data: i32, inout %empty: i1, inout %almost_empty: i1) {
+    hw.output
+  }
+  hw.module @mygo_fifo_i32_d4(in %clk: i1, in %rst_n: i1, inout %wr_en: i1, inout %wr_data: i32, inout %full: i1, inout %almost_full: i1, inout %rd_en: i1, inout %rd_data: i32, inout %empty: i1, inout %almost_empty: i1) {
+    hw.output
+  }
+}

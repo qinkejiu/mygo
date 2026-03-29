@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"testing"
@@ -19,29 +20,35 @@ const (
 
 type harness struct {
 	repoRoot string
-	fifoLib  string
 }
 
 type testCase struct {
-	Name      string
-	Group     string
-	NeedsFIFO bool
-	SimCycles int
+	Name       string
+	Group      string
+	SimCycles  int
+	SimCompare simCompareMode
 }
 
+type simCompareMode string
+
+const (
+	simCompareStrict          simCompareMode = "strict"
+	simCompareIgnoreLineOrder simCompareMode = "ignore-line-order"
+)
+
 var testCases = []testCase{
-	{Name: "simple", Group: "scalar", SimCycles: 1},
-	{Name: "simple_branch", Group: "control", SimCycles: 2},
-	{Name: "simple_print", Group: "scalar", SimCycles: 1},
-	{Name: "type_mismatch", Group: "scalar", SimCycles: 1},
-	{Name: "comb_adder", Group: "comb", SimCycles: 1},
-	{Name: "comb_bitwise", Group: "comb", SimCycles: 1},
-	{Name: "comb_concat", Group: "comb", SimCycles: 1},
-	{Name: "simple_channel", Group: "channels", NeedsFIFO: true, SimCycles: 2},
-	{Name: "phi_loop", Group: "control", NeedsFIFO: true, SimCycles: 8},
-	{Name: "pipeline1", Group: "pipelines", NeedsFIFO: true, SimCycles: 10},
-	{Name: "pipeline2", Group: "pipelines", NeedsFIFO: true, SimCycles: 12},
-	{Name: "router_csp", Group: "channels", NeedsFIFO: true, SimCycles: 16},
+	{Name: "simple", Group: "scalar", SimCycles: 1, SimCompare: simCompareStrict},
+	{Name: "simple_branch", Group: "control", SimCycles: 2, SimCompare: simCompareStrict},
+	{Name: "simple_print", Group: "scalar", SimCycles: 1, SimCompare: simCompareStrict},
+	{Name: "type_mismatch", Group: "scalar", SimCycles: 1, SimCompare: simCompareStrict},
+	{Name: "comb_adder", Group: "comb", SimCycles: 1, SimCompare: simCompareStrict},
+	{Name: "comb_bitwise", Group: "comb", SimCycles: 1, SimCompare: simCompareStrict},
+	{Name: "comb_concat", Group: "comb", SimCycles: 1, SimCompare: simCompareStrict},
+	{Name: "simple_channel", Group: "channels", SimCycles: 2, SimCompare: simCompareStrict},
+	{Name: "phi_loop", Group: "control", SimCycles: 8, SimCompare: simCompareIgnoreLineOrder},
+	{Name: "pipeline1", Group: "pipelines", SimCycles: 10, SimCompare: simCompareIgnoreLineOrder},
+	{Name: "pipeline2", Group: "pipelines", SimCycles: 12, SimCompare: simCompareIgnoreLineOrder},
+	{Name: "router_csp", Group: "channels", SimCycles: 16, SimCompare: simCompareIgnoreLineOrder},
 }
 
 var (
@@ -51,7 +58,11 @@ var (
 )
 
 func TestMLIRGeneration(t *testing.T) {
+	requireGoldenValidation(t)
 	runStageTests(t, func(t *testing.T, h harness, tc testCase) {
+		if reason := unsupportedHardwareLoweringReason(tc); reason != "" {
+			t.Skip(reason)
+		}
 		dir := filepath.Join(workloadsRoot, tc.Name)
 		source := filepath.Join(dir, "main.go")
 		mlirGolden := filepath.Join(dir, "main.mlir.golden")
@@ -60,20 +71,28 @@ func TestMLIRGeneration(t *testing.T) {
 }
 
 func TestVerilogGeneration(t *testing.T) {
+	requireGoldenValidation(t)
 	runStageTests(t, func(t *testing.T, h harness, tc testCase) {
+		if reason := unsupportedHardwareLoweringReason(tc); reason != "" {
+			t.Skip(reason)
+		}
 		dir := filepath.Join(workloadsRoot, tc.Name)
 		source := filepath.Join(dir, "main.go")
 		verilogGolden := filepath.Join(dir, "main.sv.golden")
-		maybeVerifyVerilog(t, h.repoRoot, source, verilogGolden, h.fifoLib, tc.NeedsFIFO)
+		maybeVerifyVerilog(t, h.repoRoot, source, verilogGolden)
 	})
 }
 
 func TestSimulation(t *testing.T) {
+	requireGoldenValidation(t)
 	runStageTests(t, func(t *testing.T, h harness, tc testCase) {
+		if reason := unsupportedHardwareLoweringReason(tc); reason != "" {
+			t.Skip(reason)
+		}
 		dir := filepath.Join(workloadsRoot, tc.Name)
 		source := filepath.Join(dir, "main.go")
 		simGolden := filepath.Join(dir, "main.sim.golden")
-		maybeVerifySimulation(t, h.repoRoot, source, simGolden, h.fifoLib, tc)
+		maybeVerifySimulation(t, h.repoRoot, source, simGolden, tc)
 	})
 }
 
@@ -114,9 +133,7 @@ func TestSimulationVerilogOutWritesArtifacts(t *testing.T) {
 	if !verilatorAvailable {
 		t.Skip("verilator not on PATH")
 	}
-	if !compareGoldens {
-		t.Skip("golden comparison disabled (set MYGO_COMPARE_GOLDENS=1 to re-enable)")
-	}
+	requireGoldenValidation(t)
 	h := newHarness(t)
 	tc := getTestCase(t, "simple")
 	if tc.SimCycles <= 0 {
@@ -144,6 +161,17 @@ func TestSimulationVerilogOutWritesArtifacts(t *testing.T) {
 	if info.Size() == 0 {
 		t.Fatalf("verilog output %s empty", verilogOut)
 	}
+}
+
+func TestHardwareLoweringSupportsRouterCspMultiProducerChannel(t *testing.T) {
+	if !circtOptAvailable {
+		t.Skip("circt-opt not on PATH")
+	}
+	h := newHarness(t)
+	source := filepath.Join(workloadsRoot, "router_csp", "main.go")
+	output := filepath.Join(t.TempDir(), "router_csp.mlir")
+	args := []string{"run", "./cmd/mygo", "compile", "-emit=mlir", "-o", output, source}
+	runGoCommand(t, h.repoRoot, args...)
 }
 
 func TestDynamicLoopLowersToFSMVerilog(t *testing.T) {
@@ -231,23 +259,18 @@ func runStageTests(t *testing.T, fn func(*testing.T, harness, testCase)) {
 func newHarness(t *testing.T) harness {
 	t.Helper()
 	repoRoot := determineRepoRoot(t)
-	fifoLib := filepath.Join(repoRoot, "internal", "backend", "templates", "simple_fifo.sv")
 	cacheDir := filepath.Join(repoRoot, ".gocache")
 	if err := os.MkdirAll(cacheDir, 0o755); err != nil {
 		t.Fatalf("create go cache dir: %v", err)
 	}
 	t.Setenv("GOCACHE", cacheDir)
-	return harness{repoRoot: repoRoot, fifoLib: fifoLib}
+	return harness{repoRoot: repoRoot}
 }
 
 func maybeVerifyMLIR(t *testing.T, repoRoot, source, golden string) {
 	t.Helper()
-	if !compareGoldens {
-		t.Logf("skipping MLIR golden for %s: MYGO_COMPARE_GOLDENS not enabled", source)
-		return
-	}
 	if !fileExists(t, filepath.Join(repoRoot, golden)) {
-		return
+		t.Fatalf("missing MLIR golden for %s: %s", source, golden)
 	}
 	output := filepath.Join(t.TempDir(), "main.mlir")
 	args := []string{"run", "./cmd/mygo", "compile", "-emit=mlir", "-o", output, source}
@@ -255,14 +278,10 @@ func maybeVerifyMLIR(t *testing.T, repoRoot, source, golden string) {
 	compareTextFiles(t, filepath.Join(repoRoot, golden), output)
 }
 
-func maybeVerifyVerilog(t *testing.T, repoRoot, source, golden, fifoLib string, needsFIFO bool) {
+func maybeVerifyVerilog(t *testing.T, repoRoot, source, golden string) {
 	t.Helper()
-	if !compareGoldens {
-		t.Logf("skipping Verilog golden for %s: MYGO_COMPARE_GOLDENS not enabled", source)
-		return
-	}
 	if !fileExists(t, filepath.Join(repoRoot, golden)) {
-		return
+		t.Fatalf("missing Verilog golden for %s: %s", source, golden)
 	}
 	if !circtOptAvailable {
 		t.Logf("skipping verilog check for %s: circt-opt not on PATH", source)
@@ -275,24 +294,19 @@ func maybeVerifyVerilog(t *testing.T, repoRoot, source, golden, fifoLib string, 
 		"--circt-lowering-options", compareLoweringOptions,
 		"-o", output,
 	}
-	if needsFIFO {
-		args = append(args, "--fifo-src", fifoLib)
-	}
 	args = append(args, source)
 	runGoCommand(t, repoRoot, args...)
 	compareTextFiles(t, filepath.Join(repoRoot, golden), output)
 }
 
-func maybeVerifySimulation(t *testing.T, repoRoot, source, golden, fifoLib string, tc testCase) {
+func maybeVerifySimulation(t *testing.T, repoRoot, source, golden string, tc testCase) {
 	t.Helper()
-	if !compareGoldens {
-		t.Logf("skipping simulation golden for %s: MYGO_COMPARE_GOLDENS not enabled", source)
+	if tc.SimCycles <= 0 {
+		t.Logf("skipping simulation for %s: sim cycles disabled", tc.Name)
 		return
 	}
-	if !fileExists(t, filepath.Join(repoRoot, golden)) || tc.SimCycles <= 0 {
-		if tc.SimCycles <= 0 {
-			t.Logf("skipping simulation for %s: sim cycles disabled", tc.Name)
-		}
+	if !fileExists(t, filepath.Join(repoRoot, golden)) {
+		t.Fatalf("missing simulation golden for %s: %s", source, golden)
 		return
 	}
 	if !verilatorAvailable {
@@ -305,14 +319,12 @@ func maybeVerifySimulation(t *testing.T, repoRoot, source, golden, fifoLib strin
 	}
 	args := []string{
 		"run", "./cmd/mygo", "sim",
+		"--keep-artifacts=false",
 		"--sim-max-cycles", strconv.Itoa(tc.SimCycles),
-		"--expect", golden,
-	}
-	if tc.NeedsFIFO {
-		args = append(args, "--fifo-src", fifoLib)
 	}
 	args = append(args, source)
-	runGoCommand(t, repoRoot, args...)
+	stdout, _ := runGoCommandCapture(t, repoRoot, args...)
+	compareSimulationOutput(t, filepath.Join(repoRoot, golden), stdout, tc.SimCompare)
 }
 
 func runGoCommand(t *testing.T, repoRoot string, args ...string) {
@@ -323,6 +335,21 @@ func runGoCommand(t *testing.T, repoRoot string, args ...string) {
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("go %s failed: %v\n%s", strings.Join(args, " "), err, string(out))
 	}
+}
+
+func runGoCommandCapture(t *testing.T, repoRoot string, args ...string) ([]byte, []byte) {
+	t.Helper()
+	cmd := exec.Command("go", args...)
+	cmd.Dir = repoRoot
+	cmd.Env = os.Environ()
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("go %s failed: %v\nstdout:\n%s\nstderr:\n%s", strings.Join(args, " "), err, stdout.String(), stderr.String())
+	}
+	return stdout.Bytes(), stderr.Bytes()
 }
 
 func runGoCommandExpectFailure(t *testing.T, repoRoot string, args ...string) string {
@@ -366,6 +393,68 @@ func compareTextFiles(t *testing.T, golden, actual string) {
 	}
 }
 
+func compareSimulationOutput(t *testing.T, golden string, got []byte, mode simCompareMode) {
+	t.Helper()
+	want, err := os.ReadFile(golden)
+	if err != nil {
+		t.Fatalf("read simulation golden %s: %v", golden, err)
+	}
+	if simulationOutputsMatch(want, got, mode) {
+		return
+	}
+	t.Fatalf("simulation output mismatch for %s (mode=%s)\n%s", golden, mode, cmp.Diff(strings.TrimSpace(string(want)), strings.TrimSpace(string(got))))
+}
+
+func simulationOutputsMatch(want, got []byte, mode simCompareMode) bool {
+	wantTrimmed := bytes.TrimSpace(want)
+	gotTrimmed := bytes.TrimSpace(got)
+	if bytes.Equal(wantTrimmed, gotTrimmed) {
+		return true
+	}
+	if mode != simCompareIgnoreLineOrder {
+		return false
+	}
+	wantLines := normalizedOutputLines(wantTrimmed)
+	gotLines := normalizedOutputLines(gotTrimmed)
+	if len(wantLines) != len(gotLines) {
+		return false
+	}
+	wantSorted := append([]string(nil), wantLines...)
+	gotSorted := append([]string(nil), gotLines...)
+	sort.Strings(wantSorted)
+	sort.Strings(gotSorted)
+	return sameStringSlices(wantSorted, gotSorted)
+}
+
+func normalizedOutputLines(data []byte) []string {
+	text := strings.TrimSpace(string(data))
+	if text == "" {
+		return nil
+	}
+	raw := strings.Split(text, "\n")
+	lines := make([]string, 0, len(raw))
+	for _, line := range raw {
+		line = strings.TrimRight(line, " \t\r")
+		if line == "" {
+			continue
+		}
+		lines = append(lines, line)
+	}
+	return lines
+}
+
+func sameStringSlices(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
 func getTestCase(t *testing.T, name string) testCase {
 	t.Helper()
 	for _, tc := range testCases {
@@ -377,9 +466,70 @@ func getTestCase(t *testing.T, name string) testCase {
 	return testCase{}
 }
 
+func unsupportedHardwareLoweringReason(tc testCase) string {
+	return ""
+}
+
 func checkBinary(name string) bool {
 	_, err := exec.LookPath(name)
 	return err == nil
+}
+
+func TestSimulationOutputsMatch(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name string
+		want string
+		got  string
+		mode simCompareMode
+		ok   bool
+	}{
+		{
+			name: "strict exact match",
+			want: "a\nb\n",
+			got:  "a\nb\n",
+			mode: simCompareStrict,
+			ok:   true,
+		},
+		{
+			name: "strict rejects reordered lines",
+			want: "a\nb\n",
+			got:  "b\na\n",
+			mode: simCompareStrict,
+			ok:   false,
+		},
+		{
+			name: "ignore line order accepts reordering",
+			want: "producer sent 0\nconsumer received 0\nproducer sent 1\n",
+			got:  "consumer received 0\nproducer sent 1\nproducer sent 0\n",
+			mode: simCompareIgnoreLineOrder,
+			ok:   true,
+		},
+		{
+			name: "ignore line order still rejects content changes",
+			want: "a\nb\n",
+			got:  "a\nc\n",
+			mode: simCompareIgnoreLineOrder,
+			ok:   false,
+		},
+	}
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			if got := simulationOutputsMatch([]byte(tc.want), []byte(tc.got), tc.mode); got != tc.ok {
+				t.Fatalf("simulationOutputsMatch(%q, %q, %s)=%t, want %t", tc.want, tc.got, tc.mode, got, tc.ok)
+			}
+		})
+	}
+}
+
+func requireGoldenValidation(t *testing.T) {
+	t.Helper()
+	if compareGoldens {
+		return
+	}
+	t.Skip("artifact golden validation disabled; run MYGO_COMPARE_GOLDENS=1 go test ./... for full verification")
 }
 
 func goldensEnabled() bool {

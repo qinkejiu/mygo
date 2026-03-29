@@ -3,11 +3,15 @@ module main
     in  clk 1bu
     in  rst 1bu
   signals:
-    const_1  const 32bs = 1
-    const_3  const 32bs = 5
-    t0_0     wire  32bs
-    t1_2     wire  32bs
-    t4_4     wire  32bs
+    const_0  const 1bu = true
+    const_2  const 32bs = 1
+    const_4  const 32bs = 0
+    const_5  const 32bs = 0
+    const_6  const 32bs = 5
+    const_8  const 32bs = 0
+    t0_1     wire  32bs
+    t1_3     wire  32bs
+    t4_7     wire  32bs
     varargs  reg   32bs
   channels:
     t0       depth=4 type=32bs
@@ -15,15 +19,15 @@ module main
   process 0 main (stage=0, sequential)
     block entry
       go worker(stage=1)(ch:t0, t1)
-      send t0 <- const_3
-      t4_4 <- t1
-      print "main observed="%!d(string=t4_4)"\n"
+      send t0 <- const_6
+      t4_7 <- t1
+      print "main observed="%0d(t4_7)"\n"
       return
   process 1 worker (stage=1, sequential)
     block entry
-      t0_0 <- t0
-      t1_2 := t0_0 + const_1
-      print "worker received="%!d(string=t0_0)" produced="%!d(string=t1_2)"\n"
-      send t1 <- t1_2
+      t0_1 <- t0
+      t1_3 := t0_1 + const_2
+      print "worker received="%0d(t0_1)" produced="%0d(t1_3)"\n"
+      send t1 <- t1_3
       return
 

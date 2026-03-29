@@ -9,7 +9,7 @@ const (
 	fieldData  = 2
 )
 
-func producer0(out chan<- uint32) {
+func producer0(out chan<- uint32, done chan<- bool) {
 	for i := uint32(0); i < numPackets; i++ {
 		dest := i & 1
 		payload := i
@@ -17,9 +17,10 @@ func producer0(out chan<- uint32) {
 		out <- pkt
 		fmt.Printf("producer %d sent dest=%d payload=%d\n", uint32(0), dest, payload)
 	}
+	done <- true
 }
 
-func producer1(out chan<- uint32) {
+func producer1(out chan<- uint32, done chan<- bool) {
 	for i := uint32(0); i < numPackets; i++ {
 		dest := (uint32(1) + i) & 1
 		payload := uint32(10) + i
@@ -27,9 +28,10 @@ func producer1(out chan<- uint32) {
 		out <- pkt
 		fmt.Printf("producer %d sent dest=%d payload=%d\n", uint32(1), dest, payload)
 	}
+	done <- true
 }
 
-func router(left, right <-chan uint32, outA, outB chan<- uint32) {
+func router(left, right <-chan uint32, outA, outB chan<- uint32, done chan<- bool) {
 	for i := uint32(0); i < numPackets; i++ {
 		leftPkt := <-left
 		leftDest := (leftPkt >> 16) & 0xFF
@@ -47,6 +49,7 @@ func router(left, right <-chan uint32, outA, outB chan<- uint32) {
 			outB <- rightPkt
 		}
 	}
+	done <- true
 }
 
 func consumer0(in <-chan uint32, done chan<- bool) {
@@ -76,15 +79,15 @@ func main() {
 	right := make(chan uint32, 1)
 	outA := make(chan uint32, 1)
 	outB := make(chan uint32, 1)
-	done := make(chan bool, 2)
+	done := make(chan bool, 5)
 
 	go consumer0(outA, done)
 	go consumer1(outB, done)
-	go router(left, right, outA, outB)
-	go producer0(left)
-	go producer1(right)
+	go router(left, right, outA, outB, done)
+	go producer0(left, done)
+	go producer1(right, done)
 
-	for i := 0; i < 2; i++ {
+	for i := 0; i < 5; i++ {
 		<-done
 	}
 	fmt.Printf("router complete packets=%d\n", numPackets)

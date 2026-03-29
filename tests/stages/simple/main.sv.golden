@@ -1,0 +1,35 @@
+module main(
+  input clk,
+        rst
+);
+
+  reg signed [31:0] varargs;
+  initial
+    varargs = 32'h0;
+  wire [31:0] _GEN = 32'h1;
+  wire [15:0] _GEN_0 = 16'h2;
+  reg         state_reg4;
+  initial
+    state_reg4 = 1'h0;
+  reg signed [63:0] print_reg6;
+  initial
+    print_reg6 = 64'h0;
+  always @(posedge clk) begin
+    if (rst)
+      state_reg4 <= 1'h0;
+    else begin
+      case (state_reg4)
+        1'b0: begin
+          print_reg6 = {{32{_GEN[31]}}, _GEN} + {{48{_GEN_0[15]}}, _GEN_0};
+          $write("The result is small: %0d\n", print_reg6);
+          state_reg4 <= 1'h1;
+        end
+        1'b1:
+          state_reg4 <= state_reg4;
+        default:
+          state_reg4 <= state_reg4;
+      endcase
+    end
+  end // always @(posedge)
+endmodule
+

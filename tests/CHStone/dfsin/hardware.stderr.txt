@@ -2,10 +2,3 @@
 /home/qinkejiu/mygo/tests/CHStone/dfsin/main.go:640:3: warning: for loop has condition-only control; lowering will use loop FSM generation
 /home/qinkejiu/mygo/tests/CHStone/dfsin/main.go:689:2: warning: for loop is open-ended; lowering will use loop FSM generation
 warning: width inference did not converge for module main; continuing with best-effort types
-[DEBUG] ExtractConstants called for: tests/CHStone/dfsin/main.go
-[DEBUG] Read 18924 bytes from source
-[DEBUG] Parsed 52 declarations
-[DEBUG] Skipping test_out due to non-constant element: parse int constant: strconv.ParseInt: parsing "0xbfc63a1444ddb37c": value out of range
-[DEBUG] AST walk: 23 GenDecls, 9 ValueSpecs, 2 CompositeLits, 0 ArrayTypes
-info: extracted 0 constant arrays from tests/CHStone/dfsin/main.go
-info: total constant arrays for testbench: 0

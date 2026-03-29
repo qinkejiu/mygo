@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -60,7 +61,7 @@ func EmitVerilog(design *ir.Design, outputPath string, opts Options) (Result, er
 		return Result{}, fmt.Errorf("backend: verilog emission requires -o")
 	}
 
-	fifoInfos := collectFifoDescriptors(design)
+	loweredChannels := ir.LowerChannelsToFIFO(design)
 
 	optPath, err := resolveBinary(opts.CIRCTOptPath, "circt-opt")
 	if err != nil {
@@ -111,7 +112,7 @@ func EmitVerilog(design *ir.Design, outputPath string, opts Options) (Result, er
 		}
 	}
 
-	if err := inlineGeneratedFifos(outputPath, fifoInfos); err != nil {
+	if err := inlineGeneratedFifos(outputPath, loweredChannels.FIFODecls); err != nil {
 		return Result{}, err
 	}
 	if err := applySignedVerilog(design, outputPath); err != nil {
@@ -178,57 +179,7 @@ func resolveBinary(explicit, fallback string) (string, error) {
 	return path, nil
 }
 
-type fifoDescriptor struct {
-	name            string
-	width           int
-	depth           int
-	isAsyncReset    bool
-	almostFullLevel int
-}
-
-func collectFifoDescriptors(design *ir.Design) []fifoDescriptor {
-	seen := make(map[string]fifoDescriptor)
-	if design == nil {
-		return nil
-	}
-	for _, module := range design.Modules {
-		if module == nil {
-			continue
-		}
-		for _, ch := range module.Channels {
-			if ch == nil {
-				continue
-			}
-			width := signalWidth(ch.Type)
-			depth := ch.Depth
-			if depth <= 0 {
-				depth = 1
-			}
-			elem := signalTypeString(ch.Type)
-			name := fifoModuleName(elem, depth)
-			if _, ok := seen[name]; ok {
-				continue
-			}
-			seen[name] = fifoDescriptor{
-				name:            name,
-				width:           width,
-				depth:           depth,
-				isAsyncReset:    false,
-				almostFullLevel: defaultAlmostFullLevel(depth),
-			}
-		}
-	}
-	result := make([]fifoDescriptor, 0, len(seen))
-	for _, desc := range seen {
-		result = append(result, desc)
-	}
-	sort.Slice(result, func(i, j int) bool {
-		return result[i].name < result[j].name
-	})
-	return result
-}
-
-func inlineGeneratedFifos(mainPath string, fifos []fifoDescriptor) error {
+func inlineGeneratedFifos(mainPath string, fifos []*ir.FIFODecl) error {
 	if len(fifos) == 0 {
 		return nil
 	}
@@ -237,31 +188,73 @@ func inlineGeneratedFifos(mainPath string, fifos []fifoDescriptor) error {
 		return fmt.Errorf("backend: read verilog output: %w", err)
 	}
 	updated := string(data)
-	generated := make([]string, 0, len(fifos))
+	rewrittenReusableModule := false
 	for _, fifo := range fifos {
-		var ok bool
-		updated, ok = removeModuleBlock(updated, fifo.name)
-		if !ok {
-			return fmt.Errorf("backend: module %s not found in generated Verilog", fifo.name)
+		if fifo == nil {
+			continue
 		}
-		generated = append(generated, GenerateFIFOVerilog(
-			fifo.name,
-			fifo.width,
-			fifo.depth,
-			fifo.isAsyncReset,
-			fifo.almostFullLevel,
-		))
+		var err error
+		updated, err = rewriteFIFOStubInstances(updated, fifo)
+		if err != nil {
+			return err
+		}
+		var ok bool
+		updated, ok = removeModuleBlock(updated, fifo.ModuleName)
+		if !ok {
+			return fmt.Errorf("backend: module %s not found in generated Verilog", fifo.ModuleName)
+		}
+		rewrittenReusableModule = true
 	}
-	if len(generated) > 0 {
+	if rewrittenReusableModule {
 		if !strings.HasSuffix(updated, "\n") {
 			updated += "\n"
 		}
-		updated += "\n" + strings.Join(generated, "\n\n") + "\n"
+		updated += "\n" + GenerateReusableParametricFIFOVerilog(reusableFIFOName) + "\n"
 	}
 	if err := os.WriteFile(mainPath, []byte(updated), 0o644); err != nil {
 		return fmt.Errorf("backend: update main verilog: %w", err)
 	}
 	return nil
+}
+
+func rewriteFIFOStubInstances(content string, fifo *ir.FIFODecl) (string, error) {
+	if fifo == nil {
+		return content, nil
+	}
+	re := regexp.MustCompile(`(?m)^(\s*)` + regexp.QuoteMeta(fifo.ModuleName) + `(\s+)([A-Za-z_][A-Za-z0-9_$]*)(\s*\()`)
+	params := fmt.Sprintf(
+		"%s #(.DATA_WIDTH(%d), .DEPTH(%d), .ADDR_WIDTH(%d), .COUNT_WIDTH(%d), .LAST_PTR_VALUE(%d), .DEPTH_COUNT_VALUE(%d), .ALMOST_FULL_LEVEL(%d), .ALMOST_EMPTY_LEVEL(%d), .ALMOST_FULL_COUNT_VALUE(%d), .ALMOST_EMPTY_COUNT_VALUE(%d), .USE_REGISTERED_READ(%d), .ALMOST_EMPTY_USES_EMPTY(%d), .ASYNC_RESET(%d))",
+		reusableModuleNameForDecl(fifo),
+		fifo.DataWidth,
+		fifo.Depth,
+		fifo.AddrWidth,
+		fifo.CountWidth,
+		fifo.LastPtrValue,
+		fifo.DepthCountValue,
+		fifo.AlmostFullLevel,
+		fifo.AlmostEmptyLevel,
+		fifo.AlmostFullCountValue,
+		fifo.AlmostEmptyCountValue,
+		boolToInt(fifo.UseRegisteredRead),
+		boolToInt(fifo.AlmostEmptyUsesEmpty),
+		boolToInt(fifo.AsyncReset),
+	)
+	rewritten := re.ReplaceAllString(content, `${1}`+params+`${2}${3}${4}`)
+	return rewritten, nil
+}
+
+func boolToInt(v bool) int {
+	if v {
+		return 1
+	}
+	return 0
+}
+
+func reusableModuleNameForDecl(fifo *ir.FIFODecl) string {
+	if fifo == nil || strings.TrimSpace(fifo.ReusableModuleName) == "" {
+		return reusableFIFOName
+	}
+	return fifo.ReusableModuleName
 }
 
 func removeModuleBlock(content, moduleName string) (string, bool) {
@@ -283,10 +276,6 @@ func removeModuleBlock(content, moduleName string) (string, bool) {
 		end++
 	}
 	return content[:start] + content[end:], true
-}
-
-func fifoModuleName(elemType string, depth int) string {
-	return fmt.Sprintf("mygo_fifo_%s_d%d", sanitize(elemType), depth)
 }
 
 func copyFile(src, dest string) error {
@@ -314,17 +303,6 @@ func signalWidth(t *ir.SignalType) int {
 		return 1
 	}
 	return t.Width
-}
-
-func signalTypeString(t *ir.SignalType) string {
-	return fmt.Sprintf("i%d", signalWidth(t))
-}
-
-func defaultAlmostFullLevel(depth int) int {
-	if depth <= 1 {
-		return 1
-	}
-	return depth - 1
 }
 
 func sanitize(name string) string {

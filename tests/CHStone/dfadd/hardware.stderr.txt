@@ -1,9 +1,0 @@
-[DEBUG] ExtractConstants called for: tests/CHStone/dfadd/main.go
-[DEBUG] Read 13399 bytes from source
-[DEBUG] Parsed 33 declarations
-[DEBUG] Skipping aInput due to non-constant element: parse int constant: strconv.ParseInt: parsing "0xFFF8000000000000": value out of range
-[DEBUG] Skipping bInput due to non-constant element: parse int constant: strconv.ParseInt: parsing "0xBFF0000000000000": value out of range
-[DEBUG] Skipping zOutput due to non-constant element: parse int constant: strconv.ParseInt: parsing "0xFFF8000000000000": value out of range
-[DEBUG] AST walk: 18 GenDecls, 9 ValueSpecs, 4 CompositeLits, 0 ArrayTypes
-info: extracted 0 constant arrays from tests/CHStone/dfadd/main.go
-info: total constant arrays for testbench: 0

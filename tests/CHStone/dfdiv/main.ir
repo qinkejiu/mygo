@@ -36298,7 +36298,7 @@ module main
       callsel_555 := mux(callcmp_527 ? callsel_538 : callsel_554)
       jump for.body_inline_cont_4
     block for.body_inline_cont_4
-      t7_18113 := phi[if.then:const_3, if.then:callbin_796, if.done:callbin_571, if.done:const_3, if.done:callbin_683, if.done:callbin_767, if.done:callsel_18096, if.then:callsel_555, if.then:callsel_619, if.then:callsel_673]
+      t7_18113 := phi[if.done:callbin_571, if.done:const_3, if.then:callsel_673, if.then:callsel_555, if.then:callsel_619, if.done:callbin_683, if.then:const_3, if.done:callbin_767, if.then:callbin_796, if.done:callsel_18096]
       idxeq_18114 := cmp(t1_329 == const_18115)
       idxload_18116 := mux(idxeq_18114 ? z_output_1 : z_output_0)
       idxeq_18117 := cmp(t1_329 == const_18118)

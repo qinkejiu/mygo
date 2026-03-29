@@ -104,8 +104,14 @@ func runCompile(args []string) error {
 	case "ir":
 		return emitIRDesign(design, *output)
 	case "mlir":
+		if err := ensureHardwareLowerableDesign(design); err != nil {
+			return err
+		}
 		return mlir.Emit(design, *output)
 	case "verilog":
+		if err := ensureHardwareLowerableDesign(design); err != nil {
+			return err
+		}
 		if *output == "" || *output == "-" {
 			return fmt.Errorf("verilog emission requires -o")
 		}
@@ -281,6 +287,9 @@ func runSim(args []string) error {
 	if err := runDefaultPasses(design, result.reporter); err != nil {
 		return err
 	}
+	if err := ensureHardwareLowerableDesign(design); err != nil {
+		return err
+	}
 
 	hasChannels := designHasChannels(design)
 	tempRoot := artifactTempRoot(inputs)
@@ -324,30 +333,17 @@ func runSim(args []string) error {
 	svPath = res.MainPath
 	auxFiles := append([]string{}, res.AuxPaths...)
 
-	alignConcurrentOutput := designHasConcurrentPrints(design)
-
-	if shouldFallbackSimToSoftware(inputs) {
-		return runSoftwareFallback(inputs, *expectPath)
-	}
-
 	if *simulator == "" {
-		// Extract constant arrays from source files for testbench initialization
 		constants := []constdata.ArrayConstant{}
 		for _, input := range inputs {
 			consts, err := constdata.ExtractConstants(input)
 			if err != nil {
-				// Non-fatal: just log and continue
 				fmt.Fprintf(os.Stderr, "warning: could not extract constants from %s: %v\n", input, err)
 				continue
 			}
-			fmt.Fprintf(os.Stderr, "info: extracted %d constant arrays from %s\n", len(consts), input)
-			for _, c := range consts {
-				fmt.Fprintf(os.Stderr, "  - %s: %d values\n", c.Name, len(c.Values))
-			}
 			constants = append(constants, consts...)
 		}
-		fmt.Fprintf(os.Stderr, "info: total constant arrays for testbench: %d\n", len(constants))
-		return runBuiltinVerilator(svPath, auxFiles, *expectPath, *simMaxCycles, *simResetCycles, tempRoot, *keepArtifacts, constants, inputs, alignConcurrentOutput)
+		return runBuiltinVerilator(svPath, auxFiles, *expectPath, *simMaxCycles, *simResetCycles, tempRoot, *keepArtifacts, constants)
 	}
 
 	simulatorArgs := parseSimArgs(*simArgs)
@@ -356,28 +352,14 @@ func runSim(args []string) error {
 	cmd := exec.Command(*simulator, simulatorArgs...)
 
 	var stdoutBuf bytes.Buffer
-	if *expectPath != "" || alignConcurrentOutput {
-		cmd.Stdout = &stdoutBuf
-	} else {
-		cmd.Stdout = os.Stdout
-	}
+	cmd.Stdout = &stdoutBuf
 	cmd.Stderr = os.Stderr
 
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("simulator failed: %w", err)
 	}
 
-	output := stdoutBuf.Bytes()
-	if alignConcurrentOutput {
-		aligned, changed, err := maybeAlignSimulatorStdoutWithSoftware(inputs, output)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "warning: could not align concurrent simulator stdout: %v\n", err)
-		} else if changed {
-			output = aligned
-		} else {
-			output = normalizeSimulatorStdout(output)
-		}
-	}
+	output := normalizeSimulatorStdout(stdoutBuf.Bytes())
 
 	if *expectPath != "" {
 		if err := compareSimulatorOutput(*expectPath, output); err != nil {
@@ -385,10 +367,8 @@ func runSim(args []string) error {
 		}
 	}
 
-	if *expectPath != "" || alignConcurrentOutput {
-		if _, err := os.Stdout.Write(output); err != nil {
-			return fmt.Errorf("write simulator stdout: %w", err)
-		}
+	if _, err := os.Stdout.Write(output); err != nil {
+		return fmt.Errorf("write simulator stdout: %w", err)
 	}
 
 	return nil
@@ -406,6 +386,13 @@ func parseSimArgs(raw string) []string {
 		}
 	}
 	return result
+}
+
+func ensureHardwareLowerableDesign(design *ir.Design) error {
+	if err := ir.EnsureHardwareLowerableChannels(design); err != nil {
+		return fmt.Errorf("unsupported hardware lowering:\n%s", err)
+	}
+	return nil
 }
 
 func designHasChannels(design *ir.Design) bool {
@@ -527,7 +514,7 @@ func ensureArtifactRoot(base string) string {
 	return root
 }
 
-func runBuiltinVerilator(mainPath string, auxPaths []string, expectPath string, maxCycles, resetCycles int, tempRoot string, keepArtifacts bool, constants []constdata.ArrayConstant, inputs []string, alignConcurrentOutput bool) error {
+func runBuiltinVerilator(mainPath string, auxPaths []string, expectPath string, maxCycles, resetCycles int, tempRoot string, keepArtifacts bool, constants []constdata.ArrayConstant) error {
 	if maxCycles <= 0 {
 		return fmt.Errorf("default simulator requires --sim-max-cycles > 0 (got %d)", maxCycles)
 	}
@@ -593,14 +580,6 @@ func runBuiltinVerilator(mainPath string, auxPaths []string, expectPath string, 
 		return fmt.Errorf("verilator simulation failed: %w", err)
 	}
 	normalizedStdout := normalizeSimulatorStdout(stdoutBuf.Bytes())
-	if alignConcurrentOutput {
-		aligned, changed, err := maybeAlignSimulatorStdoutWithSoftware(inputs, normalizedStdout)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "warning: could not align concurrent simulator stdout: %v\n", err)
-		} else if changed {
-			normalizedStdout = aligned
-		}
-	}
 	if _, err := os.Stdout.Write(normalizedStdout); err != nil {
 		return fmt.Errorf("write simulator stdout: %w", err)
 	}
@@ -610,75 +589,6 @@ func runBuiltinVerilator(mainPath string, auxPaths []string, expectPath string, 
 		}
 	}
 	return nil
-}
-
-func shouldFallbackSimToSoftware(inputs []string) bool {
-	if len(inputs) != 1 {
-		return false
-	}
-	return false
-}
-
-func runSoftwareFallback(inputs []string, expectPath string) error {
-	if len(inputs) == 0 {
-		return fmt.Errorf("software fallback requires an input")
-	}
-	args := append([]string{"run"}, inputs...)
-	cmd := exec.Command("go", args...)
-	cmd.Env = os.Environ()
-	var stdoutBuf bytes.Buffer
-	cmd.Stdout = &stdoutBuf
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("software fallback failed: %w", err)
-	}
-	normalizedStdout := normalizeSimulatorStdout(stdoutBuf.Bytes())
-	if _, err := os.Stdout.Write(normalizedStdout); err != nil {
-		return fmt.Errorf("write software fallback stdout: %w", err)
-	}
-	if expectPath != "" {
-		if err := compareSimulatorOutput(expectPath, normalizedStdout); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func maybeAlignSimulatorStdoutWithSoftware(inputs []string, hardwareStdout []byte) ([]byte, bool, error) {
-	if len(inputs) == 0 {
-		return hardwareStdout, false, nil
-	}
-	normalizedHW := normalizeSimulatorStdout(hardwareStdout)
-	softwareStdout, err := runSoftwareProgram(inputs)
-	if err != nil {
-		return hardwareStdout, false, err
-	}
-	normalizedSW := normalizeSimulatorStdout(softwareStdout)
-	if bytes.Equal(bytes.TrimSpace(normalizedHW), bytes.TrimSpace(normalizedSW)) {
-		return normalizedHW, false, nil
-	}
-	if !outputsDifferOnlyByLineOrder(normalizedSW, normalizedHW) {
-		return normalizedHW, false, nil
-	}
-	return normalizedSW, true, nil
-}
-
-func runSoftwareProgram(inputs []string) ([]byte, error) {
-	args := append([]string{"run"}, inputs...)
-	cmd := exec.Command("go", args...)
-	cmd.Env = os.Environ()
-	var stdoutBuf bytes.Buffer
-	var stderrBuf bytes.Buffer
-	cmd.Stdout = &stdoutBuf
-	cmd.Stderr = &stderrBuf
-	if err := cmd.Run(); err != nil {
-		msg := strings.TrimSpace(stderrBuf.String())
-		if msg == "" {
-			msg = err.Error()
-		}
-		return nil, fmt.Errorf("software oracle failed: %s", msg)
-	}
-	return stdoutBuf.Bytes(), nil
 }
 
 func normalizeSimulatorStdout(data []byte) []byte {

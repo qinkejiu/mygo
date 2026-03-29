@@ -3175,8 +3175,6 @@ package mygo/tests/stages/pipeline2:
   func  init       func()
   var   init$guard bool
   func  main       func()
-  func  readUint32 func(in <-chan byte) uint32
-  func  sendUint32 func(value uint32, out chan<- byte)
   func  stage1     func(out chan<- uint32)
   func  stage2     func(in <-chan uint32, out chan<- byte)
   func  stage3     func(in <-chan byte, done chan<- bool)

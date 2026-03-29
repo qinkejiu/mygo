@@ -1,0 +1,7 @@
+producer 0 sent dest=0 payload=0
+producer 1 sent dest=1 payload=10
+producer 0 sent dest=1 payload=1
+producer 1 sent dest=0 payload=11
+consumer 0 got src=0 dest=0 payload=0
+producer 0 sent dest=0 payload=2
+producer 1 sent dest=1 payload=12

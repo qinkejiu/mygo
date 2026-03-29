@@ -54,3 +54,63 @@ endmodule
 		t.Fatalf("expected bool operand rewrite, got:\n%s", got)
 	}
 }
+
+func TestRewriteSignedDeclsAndAssignsScopesNamesByModule(t *testing.T) {
+	src := `module alpha;
+  wire [31:0] v0 = 32'h1;
+endmodule
+module beta;
+  wire [31:0] v0 = 32'h2;
+endmodule
+`
+
+	got := rewriteSignedDeclsAndAssigns(src, signedNamesByModule{
+		"alpha": map[string]struct{}{"v0": {}},
+	})
+
+	if !strings.Contains(got, "wire signed [31:0] v0 = 32'sh1;") {
+		t.Fatalf("expected alpha.v0 to become signed, got:\n%s", got)
+	}
+	if strings.Contains(got, "module beta;\n  wire signed [31:0] v0 = 32'sh2;") {
+		t.Fatalf("expected beta.v0 to remain unsigned, got:\n%s", got)
+	}
+	if !strings.Contains(got, "module beta;\n  wire [31:0] v0 = 32'h2;") {
+		t.Fatalf("expected beta.v0 declaration to stay unchanged, got:\n%s", got)
+	}
+}
+
+func TestRewriteFwriteCallsTracksSignedNamesByModule(t *testing.T) {
+	src := `module alpha;
+  wire [31:0] v0;
+  initial begin
+    $fwrite(32'h80000001, "%0d\n", v0);
+  end
+endmodule
+module beta;
+  wire [31:0] v0 = 32'h2;
+endmodule
+`
+	prints := []printInfo{
+		{
+			operands: []printOperandInfo{
+				{signed: true, width: 32, verb: ir.PrintVerbDec},
+			},
+		},
+	}
+
+	rewritten, signedNames, err := rewriteFwriteCalls(src, prints)
+	if err != nil {
+		t.Fatalf("rewriteFwriteCalls failed: %v", err)
+	}
+	got := rewriteSignedDeclsAndAssigns(rewritten, signedNames)
+
+	if !strings.Contains(got, "module alpha;\n  wire signed [31:0] v0;") {
+		t.Fatalf("expected alpha.v0 to become signed from print rewrite, got:\n%s", got)
+	}
+	if strings.Contains(got, "module beta;\n  wire signed [31:0] v0 = 32'sh2;") {
+		t.Fatalf("expected beta.v0 to remain unsigned, got:\n%s", got)
+	}
+	if !strings.Contains(got, "module beta;\n  wire [31:0] v0 = 32'h2;") {
+		t.Fatalf("expected beta.v0 declaration to stay unchanged, got:\n%s", got)
+	}
+}

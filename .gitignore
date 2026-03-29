@@ -1,4 +1,5 @@
 # Go build artifacts
+/mygo
 bin/
 dist/
 build/
@@ -35,6 +36,29 @@ third_party/argo2verilog
 
 # Generated MLIR/Verilog snapshots
 *.mlir
+*.backup
+/CHS_clean_simulation_results.txt
+/change.log
+/change_log/
+tests/stages/**/main.ssa
+tests/stages/**/main.ir
+tests/stages/**/main.mlir
+tests/stages/**/main.sv
+tests/stages/**/*_fifos.sv
+tests/stages/**/hardware.stderr.txt
+tests/stages/**/hardware.stdout.txt
+tests/stages/**/software.stderr.txt
+tests/stages/**/software.stdout.txt
+tests/stages/**/simulation.result.txt
+tests/stages/**/sw_hw.diff.txt
+tests/CHStone/**/main.ssa
+tests/CHStone/**/main.ir
+tests/CHStone/**/main.sv
+tests/CHStone/**/hardware.stderr.txt
+tests/CHStone/**/hardware.stdout.txt
+tests/CHStone/**/software.stderr.txt
+tests/CHStone/**/software.stdout.txt
+tests/CHStone/**/simulation.result.txt
 
 # Tooling temp directories created under workloads
 **/.mygo-tmp/

@@ -1,0 +1,65 @@
+module {
+  hw.module @main(in %clk: i1, in %rst: i1) {
+    %c_init_varargs = hw.constant 0 : i32
+    %varargs = sv.reg : !hw.inout<i32>
+    sv.initial {
+      sv.bpassign %varargs, %c_init_varargs : i32
+    }
+    %c0 = hw.constant -12 : i16
+    %c1 = hw.constant 25 : i16
+    %c2 = hw.constant 4660 : i16
+    %state_const3 = hw.constant 0 : i1
+    %state_const4 = hw.constant 1 : i1
+    %state_reg5 = sv.reg : !hw.inout<i1>
+    sv.initial {
+      sv.bpassign %state_reg5, %state_const3 : i1
+    }
+    %state6 = sv.read_inout %state_reg5 : !hw.inout<i1>
+    %print_reg7 = sv.reg : !hw.inout<i32>
+    %print_zero8 = hw.constant 0 : i32
+    sv.initial {
+      sv.bpassign %print_reg7, %print_zero8 : i32
+    }
+    %print_reg9 = sv.reg : !hw.inout<i32>
+    %print_zero10 = hw.constant 0 : i32
+    sv.initial {
+      sv.bpassign %print_reg9, %print_zero10 : i32
+    }
+    %sext_msb12 = comb.extract %c0 from 15 : (i16) -> i1
+    %sext_bits13 = comb.replicate %sext_msb12 : (i1) -> i16
+    %v11 = comb.concat %sext_bits13, %c0 : i16, i16
+    %sext_msb15 = comb.extract %c1 from 15 : (i16) -> i1
+    %sext_bits16 = comb.replicate %sext_msb15 : (i1) -> i16
+    %v14 = comb.concat %sext_bits16, %c1 : i16, i16
+    %v17 = comb.add %v11, %v14 : i32
+    %v18 = comb.extract %v17 from 0 : (i32) -> i16
+    %zext_pad20 = hw.constant 0 : i16
+    %v19 = comb.concat %zext_pad20, %v18 : i16, i16
+    %zext_pad22 = hw.constant 0 : i16
+    %v21 = comb.concat %zext_pad22, %c2 : i16, i16
+    %v23 = comb.add %v19, %v21 : i32
+    %stdout_fd24 = hw.constant 2147483649 : i32
+    sv.always posedge %clk {
+      sv.if %rst {
+        sv.passign %state_reg5, %state_const3 : i1
+      } else {
+        sv.case %state6 : i1
+        case b0: {
+          sv.bpassign %print_reg7, %v17 : i32
+          %print_val25 = sv.read_inout %print_reg7 : !hw.inout<i32>
+          sv.bpassign %print_reg9, %v23 : i32
+          %print_val26 = sv.read_inout %print_reg9 : !hw.inout<i32>
+          sv.fwrite %stdout_fd24, "partial=%0d widened=0x%0x\n"(%print_val25, %print_val26) : i32, i32
+          sv.passign %state_reg5, %state_const4 : i1
+        }
+        case b1: {
+          sv.passign %state_reg5, %state6 : i1
+        }
+        default: {
+          sv.passign %state_reg5, %state6 : i1
+        }
+      }
+    }
+    hw.output
+  }
+}

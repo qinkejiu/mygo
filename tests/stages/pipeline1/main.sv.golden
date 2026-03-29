@@ -1,0 +1,612 @@
+module main(
+  input clk,
+        rst
+);
+
+  wire [31:0] chan_t0_wdata;
+  wire        chan_t0_wvalid;
+  wire        chan_t0_wready;
+  wire [31:0] chan_t0_rdata;
+  wire        chan_t0_rvalid;
+  wire        chan_t0_rready;
+  wire        chan_t0_full;
+  wire        chan_t0_almost_full;
+  wire        chan_t0_empty;
+  wire        chan_t0_almost_empty;
+  wire [31:0] chan_t1_wdata;
+  wire        chan_t1_wvalid;
+  wire        chan_t1_wready;
+  wire [31:0] chan_t1_rdata;
+  wire        chan_t1_rvalid;
+  wire        chan_t1_rready;
+  wire        chan_t1_full;
+  wire        chan_t1_almost_full;
+  wire        chan_t1_empty;
+  wire        chan_t1_almost_empty;
+  wire        chan_t2_wdata;
+  wire        chan_t2_wvalid;
+  wire        chan_t2_wready;
+  wire        chan_t2_rdata;
+  wire        chan_t2_rvalid;
+  wire        chan_t2_rready;
+  wire        chan_t2_full;
+  wire        chan_t2_almost_full;
+  wire        chan_t2_empty;
+  wire        chan_t2_almost_empty;
+  mygo_fifo #(.DATA_WIDTH(32), .DEPTH(2), .ADDR_WIDTH(1), .COUNT_WIDTH(2), .LAST_PTR_VALUE(1), .DEPTH_COUNT_VALUE(2), .ALMOST_FULL_LEVEL(1), .ALMOST_EMPTY_LEVEL(1), .ALMOST_FULL_COUNT_VALUE(1), .ALMOST_EMPTY_COUNT_VALUE(1), .USE_REGISTERED_READ(0), .ALMOST_EMPTY_USES_EMPTY(0), .ASYNC_RESET(0)) t0_fifo (
+    .clk          (clk),
+    .rst_n        (~rst),
+    .wr_en        (chan_t0_wvalid),
+    .wr_data      (chan_t0_wdata),
+    .full         (chan_t0_full),
+    .almost_full  (chan_t0_almost_full),
+    .rd_en        (chan_t0_rready),
+    .rd_data      (chan_t0_rdata),
+    .empty        (chan_t0_empty),
+    .almost_empty (chan_t0_almost_empty)
+  );
+  assign chan_t0_wready = ~chan_t0_full;
+  assign chan_t0_rvalid = ~chan_t0_empty;
+  mygo_fifo #(.DATA_WIDTH(32), .DEPTH(4), .ADDR_WIDTH(2), .COUNT_WIDTH(3), .LAST_PTR_VALUE(3), .DEPTH_COUNT_VALUE(4), .ALMOST_FULL_LEVEL(3), .ALMOST_EMPTY_LEVEL(1), .ALMOST_FULL_COUNT_VALUE(3), .ALMOST_EMPTY_COUNT_VALUE(1), .USE_REGISTERED_READ(0), .ALMOST_EMPTY_USES_EMPTY(0), .ASYNC_RESET(0)) t1_fifo (
+    .clk          (clk),
+    .rst_n        (~rst),
+    .wr_en        (chan_t1_wvalid),
+    .wr_data      (chan_t1_wdata),
+    .full         (chan_t1_full),
+    .almost_full  (chan_t1_almost_full),
+    .rd_en        (chan_t1_rready),
+    .rd_data      (chan_t1_rdata),
+    .empty        (chan_t1_empty),
+    .almost_empty (chan_t1_almost_empty)
+  );
+  assign chan_t1_wready = ~chan_t1_full;
+  assign chan_t1_rvalid = ~chan_t1_empty;
+  mygo_fifo #(.DATA_WIDTH(1), .DEPTH(2), .ADDR_WIDTH(1), .COUNT_WIDTH(2), .LAST_PTR_VALUE(1), .DEPTH_COUNT_VALUE(2), .ALMOST_FULL_LEVEL(1), .ALMOST_EMPTY_LEVEL(1), .ALMOST_FULL_COUNT_VALUE(1), .ALMOST_EMPTY_COUNT_VALUE(1), .USE_REGISTERED_READ(0), .ALMOST_EMPTY_USES_EMPTY(0), .ASYNC_RESET(0)) t2_fifo (
+    .clk          (clk),
+    .rst_n        (~rst),
+    .wr_en        (chan_t2_wvalid),
+    .wr_data      (chan_t2_wdata),
+    .full         (chan_t2_full),
+    .almost_full  (chan_t2_almost_full),
+    .rd_en        (chan_t2_rready),
+    .rd_data      (chan_t2_rdata),
+    .empty        (chan_t2_empty),
+    .almost_empty (chan_t2_almost_empty)
+  );
+  assign chan_t2_wready = ~chan_t2_full;
+  assign chan_t2_rvalid = ~chan_t2_empty;
+  reg signed [31:0] varargs;
+  initial
+    varargs = 32'h0;
+  reg  [1:0]  state_reg4;
+  initial
+    state_reg4 = 2'h0;
+  reg         recv_reg6;
+  reg         print_reg8;
+  initial
+    print_reg8 = 1'h0;
+  assign chan_t2_rready = state_reg4 == 2'h1;
+  always @(posedge clk) begin
+    if (rst)
+      state_reg4 <= 2'h0;
+    else begin
+      case (state_reg4)
+        2'b00:
+          state_reg4 <= 2'h1;
+        2'b01: begin
+          if (chan_t2_rvalid) begin
+            recv_reg6 <= chan_t2_rdata;
+            state_reg4 <= 2'h2;
+          end
+          else
+            state_reg4 <= state_reg4;
+        end
+        2'b10: begin
+          print_reg8 = recv_reg6;
+          $write("finished is %0s\n", ((print_reg8) ? "true" : "false"));
+          state_reg4 <= 2'h3;
+        end
+        2'b11:
+          state_reg4 <= state_reg4;
+        default:
+          state_reg4 <= state_reg4;
+      endcase
+    end
+  end // always @(posedge)
+  main__proc_filter filter_inst0 (
+    .clk            (clk),
+    .rst            (rst),
+    .chan_t0_rdata  (chan_t0_rdata),
+    .chan_t0_rvalid (chan_t0_rvalid),
+    .chan_t0_rready (chan_t0_rready),
+    .chan_t1_wdata  (chan_t1_wdata),
+    .chan_t1_wvalid (chan_t1_wvalid),
+    .chan_t1_wready (chan_t1_wready)
+  );
+  main__proc_sink sink_inst1 (
+    .clk            (clk),
+    .rst            (rst),
+    .chan_t1_rdata  (chan_t1_rdata),
+    .chan_t1_rvalid (chan_t1_rvalid),
+    .chan_t1_rready (chan_t1_rready),
+    .chan_t2_wdata  (chan_t2_wdata),
+    .chan_t2_wvalid (chan_t2_wvalid),
+    .chan_t2_wready (chan_t2_wready)
+  );
+  main__proc_source source_inst2 (
+    .clk            (clk),
+    .rst            (rst),
+    .chan_t0_wdata  (chan_t0_wdata),
+    .chan_t0_wvalid (chan_t0_wvalid),
+    .chan_t0_wready (chan_t0_wready)
+  );
+endmodule
+
+module main__proc_filter(
+  input        clk,
+               rst,
+  inout [31:0] chan_t0_rdata,
+  inout        chan_t0_rvalid,
+               chan_t0_rready,
+  inout [31:0] chan_t1_wdata,
+  inout        chan_t1_wvalid,
+               chan_t1_wready
+);
+
+  reg  [4:0]  state_reg40;
+  initial
+    state_reg40 = 5'h0;
+  reg  [31:0] recv_reg42;
+  reg  [31:0] recv_reg44;
+  reg  [31:0] phi_reg46;
+  reg  [31:0] phi_reg51;
+  wire        _GEN = state_reg40 == 5'h3;
+  wire        _GEN_0 = state_reg40 == 5'hE;
+  assign chan_t1_wvalid = _GEN | _GEN_0;
+  assign chan_t1_wdata = _GEN ? 32'h5 : _GEN_0 ? phi_reg51 : 32'h0;
+  assign chan_t0_rready = state_reg40 == 5'h1 | state_reg40 == 5'h8;
+  always @(posedge clk) begin
+    if (rst)
+      state_reg40 <= 5'h0;
+    else begin
+      case (state_reg40)
+        5'b00000:
+          state_reg40 <= 5'h1;
+        5'b00001: begin
+          if (chan_t0_rvalid) begin
+            recv_reg42 <= chan_t0_rdata;
+            state_reg40 <= 5'h2;
+          end
+          else
+            state_reg40 <= state_reg40;
+        end
+        5'b00010:
+          state_reg40 <= 5'h3;
+        5'b00011: begin
+          if (chan_t1_wready)
+            state_reg40 <= 5'h4;
+          else
+            state_reg40 <= state_reg40;
+        end
+        5'b00100: begin
+          state_reg40 <= 5'h5;
+          phi_reg46 <= 32'h0;
+        end
+        5'b00101: begin
+          if (phi_reg46 < 32'h5)
+            state_reg40 <= 5'h7;
+          else
+            state_reg40 <= 5'h6;
+        end
+        5'b00110:
+          state_reg40 <= 5'h10;
+        5'b00111:
+          state_reg40 <= 5'h8;
+        5'b01000: begin
+          if (chan_t0_rvalid) begin
+            recv_reg44 <= chan_t0_rdata;
+            state_reg40 <= 5'h9;
+          end
+          else
+            state_reg40 <= state_reg40;
+        end
+        5'b01001: begin
+          if (recv_reg44 == 32'h19700328)
+            state_reg40 <= 5'hC;
+          else
+            state_reg40 <= 5'hA;
+        end
+        5'b01010: begin
+          if (recv_reg44 == 32'h19700101)
+            state_reg40 <= 5'hB;
+          else begin
+            state_reg40 <= 5'hD;
+            phi_reg51 <= recv_reg44;
+          end
+        end
+        5'b01011: begin
+          state_reg40 <= 5'hD;
+          phi_reg51 <= 32'h20071224;
+        end
+        5'b01100: begin
+          state_reg40 <= 5'hD;
+          phi_reg51 <= 32'h20050823;
+        end
+        5'b01101:
+          state_reg40 <= 5'hE;
+        5'b01110: begin
+          if (chan_t1_wready)
+            state_reg40 <= 5'hF;
+          else
+            state_reg40 <= state_reg40;
+        end
+        5'b01111: begin
+          state_reg40 <= 5'h5;
+          phi_reg46 <= phi_reg46 + 32'h1;
+        end
+        5'b10000:
+          state_reg40 <= state_reg40;
+        default:
+          state_reg40 <= state_reg40;
+      endcase
+    end
+  end // always @(posedge)
+endmodule
+
+module main__proc_sink(
+  input        clk,
+               rst,
+  inout [31:0] chan_t1_rdata,
+  inout        chan_t1_rvalid,
+               chan_t1_rready,
+               chan_t2_wdata,
+               chan_t2_wvalid,
+               chan_t2_wready
+);
+
+  reg  [3:0]  state_reg81;
+  initial
+    state_reg81 = 4'h0;
+  reg  [31:0] recv_reg83;
+  reg  [31:0] recv_reg85;
+  reg  [31:0] print_reg87;
+  initial
+    print_reg87 = 32'h0;
+  reg  [31:0] print_reg89;
+  initial
+    print_reg89 = 32'h0;
+  reg  [31:0] phi_reg91;
+  wire        _GEN = state_reg81 == 4'h5;
+  assign chan_t2_wvalid = _GEN;
+  assign chan_t2_wdata = _GEN;
+  assign chan_t1_rready = state_reg81 == 4'h1 | state_reg81 == 4'h8;
+  always @(posedge clk) begin
+    if (rst)
+      state_reg81 <= 4'h0;
+    else begin
+      case (state_reg81)
+        4'b0000:
+          state_reg81 <= 4'h1;
+        4'b0001: begin
+          if (chan_t1_rvalid) begin
+            recv_reg83 <= chan_t1_rdata;
+            state_reg81 <= 4'h2;
+          end
+          else
+            state_reg81 <= state_reg81;
+        end
+        4'b0010: begin
+          state_reg81 <= 4'h3;
+          phi_reg91 <= 32'h0;
+        end
+        4'b0011: begin
+          if (phi_reg91 < 32'h5)
+            state_reg81 <= 4'h7;
+          else
+            state_reg81 <= 4'h4;
+        end
+        4'b0100:
+          state_reg81 <= 4'h5;
+        4'b0101: begin
+          if (chan_t2_wready)
+            state_reg81 <= 4'h6;
+          else
+            state_reg81 <= state_reg81;
+        end
+        4'b0110:
+          state_reg81 <= 4'hA;
+        4'b0111:
+          state_reg81 <= 4'h8;
+        4'b1000: begin
+          if (chan_t1_rvalid) begin
+            recv_reg85 <= chan_t1_rdata;
+            state_reg81 <= 4'h9;
+          end
+          else
+            state_reg81 <= state_reg81;
+        end
+        4'b1001: begin
+          print_reg87 = phi_reg91;
+          print_reg89 = recv_reg85;
+          $write("output: count %0d got integer 0x%0x\n", print_reg87,
+                  print_reg89);
+          state_reg81 <= 4'h3;
+          phi_reg91 <= phi_reg91 + 32'h1;
+        end
+        4'b1010:
+          state_reg81 <= state_reg81;
+        default:
+          state_reg81 <= state_reg81;
+      endcase
+    end
+  end // always @(posedge)
+endmodule
+
+module main__proc_source(
+  input        clk,
+               rst,
+  inout [31:0] chan_t0_wdata,
+  inout        chan_t0_wvalid,
+               chan_t0_wready
+);
+
+  reg  [3:0]  state_reg128;
+  initial
+    state_reg128 = 4'h0;
+  reg  [31:0] print_reg130;
+  initial
+    print_reg130 = 32'h0;
+  reg  [31:0] print_reg132;
+  initial
+    print_reg132 = 32'h0;
+  reg  [31:0] phi_reg134;
+  reg  [31:0] phi_reg139;
+  wire        _GEN = state_reg128 == 4'h1;
+  wire        _GEN_0 = state_reg128 == 4'hA;
+  assign chan_t0_wvalid = _GEN | _GEN_0;
+  assign chan_t0_wdata = _GEN ? 32'h5 : _GEN_0 ? phi_reg139 : 32'h0;
+  always @(posedge clk) begin
+    if (rst)
+      state_reg128 <= 4'h0;
+    else begin
+      case (state_reg128)
+        4'b0000:
+          state_reg128 <= 4'h1;
+        4'b0001: begin
+          if (chan_t0_wready)
+            state_reg128 <= 4'h2;
+          else
+            state_reg128 <= state_reg128;
+        end
+        4'b0010: begin
+          state_reg128 <= 4'h3;
+          phi_reg134 <= 32'h0;
+        end
+        4'b0011: begin
+          if (phi_reg134 < 32'h5)
+            state_reg128 <= 4'h5;
+          else
+            state_reg128 <= 4'h4;
+        end
+        4'b0100:
+          state_reg128 <= 4'hC;
+        4'b0101: begin
+          if (phi_reg134 == 32'h1)
+            state_reg128 <= 4'h8;
+          else
+            state_reg128 <= 4'h6;
+        end
+        4'b0110: begin
+          if (phi_reg134 == 32'h2)
+            state_reg128 <= 4'h7;
+          else begin
+            state_reg128 <= 4'h9;
+            phi_reg139 <= phi_reg134;
+          end
+        end
+        4'b0111: begin
+          state_reg128 <= 4'h9;
+          phi_reg139 <= 32'h19700101;
+        end
+        4'b1000: begin
+          state_reg128 <= 4'h9;
+          phi_reg139 <= 32'h19700328;
+        end
+        4'b1001:
+          state_reg128 <= 4'hA;
+        4'b1010: begin
+          if (chan_t0_wready)
+            state_reg128 <= 4'hB;
+          else
+            state_reg128 <= state_reg128;
+        end
+        4'b1011: begin
+          print_reg130 = phi_reg134;
+          print_reg132 = phi_reg139;
+          $write("input: count %0d sent integer 0x%0x\n", print_reg130,
+                  print_reg132);
+          state_reg128 <= 4'h3;
+          phi_reg134 <= phi_reg134 + 32'h1;
+        end
+        4'b1100:
+          state_reg128 <= state_reg128;
+        default:
+          state_reg128 <= state_reg128;
+      endcase
+    end
+  end // always @(posedge)
+endmodule
+
+
+module mygo_fifo #(
+  parameter integer DATA_WIDTH = 32,
+  parameter integer DEPTH = 1,
+  parameter integer ADDR_WIDTH = 1,
+  parameter integer COUNT_WIDTH = 1,
+  parameter integer LAST_PTR_VALUE = 0,
+  parameter integer DEPTH_COUNT_VALUE = 1,
+  parameter integer ALMOST_FULL_LEVEL = 1,
+  parameter integer ALMOST_EMPTY_LEVEL = 0,
+  parameter integer ALMOST_FULL_COUNT_VALUE = 1,
+  parameter integer ALMOST_EMPTY_COUNT_VALUE = 0,
+  parameter bit USE_REGISTERED_READ = 1'b0,
+  parameter bit ALMOST_EMPTY_USES_EMPTY = 1'b1,
+  parameter bit ASYNC_RESET = 1'b0
+) (
+  input  wire                   clk,
+  input  wire                   rst_n,
+  input  wire                   wr_en,
+  input  wire [DATA_WIDTH-1:0]  wr_data,
+  output wire                   full,
+  output wire                   almost_full,
+  input  wire                   rd_en,
+  output wire [DATA_WIDTH-1:0]  rd_data,
+  output wire                   empty,
+  output wire                   almost_empty
+);
+
+  localparam [ADDR_WIDTH-1:0] LAST_PTR = ADDR_WIDTH'(LAST_PTR_VALUE);
+  localparam [COUNT_WIDTH-1:0] DEPTH_COUNT = COUNT_WIDTH'(DEPTH_COUNT_VALUE);
+  localparam [COUNT_WIDTH-1:0] ALMOST_FULL_COUNT = COUNT_WIDTH'(ALMOST_FULL_COUNT_VALUE);
+  localparam [COUNT_WIDTH-1:0] ALMOST_EMPTY_COUNT = COUNT_WIDTH'(ALMOST_EMPTY_COUNT_VALUE);
+
+  reg [DATA_WIDTH-1:0] mem [0:DEPTH-1];
+  reg [ADDR_WIDTH-1:0] wr_ptr;
+  reg [ADDR_WIDTH-1:0] rd_ptr;
+  reg [COUNT_WIDTH-1:0] count;
+
+  wire wr_fire = wr_en && !full;
+  wire rd_fire = rd_en && !empty;
+  wire [ADDR_WIDTH-1:0] wr_ptr_next = (wr_ptr == LAST_PTR) ? {ADDR_WIDTH{1'b0}} : (wr_ptr + 1'b1);
+  wire [ADDR_WIDTH-1:0] rd_ptr_next = (rd_ptr == LAST_PTR) ? {ADDR_WIDTH{1'b0}} : (rd_ptr + 1'b1);
+
+  assign full = (count == DEPTH_COUNT);
+  assign empty = (count == {COUNT_WIDTH{1'b0}});
+  assign almost_full = (count >= ALMOST_FULL_COUNT);
+  assign almost_empty = (ALMOST_EMPTY_USES_EMPTY != 1'b0) ? empty : (count <= ALMOST_EMPTY_COUNT);
+
+  generate
+    if (USE_REGISTERED_READ != 1'b0) begin : gen_registered_read
+      reg [DATA_WIDTH-1:0] rd_data_reg;
+      assign rd_data = empty ? {DATA_WIDTH{1'b0}} : rd_data_reg;
+
+      if (ASYNC_RESET != 1'b0) begin : gen_async_reset
+        always @(posedge clk or negedge rst_n) begin
+          if (!rst_n) begin
+            wr_ptr <= {ADDR_WIDTH{1'b0}};
+            rd_ptr <= {ADDR_WIDTH{1'b0}};
+            count <= {COUNT_WIDTH{1'b0}};
+            rd_data_reg <= {DATA_WIDTH{1'b0}};
+          end else begin
+            if (wr_fire) begin
+              mem[wr_ptr] <= wr_data;
+              wr_ptr <= wr_ptr_next;
+            end
+            if (rd_fire) begin
+              rd_ptr <= rd_ptr_next;
+            end
+            case ({wr_fire, rd_fire})
+              2'b10: count <= count + 1'b1;
+              2'b01: count <= count - 1'b1;
+              default: count <= count;
+            endcase
+            if (empty && wr_fire) begin
+              rd_data_reg <= wr_data;
+            end else if (rd_fire) begin
+              if (count > 1) begin
+                rd_data_reg <= mem[rd_ptr_next];
+              end else if (wr_fire) begin
+                rd_data_reg <= wr_data;
+              end else begin
+                rd_data_reg <= {DATA_WIDTH{1'b0}};
+              end
+            end else if (!empty) begin
+              rd_data_reg <= mem[rd_ptr];
+            end
+          end
+        end
+      end else begin : gen_sync_reset
+        always @(posedge clk) begin
+          if (!rst_n) begin
+            wr_ptr <= {ADDR_WIDTH{1'b0}};
+            rd_ptr <= {ADDR_WIDTH{1'b0}};
+            count <= {COUNT_WIDTH{1'b0}};
+            rd_data_reg <= {DATA_WIDTH{1'b0}};
+          end else begin
+            if (wr_fire) begin
+              mem[wr_ptr] <= wr_data;
+              wr_ptr <= wr_ptr_next;
+            end
+            if (rd_fire) begin
+              rd_ptr <= rd_ptr_next;
+            end
+            case ({wr_fire, rd_fire})
+              2'b10: count <= count + 1'b1;
+              2'b01: count <= count - 1'b1;
+              default: count <= count;
+            endcase
+            if (empty && wr_fire) begin
+              rd_data_reg <= wr_data;
+            end else if (rd_fire) begin
+              if (count > 1) begin
+                rd_data_reg <= mem[rd_ptr_next];
+              end else if (wr_fire) begin
+                rd_data_reg <= wr_data;
+              end else begin
+                rd_data_reg <= {DATA_WIDTH{1'b0}};
+              end
+            end else if (!empty) begin
+              rd_data_reg <= mem[rd_ptr];
+            end
+          end
+        end
+      end
+    end else begin : gen_direct_read
+      assign rd_data = empty ? {DATA_WIDTH{1'b0}} : mem[rd_ptr];
+
+      if (ASYNC_RESET != 1'b0) begin : gen_async_reset
+        always @(posedge clk or negedge rst_n) begin
+          if (!rst_n) begin
+            wr_ptr <= {ADDR_WIDTH{1'b0}};
+            rd_ptr <= {ADDR_WIDTH{1'b0}};
+            count <= {COUNT_WIDTH{1'b0}};
+          end else begin
+            if (wr_fire) begin
+              mem[wr_ptr] <= wr_data;
+              wr_ptr <= wr_ptr_next;
+            end
+            if (rd_fire) begin
+              rd_ptr <= rd_ptr_next;
+            end
+            case ({wr_fire, rd_fire})
+              2'b10: count <= count + 1'b1;
+              2'b01: count <= count - 1'b1;
+              default: count <= count;
+            endcase
+          end
+        end
+      end else begin : gen_sync_reset
+        always @(posedge clk) begin
+          if (!rst_n) begin
+            wr_ptr <= {ADDR_WIDTH{1'b0}};
+            rd_ptr <= {ADDR_WIDTH{1'b0}};
+            count <= {COUNT_WIDTH{1'b0}};
+          end else begin
+            if (wr_fire) begin
+              mem[wr_ptr] <= wr_data;
+              wr_ptr <= wr_ptr_next;
+            end
+            if (rd_fire) begin
+              rd_ptr <= rd_ptr_next;
+            end
+            case ({wr_fire, rd_fire})
+              2'b10: count <= count + 1'b1;
+              2'b01: count <= count - 1'b1;
+              default: count <= count;
+            endcase
+          end
+        end
+      end
+    end
+  endgenerate
+endmodule

@@ -9,8 +9,7 @@ mygo sim tests/stages/simple/main.go
 ```
 
 - Requires `circt-opt` and `verilator` on `PATH`.
-- The `simple` workload runs in one cycle and has no channels, so you can omit `--fifo-src`.
-- The harness auto-detects `tests/stages/simple/expected.sim` and treats it as the golden trace.
+- If an `expected.sim` file exists next to the input, `mygo sim` auto-uses it. The checked-in regression suites instead pass explicit `--expect .../main.sim.golden` paths.
 
 ## Golden + Test Structure
 
@@ -26,11 +25,17 @@ Workloads live in `tests/stages/<case>/` with the following optional files:
 
 `tests/stages/stages_test.go` wires these assets into three suites plus targeted regressions:
 
-1. `TestSimulation` runs `go run ./cmd/mygo sim ...` with per-workload `--sim-max-cycles` and `--fifo-src` flags.
+1. `TestSimulation` runs `go run ./cmd/mygo sim ...` with per-workload `--sim-max-cycles` settings.
 2. `TestSimulationDetectsMismatch` verifies `--expect` handling by pointing at a bad golden.
 3. `TestSimulationVerilogOutWritesArtifacts` ensures `--verilog-out` mirrors the Verilog bundle when requested.
 
-Keep the goldens checked in—`go test ./tests/stages` will skip simulator-dependent cases if `circt-opt` or `verilator` is missing, so CI can still pass on a pure Go toolchain.
+Artifact goldens are part of the explicit full-regression mode:
+
+```bash
+MYGO_COMPARE_GOLDENS=1 go test ./...
+```
+
+Without `MYGO_COMPARE_GOLDENS=1`, the stage golden suites skip with an explicit message so fast pure-Go verification remains available. Simulator-dependent cases still skip if `circt-opt` or `verilator` is missing.
 
 ## Default Verilator Harness
 
@@ -59,7 +64,7 @@ Artifacts now stick around by default, so you can inspect Verilog, CIRCT MLIR te
 | `--keep-artifacts` | Preserve the temp dir containing Verilog, Makefile, and simulator outputs (default `true`). |
 | `--simulator` | Custom executable to run instead of the built-in Verilator flow. Receives the main Verilog file plus aux files. |
 | `--sim-args` | Extra arguments (split by spaces) forwarded to the custom simulator. |
-| `--fifo-src` | Required when the design contains channels; accepts a file or directory similar to the compile command. |
+| `--fifo-src` | Deprecated compatibility flag. The simulator now generates FIFO support inline and ignores this option. |
 | `--sim-max-cycles` | Max cycles for the built-in driver before declaring a timeout (default 16). Must be > 0. |
 | `--sim-reset-cycles` | Number of cycles to hold reset high at startup (default 2). |
 | `--expect` | Path to a golden stdout trace. |
@@ -67,6 +72,8 @@ Artifacts now stick around by default, so you can inspect Verilog, CIRCT MLIR te
 ## Workflow Notes for Contributors
 
 - **Matching goldens:** Use `--expect tests/stages/<case>/main.sim.golden` during repro steps so failing diffs show up immediately. Update the golden file only after confirming the new behavior.
-- **FIFO libraries:** Workloads marked `NeedsFIFO` in `stages_test.go` pass `--fifo-src internal/backend/templates/simple_fifo.sv`. The backend recognizes the `// mygo:fifo_template` marker inside this file and automatically appends per-channel wrapper modules (e.g. `mygo_fifo_i32_d1`) next to the emitted design, so the simulator sees concrete module names without any manual editing.
+- **Hardware stdout policy:** `mygo sim` now always prints normalized hardware stdout. If you want to tolerate benign line-order variation for concurrent workloads, do that in test comparison code rather than rewriting runtime output.
+- **FIFO generation:** Channel support is generated inline by the compiler. `--fifo-src` remains in the CLI only as a deprecated compatibility flag and is ignored.
 - **Custom simulator wrappers:** Provide `--simulator=/path/to/wrapper` plus any `--sim-args`. MyGO passes the generated Verilog as positional arguments so wrappers can re-run Verilator, hook into commercial tools, etc.
-- **CI expectations:** `go test ./tests/stages` is the canonical way to exercise sim regressions. The suite enforces `circt-opt` + `verilator` availability before running expensive tests, so agents can safely call it even on machines without the full stack.
+- **CI expectations:** Use plain `go test ./...` for fast verification and `MYGO_COMPARE_GOLDENS=1 go test ./...` for full artifact validation. Full mode enables the stage goldens and the targeted CHStone hardware-vs-software regressions (`aes`, `dfsin`, `sha`).
+- **Regenerating baselines:** Use `scripts/regenerate_stage_artifacts.sh` to refresh stage `main.mlir.golden`, `main.sv.golden`, and `main.sim.golden` files.

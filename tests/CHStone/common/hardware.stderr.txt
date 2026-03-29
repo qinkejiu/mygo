@@ -1,6 +1,0 @@
-[DEBUG] ExtractConstants called for: tests/CHStone/common/main.go
-[DEBUG] Read 89 bytes from source
-[DEBUG] Parsed 2 declarations
-[DEBUG] AST walk: 0 GenDecls, 0 ValueSpecs, 0 CompositeLits, 0 ArrayTypes
-info: extracted 0 constant arrays from tests/CHStone/common/main.go
-info: total constant arrays for testbench: 0
