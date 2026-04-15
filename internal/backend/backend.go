@@ -60,6 +60,12 @@ func EmitVerilog(design *ir.Design, outputPath string, opts Options) (Result, er
 	if outputPath == "" || outputPath == "-" {
 		return Result{}, fmt.Errorf("backend: verilog emission requires -o")
 	}
+	if design.TopLevel != nil && design.TopLevel.MixedClock != nil {
+		if err := emitMixedClockTopModuleVerilog(design.TopLevel, outputPath); err != nil {
+			return Result{}, err
+		}
+		return Result{MainPath: outputPath}, nil
+	}
 
 	loweredChannels := ir.LowerChannelsToFIFO(design)
 
@@ -121,6 +127,9 @@ func EmitVerilog(design *ir.Design, outputPath string, opts Options) (Result, er
 	if err := applyLoopFSMVerilog(design, outputPath); err != nil {
 		return Result{}, err
 	}
+	if err := stripLongVerilogComments(outputPath, 1024); err != nil {
+		return Result{}, err
+	}
 	return Result{MainPath: outputPath}, nil
 }
 
@@ -161,6 +170,41 @@ func runCirctPipeline(binary, pipeline, inputPath, outputPath string) error {
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("backend: circt-opt --pass-pipeline failed: %w", err)
+	}
+	return nil
+}
+
+func stripLongVerilogComments(path string, maxCommentLen int) error {
+	if strings.TrimSpace(path) == "" || maxCommentLen <= 0 {
+		return nil
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("backend: read verilog for comment stripping: %w", err)
+	}
+	lines := strings.SplitAfter(string(data), "\n")
+	changed := false
+	for i, line := range lines {
+		idx := strings.Index(line, "//")
+		if idx < 0 {
+			continue
+		}
+		comment := line[idx:]
+		if len(comment) <= maxCommentLen {
+			continue
+		}
+		newline := ""
+		if strings.HasSuffix(line, "\n") {
+			newline = "\n"
+		}
+		lines[i] = strings.TrimRight(line[:idx], " \t") + newline
+		changed = true
+	}
+	if !changed {
+		return nil
+	}
+	if err := os.WriteFile(path, []byte(strings.Join(lines, "")), 0o644); err != nil {
+		return fmt.Errorf("backend: write verilog after comment stripping: %w", err)
 	}
 	return nil
 }

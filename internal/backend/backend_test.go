@@ -2,12 +2,16 @@ package backend
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"mygo/internal/diag"
+	"mygo/internal/frontend"
 	"mygo/internal/ir"
+	"mygo/internal/passes"
 )
 
 func TestEmitVerilogRunsExportVerilog(t *testing.T) {
@@ -404,6 +408,65 @@ endmodule
 	}
 }
 
+func TestEmitVerilogHandlesIndexedLookupProgram(t *testing.T) {
+	const source = `
+package main
+
+var out_q [16]bool
+
+func TopModule(a [3]bool) {
+	var a_val uint8 = 0
+	if a[0] {
+		a_val |= 1 << 0
+	}
+	if a[1] {
+		a_val |= 1 << 1
+	}
+	if a[2] {
+		a_val |= 1 << 2
+	}
+
+	var lut [8][16]bool = [8][16]bool{
+		{false, false, false, true, false, false, true, true, false, false, true, false, false, false, true, false},
+		{true, false, true, false, true, true, true, false, true, true, true, false, false, false, false, false},
+		{false, false, true, false, false, true, true, true, true, true, false, true, false, true, false, false},
+		{false, true, true, true, false, true, false, true, false, false, false, false, true, false, true, false},
+		{false, false, true, false, false, false, false, false, false, true, true, false, false, true, true, false},
+		{false, true, true, false, false, true, false, false, true, true, false, false, true, true, true, false},
+		{true, true, false, false, false, true, false, true, false, false, true, false, false, true, true, false},
+		{true, false, false, true, true, true, true, true, false, false, false, true, false, false, false, false},
+	}
+
+	for i := 0; i < 16; i++ {
+		out_q[i] = lut[a_val][i]
+	}
+}
+`
+	design := buildBackendDesignFromSource(t, source, "TopModule")
+	tmp := t.TempDir()
+	opt := touchFakeBinary(t, tmp)
+	stubRunPipeline(t, func(binary, pipeline, inputPath, outputPath string) error {
+		return copyFile(inputPath, outputPath)
+	})
+	stubRunExport(t, func(binary, pipeline, loweringOptions, inputPath, mlirOutputPath, verilogOutputPath string) error {
+		if err := copyFile(inputPath, mlirOutputPath); err != nil {
+			return err
+		}
+		return os.WriteFile(verilogOutputPath, []byte("// indexed lookup export\n"), 0o644)
+	})
+	out := filepath.Join(tmp, "indexed.sv")
+	if _, err := EmitVerilog(design, out, Options{CIRCTOptPath: opt}); err != nil {
+		t.Fatalf("EmitVerilog failed: %v", err)
+	}
+	data, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatalf("read output: %v", err)
+	}
+	if !strings.Contains(string(data), "// indexed lookup export") {
+		t.Fatalf("expected stub export output, got:\n%s", data)
+	}
+}
+
 func testDesign() *ir.Design {
 	mod := &ir.Module{
 		Name: "main",
@@ -418,6 +481,39 @@ func testDesign() *ir.Design {
 		Modules:  []*ir.Module{mod},
 		TopLevel: mod,
 	}
+}
+
+func buildBackendDesignFromSource(t *testing.T, source string, target string) *ir.Design {
+	t.Helper()
+	dir := t.TempDir()
+	file := filepath.Join(dir, "main.go")
+	goMod := filepath.Join(dir, "go.mod")
+	if err := os.WriteFile(file, []byte(source), 0o644); err != nil {
+		t.Fatalf("write source: %v", err)
+	}
+	if err := os.WriteFile(goMod, []byte("module testcase\n\ngo 1.22\n"), 0o644); err != nil {
+		t.Fatalf("write go.mod: %v", err)
+	}
+	reporter := diag.NewReporter(io.Discard, "text")
+	cfg := frontend.LoadConfig{Sources: []string{file}}
+	pkgs, _, err := frontend.LoadPackages(cfg, reporter)
+	if err != nil {
+		t.Fatalf("load packages: %v", err)
+	}
+	prog, _, err := frontend.BuildSSA(pkgs, reporter)
+	if err != nil {
+		t.Fatalf("build ssa: %v", err)
+	}
+	design, err := ir.BuildDesign(prog, reporter, target)
+	if err != nil {
+		t.Fatalf("build design: %v", err)
+	}
+	passMgr := passes.NewManager()
+	passMgr.Add(passes.NewWidthInference(reporter))
+	if err := passMgr.Run(design); err != nil {
+		t.Fatalf("run passes: %v", err)
+	}
+	return design
 }
 
 func testDesignWithChannel() *ir.Design {

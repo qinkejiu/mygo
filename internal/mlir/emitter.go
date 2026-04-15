@@ -50,6 +50,9 @@ type emitter struct {
 	seqClockName    string
 	modulePorts     map[string][]portDesc // Track module ports for instances
 	globalTempID    int                   // Global counter for unique temporary names
+	rootValueNames  map[*ir.Signal]string // Value names from root process for output resolution
+	rootConstNames  map[*ir.Signal]string // Constant names from root process
+	topPortTypes    map[string]*ir.SignalType
 }
 
 func (e *emitter) emitModule(module *ir.Module) {
@@ -58,9 +61,10 @@ func (e *emitter) emitModule(module *ir.Module) {
 	}
 
 	// Collect modular processes (those with function parameters) separately
+	// Exclude the root process (same name as module) as it gets inlined
 	modularProcesses := make([]*ir.Process, 0)
 	for _, proc := range module.Processes {
-		if proc != nil && len(proc.Params) > 0 {
+		if proc != nil && len(proc.Params) > 0 && proc.Name != module.Name {
 			modularProcesses = append(modularProcesses, proc)
 		}
 	}
@@ -76,10 +80,10 @@ func (e *emitter) emitModule(module *ir.Module) {
 		others = append(others, info)
 	}
 	if root != nil {
-		e.modulePorts[root.moduleName] = e.processPorts(root)
+		e.modulePorts[root.moduleName] = e.processPorts(module, root)
 	}
 	for _, info := range others {
-		e.modulePorts[info.moduleName] = e.processPorts(info)
+		e.modulePorts[info.moduleName] = e.processPorts(module, info)
 	}
 	for _, proc := range modularProcesses {
 		roles, order := collectProcessChannelRoles(proc)
@@ -91,7 +95,7 @@ func (e *emitter) emitModule(module *ir.Module) {
 			channelPorts: make(map[*ir.Channel]*channelPortSet),
 			usedSignals:  collectProcessSignals(proc),
 		}
-		e.modulePorts[info.moduleName] = e.processPorts(info)
+		e.modulePorts[info.moduleName] = e.processPorts(module, info)
 	}
 	e.emitTopLevelModule(module, root, others)
 	for _, info := range others {
@@ -117,7 +121,41 @@ func (e *emitter) emitModule(module *ir.Module) {
 func (e *emitter) emitTopLevelModule(module *ir.Module, root *processInfo, processes []*processInfo) map[*ir.Channel]*channelWireSet {
 	e.printIndent()
 	fmt.Fprintf(e.w, "hw.module @%s(", module.Name)
-	decls := portDecls(module.Ports)
+	topPorts := emittedTopLevelPorts(module)
+	e.topPortTypes = collectPortTypesFromIRPorts(topPorts)
+
+	// Check if module needs sequential logic (FSM/channels/phi)
+	useInoutRegs := moduleUsesFSM(module)
+
+	// Build port declarations
+	decls := portDecls(topPorts)
+
+	// Add clk/rst ports if module needs sequential logic
+	// But only if they're not already present as user-provided parameters
+	if useInoutRegs {
+		hasClk := false
+		hasRst := false
+		for _, port := range topPorts {
+			if port.Direction == ir.Input {
+				if port.Name == "clk" {
+					hasClk = true
+				}
+				if isResetPortName(port.Name) {
+					hasRst = true
+				}
+			}
+		}
+
+		var clkRstDecls []string
+		if !hasClk {
+			clkRstDecls = append(clkRstDecls, "in %clk: i1")
+		}
+		if !hasRst && moduleNeedsSyntheticReset(module) {
+			clkRstDecls = append(clkRstDecls, "in %rst: i1")
+		}
+		decls = append(clkRstDecls, decls...)
+	}
+
 	for i, decl := range decls {
 		if i > 0 {
 			fmt.Fprint(e.w, ", ")
@@ -131,20 +169,852 @@ func (e *emitter) emitTopLevelModule(module *ir.Module, root *processInfo, proce
 	loweredModule := e.loweredChannels.ModuleFor(module)
 	channelWires := e.emitChannelWires(loweredModule)
 	e.emitChannelFifos(loweredModule, channelWires)
-	e.emitInternalSignals(module, moduleUsesFSM(module))
+	e.emitInternalSignals(module, topPorts, useInoutRegs)
 	if root != nil {
-		e.emitRootProcess(module, root, channelWires)
+		e.emitRootProcess(module, topPorts, root, channelWires)
 	}
 	for idx, info := range processes {
-		e.emitProcessInstance(idx, info, channelWires)
+		e.emitProcessInstance(module, idx, info, channelWires)
 	}
 
+	// Emit hw.output with output port values
+	// First, collect and prepare output values
+	var outputValues []string
+	var outputTypes []string
+	type outputBindingValue struct {
+		value string
+		typ   string
+	}
+	resolvedBindings := make(map[string]outputBindingValue)
+	for _, port := range topPorts {
+		if port.Direction == ir.Output {
+			beforeCount := len(outputValues)
+			globalName := outputBindingName(port)
+			if cached, ok := resolvedBindings[globalName]; ok && cached.value != "" {
+				outputValues = append(outputValues, cached.value)
+				outputTypes = append(outputTypes, cached.typ)
+				continue
+			}
+
+			// Check if this is a scalar signal
+			if sig, ok := module.Signals[globalName]; ok && sig != nil {
+				preferStructured := root != nil && root.proc != nil && canEmitDirectClockedControl(root.proc)
+				if preferStructured {
+					if resolved, ok := e.resolveRootCombinationalOutputValue(root, sig); ok && resolved != "" {
+						outputValues = append(outputValues, resolved)
+						outputTypes = append(outputTypes, typeString(sig.Type))
+						resolvedBindings[globalName] = outputBindingValue{value: resolved, typ: typeString(sig.Type)}
+						continue
+					}
+				}
+				if sig.Kind == ir.Wire && e.rootValueNames != nil {
+					if valueName, ok := e.rootValueNames[sig]; ok && valueName != "" {
+						outputValues = append(outputValues, valueName)
+						outputTypes = append(outputTypes, typeString(sig.Type))
+						resolvedBindings[globalName] = outputBindingValue{value: valueName, typ: typeString(sig.Type)}
+						continue
+					}
+				}
+				if !preferStructured {
+					if resolved, ok := e.resolveRootCombinationalOutputValue(root, sig); ok && resolved != "" {
+						outputValues = append(outputValues, resolved)
+						outputTypes = append(outputTypes, typeString(sig.Type))
+						resolvedBindings[globalName] = outputBindingValue{value: resolved, typ: typeString(sig.Type)}
+						continue
+					}
+				}
+				if e.rootValueNames != nil {
+					if valueName, ok := e.rootValueNames[sig]; ok && valueName != "" {
+						rawName := "%" + sanitize(sig.Name)
+						if valueName != rawName {
+							outputValues = append(outputValues, valueName)
+							outputTypes = append(outputTypes, typeString(sig.Type))
+							resolvedBindings[globalName] = outputBindingValue{value: valueName, typ: typeString(sig.Type)}
+							continue
+						}
+					}
+				}
+				// First check if we have a value from the root process (for combinational logic)
+				if e.rootValueNames != nil && shouldPreferRootOutputValue(module, globalName, useInoutRegs, sig) {
+					if valueName, ok := e.rootValueNames[sig]; ok {
+						outputValues = append(outputValues, valueName)
+						outputTypes = append(outputTypes, typeString(sig.Type))
+						resolvedBindings[globalName] = outputBindingValue{value: valueName, typ: typeString(sig.Type)}
+						continue
+					}
+				}
+
+				// Scalar output: check if it's a register (inout) or a wire
+				ssaName := "%" + sanitize(sig.Name)
+				if sig.Kind == ir.Reg {
+					// For registers, check if they were emitted as sv.reg (inout) or seq.compreg (wire)
+					if useInoutRegs {
+						// sv.reg: need to read the inout value
+						readName := fmt.Sprintf("%%read_%s", sanitize(port.Name))
+						e.printIndent()
+						fmt.Fprintf(e.w, "%s = sv.read_inout %s : !hw.inout<%s>\n", readName, ssaName, typeString(sig.Type))
+						outputValues = append(outputValues, readName)
+						resolvedBindings[globalName] = outputBindingValue{value: readName, typ: typeString(sig.Type)}
+					} else {
+						// seq.compreg: already a wire value, use directly
+						outputValues = append(outputValues, ssaName)
+						resolvedBindings[globalName] = outputBindingValue{value: ssaName, typ: typeString(sig.Type)}
+					}
+				} else {
+					// For wires, use directly
+					outputValues = append(outputValues, ssaName)
+					resolvedBindings[globalName] = outputBindingValue{value: ssaName, typ: typeString(sig.Type)}
+				}
+				outputTypes = append(outputTypes, typeString(sig.Type))
+			} else if port.Type != nil && port.Type.Width > 1 {
+				// Array output: collect indexed signals and pack them
+				// For out_out [2]bool, we need out_out_0 and out_out_1
+				var elements []string
+				preferStructured := root != nil && root.proc != nil && canEmitDirectClockedControl(root.proc)
+				for i := 0; i < port.Type.Width; i++ {
+					elemName := fmt.Sprintf("%s_%d", globalName, i)
+					if elemSig, ok := module.Signals[elemName]; ok && elemSig != nil {
+						if preferStructured {
+							if resolved, ok := e.resolveRootCombinationalOutputValue(root, elemSig); ok && resolved != "" {
+								elements = append(elements, resolved)
+								continue
+							}
+						}
+						if elemSig.Kind == ir.Wire && e.rootValueNames != nil {
+							if valueName, ok := e.rootValueNames[elemSig]; ok && valueName != "" {
+								elements = append(elements, valueName)
+								continue
+							}
+						}
+						if !preferStructured {
+							if resolved, ok := e.resolveRootCombinationalOutputValue(root, elemSig); ok && resolved != "" {
+								elements = append(elements, resolved)
+								continue
+							}
+						}
+						if e.rootValueNames != nil {
+							if valueName, ok := e.rootValueNames[elemSig]; ok && valueName != "" {
+								rawName := "%" + sanitize(elemName)
+								if valueName != rawName {
+									elements = append(elements, valueName)
+									continue
+								}
+							}
+						}
+						// First check if we have a value from the root process (for combinational logic)
+						if e.rootValueNames != nil && shouldPreferRootOutputValue(module, globalName, useInoutRegs, elemSig) {
+							if valueName, ok := e.rootValueNames[elemSig]; ok {
+								elements = append(elements, valueName)
+								continue
+							}
+						}
+
+						// Otherwise, use the signal name
+						ssaName := "%" + sanitize(elemName)
+						if elemSig.Kind == ir.Reg && useInoutRegs {
+							// sv.reg: need to read the inout value
+							readName := fmt.Sprintf("%%read_%s_%d", sanitize(port.Name), i)
+							e.printIndent()
+							fmt.Fprintf(e.w, "%s = sv.read_inout %s : !hw.inout<i1>\n", readName, ssaName)
+							elements = append(elements, readName)
+						} else {
+							// seq.compreg or wire: use directly
+							elements = append(elements, ssaName)
+						}
+					}
+				}
+
+				if len(elements) > 0 {
+					// Pack elements using comb.concat (MSB first)
+					packedName := fmt.Sprintf("%%packed_%s", sanitize(port.Name))
+					e.printIndent()
+					fmt.Fprintf(e.w, "%s = comb.concat ", packedName)
+					for i := len(elements) - 1; i >= 0; i-- {
+						if i < len(elements)-1 {
+							fmt.Fprint(e.w, ", ")
+						}
+						fmt.Fprint(e.w, elements[i])
+					}
+					// Each element is i1, output the individual types
+					fmt.Fprint(e.w, " : ")
+					for i := len(elements) - 1; i >= 0; i-- {
+						if i < len(elements)-1 {
+							fmt.Fprint(e.w, ", ")
+						}
+						fmt.Fprint(e.w, "i1")
+					}
+					fmt.Fprintln(e.w)
+					outputValues = append(outputValues, packedName)
+					outputTypes = append(outputTypes, typeString(port.Type))
+					resolvedBindings[globalName] = outputBindingValue{value: packedName, typ: typeString(port.Type)}
+				}
+			}
+			if len(outputValues) == beforeCount {
+				zeroName := e.freshValueName("out_zero")
+				e.printIndent()
+				fmt.Fprintf(e.w, "%s = hw.constant 0 : %s\n", zeroName, typeString(port.Type))
+				outputValues = append(outputValues, zeroName)
+				outputTypes = append(outputTypes, typeString(port.Type))
+				resolvedBindings[globalName] = outputBindingValue{value: zeroName, typ: typeString(port.Type)}
+			}
+		}
+	}
+
+	// Now emit the hw.output statement
 	e.printIndent()
-	fmt.Fprintln(e.w, "hw.output")
+	fmt.Fprint(e.w, "hw.output")
+	if len(outputValues) > 0 {
+		fmt.Fprint(e.w, " ")
+		for i, val := range outputValues {
+			if i > 0 {
+				fmt.Fprint(e.w, ", ")
+			}
+			fmt.Fprint(e.w, val)
+		}
+		fmt.Fprint(e.w, " : ")
+		for i, typ := range outputTypes {
+			if i > 0 {
+				fmt.Fprint(e.w, ", ")
+			}
+			fmt.Fprint(e.w, typ)
+		}
+	}
+	fmt.Fprintln(e.w)
+
 	e.indent--
 	e.printIndent()
 	fmt.Fprintln(e.w, "}")
 	return channelWires
+}
+
+func (e *emitter) resolveRootCombinationalOutputValue(root *processInfo, sig *ir.Signal) (string, bool) {
+	if e == nil || root == nil || root.proc == nil || sig == nil {
+		return "", false
+	}
+	if len(root.proc.Blocks) == 0 {
+		return "", false
+	}
+	if root.proc.Sensitivity == ir.Combinational {
+		cache := make(map[combResolveKey]string)
+		visiting := make(map[combOutputKey]bool)
+		return e.resolveCombinationalOutputAtBlock(root.proc, root.proc.Blocks[0], nil, sig, "", cache, visiting)
+	}
+	if canEmitDirectClockedControl(root.proc) {
+		cache := make(map[combResolveKey]string)
+		visiting := make(map[combOutputKey]bool)
+		return e.resolveDirectClockedOutputAtBlock(root.proc, root.proc.Blocks[0], nil, sig, "", computeEmitterClockedBlocks(root.proc), cache, visiting)
+	}
+	return "", false
+}
+
+type combResolveKey struct {
+	sig   *ir.Signal
+	block *ir.BasicBlock
+	pred  *ir.BasicBlock
+}
+
+type combOutputKey struct {
+	target *ir.Signal
+	block  *ir.BasicBlock
+	pred   *ir.BasicBlock
+}
+
+func (e *emitter) resolveCombinationalOutputAtBlock(proc *ir.Process, block *ir.BasicBlock, pred *ir.BasicBlock, target *ir.Signal, current string, cache map[combResolveKey]string, visiting map[combOutputKey]bool) (string, bool) {
+	if e == nil || proc == nil || block == nil || target == nil || strings.TrimSpace(target.Name) == "" {
+		return current, current != ""
+	}
+	key := combOutputKey{target: target, block: block, pred: pred}
+	if visiting[key] {
+		return current, current != ""
+	}
+	visiting[key] = true
+	defer delete(visiting, key)
+	value := current
+	for _, op := range block.Ops {
+		assign, ok := op.(*ir.AssignOperation)
+		if !ok || assign == nil || assign.Dest == nil || assign.Value == nil {
+			continue
+		}
+		if assign.Dest.Name != target.Name {
+			continue
+		}
+		ref := ""
+		if e.rootValueNames != nil {
+			if cached, ok := e.rootValueNames[assign.Value]; ok && cached != "" {
+				ref = cached
+			}
+		}
+		if ref == "" || ref == "%unknown" {
+			ref = e.resolveCombinationalSignalValue(proc, assign.Value, block, pred, cache)
+		}
+		ref = e.normalizeResolvedSignalRef(assign.Value, ref)
+		if ref == "" || ref == "%unknown" {
+			continue
+		}
+		value = ref
+	}
+	switch term := block.Terminator.(type) {
+	case *ir.JumpTerminator:
+		return e.resolveCombinationalOutputAtBlock(proc, term.Target, block, target, value, cache, visiting)
+	case *ir.ReturnTerminator, nil:
+		return value, value != ""
+	case *ir.BranchTerminator:
+		trueVal, trueOK := e.resolveCombinationalOutputAtBlock(proc, term.True, block, target, value, cache, visiting)
+		falseVal, falseOK := e.resolveCombinationalOutputAtBlock(proc, term.False, block, target, value, cache, visiting)
+		switch {
+		case trueOK && falseOK && trueVal == falseVal:
+			return trueVal, trueVal != ""
+		case trueOK && !falseOK:
+			return trueVal, trueVal != ""
+		case !trueOK && falseOK:
+			return falseVal, falseVal != ""
+		case !trueOK && !falseOK:
+			return value, value != ""
+		}
+		cond := e.rootSignalRef(term.Cond)
+		cond = e.normalizeResolvedSignalRef(term.Cond, cond)
+		if cond == "" || cond == "%unknown" {
+			return value, value != ""
+		}
+		name := e.freshValueName("out_mux")
+		e.printIndent()
+		fmt.Fprintf(e.w, "%s = comb.mux %s, %s, %s : %s\n", name, cond, trueVal, falseVal, typeString(target.Type))
+		return name, true
+	default:
+		return value, value != ""
+	}
+}
+
+func (e *emitter) resolveCombinationalSignalValue(proc *ir.Process, sig *ir.Signal, block *ir.BasicBlock, pred *ir.BasicBlock, cache map[combResolveKey]string) string {
+	if e == nil || proc == nil || sig == nil {
+		return ""
+	}
+	key := combResolveKey{sig: sig, block: block, pred: pred}
+	if cache != nil {
+		if cached, ok := cache[key]; ok {
+			return cached
+		}
+		cache[key] = "%unknown"
+	}
+	if sig.Kind == ir.Const {
+		ref := e.rootSignalRef(sig)
+		ref = e.normalizeResolvedSignalRef(sig, ref)
+		if cache != nil {
+			cache[key] = ref
+		}
+		return ref
+	}
+	producer, producerBlock := findSignalProducer(proc, sig)
+	if producer == nil {
+		if sig.Kind == ir.Reg && sig.Name != "" {
+			ref := e.freshValueName("comb_reg")
+			e.printIndent()
+			fmt.Fprintf(e.w, "%s = sv.read_inout %%%s : !hw.inout<%s>\n", ref, sanitize(sig.Name), typeString(sig.Type))
+			if cache != nil {
+				cache[key] = ref
+			}
+			return ref
+		}
+		ref := e.rootSignalRef(sig)
+		ref = e.normalizeResolvedSignalRef(sig, ref)
+		if cache != nil {
+			cache[key] = ref
+		}
+		return ref
+	}
+	ref := ""
+	switch op := producer.(type) {
+	case *ir.AssignOperation:
+		ref = e.resolveCombinationalSignalValue(proc, op.Value, producerBlock, pred, cache)
+	case *ir.PhiOperation:
+		if pred != nil {
+			for _, incoming := range op.Incomings {
+				if incoming.Block == pred && incoming.Value != nil {
+					ref = e.resolveCombinationalSignalValue(proc, incoming.Value, incoming.Block, nil, cache)
+					break
+				}
+			}
+		}
+	case *ir.NotOperation:
+		value := e.resolveCombinationalSignalValue(proc, op.Value, producerBlock, pred, cache)
+		if value != "" && value != "%unknown" {
+			name := e.freshValueName("comb_not")
+			ones := e.boolConst(true)
+			if signalWidth(op.Value.Type) != 1 {
+				ones = e.emitterAllOnesConst(op.Value.Type)
+			}
+			e.printIndent()
+			fmt.Fprintf(e.w, "%s = comb.xor %s, %s : %s\n", name, value, ones, typeString(op.Value.Type))
+			ref = name
+		}
+	case *ir.BinOperation:
+		left := e.resolveCombinationalSignalValue(proc, op.Left, producerBlock, pred, cache)
+		right := e.resolveCombinationalSignalValue(proc, op.Right, producerBlock, pred, cache)
+		if left != "" && right != "" && left != "%unknown" && right != "%unknown" {
+			name := e.freshValueName("comb_bin")
+			e.printIndent()
+			fmt.Fprintf(e.w, "%s = comb.%s %s, %s : %s\n", name, binOpName(op.Op), left, right, typeString(op.Dest.Type))
+			ref = name
+		}
+	case *ir.CompareOperation:
+		left := e.resolveCombinationalSignalValue(proc, op.Left, producerBlock, pred, cache)
+		right := e.resolveCombinationalSignalValue(proc, op.Right, producerBlock, pred, cache)
+		if left != "" && right != "" && left != "%unknown" && right != "%unknown" {
+			name := e.freshValueName("comb_cmp")
+			e.printIndent()
+			fmt.Fprintf(e.w, "%s = comb.icmp %s %s, %s : %s\n", name, comparePredicateName(op.Predicate), left, right, typeString(op.Left.Type))
+			ref = name
+		}
+	case *ir.MuxOperation:
+		cond := e.resolveCombinationalSignalValue(proc, op.Cond, producerBlock, pred, cache)
+		tval := e.resolveCombinationalSignalValue(proc, op.TrueValue, producerBlock, pred, cache)
+		fval := e.resolveCombinationalSignalValue(proc, op.FalseValue, producerBlock, pred, cache)
+		if cond != "" && tval != "" && fval != "" && cond != "%unknown" && tval != "%unknown" && fval != "%unknown" {
+			name := e.freshValueName("comb_mux")
+			e.printIndent()
+			fmt.Fprintf(e.w, "%s = comb.mux %s, %s, %s : %s\n", name, cond, tval, fval, typeString(op.Dest.Type))
+			ref = name
+		}
+	case *ir.ConvertOperation:
+		value := e.resolveCombinationalSignalValue(proc, op.Value, producerBlock, pred, cache)
+		if value != "" && value != "%unknown" {
+			ref = e.emitResolvedConvert(value, op.Value.Type, op.Dest.Type)
+		}
+	default:
+		ref = e.rootSignalRef(sig)
+	}
+	ref = e.normalizeResolvedSignalRef(sig, ref)
+	if cache != nil {
+		cache[key] = ref
+	}
+	return ref
+}
+
+func findSignalProducer(proc *ir.Process, sig *ir.Signal) (ir.Operation, *ir.BasicBlock) {
+	if proc == nil || sig == nil {
+		return nil, nil
+	}
+	for _, block := range proc.Blocks {
+		if block == nil {
+			continue
+		}
+		for _, op := range block.Ops {
+			switch typed := op.(type) {
+			case *ir.AssignOperation:
+				if typed != nil && typed.Dest == sig {
+					return op, block
+				}
+			case *ir.PhiOperation:
+				if typed != nil && typed.Dest == sig {
+					return op, block
+				}
+			case *ir.NotOperation:
+				if typed != nil && typed.Dest == sig {
+					return op, block
+				}
+			case *ir.BinOperation:
+				if typed != nil && typed.Dest == sig {
+					return op, block
+				}
+			case *ir.CompareOperation:
+				if typed != nil && typed.Dest == sig {
+					return op, block
+				}
+			case *ir.MuxOperation:
+				if typed != nil && typed.Dest == sig {
+					return op, block
+				}
+			case *ir.ConvertOperation:
+				if typed != nil && typed.Dest == sig {
+					return op, block
+				}
+			}
+		}
+	}
+	return nil, nil
+}
+
+func (e *emitter) resolveBlockPhiIncoming(block *ir.BasicBlock, pred *ir.BasicBlock, sig *ir.Signal) (string, bool) {
+	if e == nil || block == nil || pred == nil || sig == nil {
+		return "", false
+	}
+	for _, op := range block.Ops {
+		phi, ok := op.(*ir.PhiOperation)
+		if !ok || phi == nil || phi.Dest == nil || phi.Dest != sig {
+			continue
+		}
+		for _, incoming := range phi.Incomings {
+			if incoming.Block != pred || incoming.Value == nil {
+				continue
+			}
+			ref := e.rootSignalRef(incoming.Value)
+			ref = e.normalizeResolvedSignalRef(incoming.Value, ref)
+			if ref == "" || ref == "%unknown" {
+				return "", false
+			}
+			return ref, true
+		}
+	}
+	return "", false
+}
+
+func (e *emitter) resolveDirectClockedSignalValue(proc *ir.Process, sig *ir.Signal, block *ir.BasicBlock, pred *ir.BasicBlock, clocked map[*ir.BasicBlock]bool, cache map[combResolveKey]string) string {
+	if e == nil || proc == nil || sig == nil {
+		return ""
+	}
+	key := combResolveKey{sig: sig, block: block, pred: pred}
+	if cache != nil {
+		if cached, ok := cache[key]; ok {
+			return cached
+		}
+		cache[key] = "%unknown"
+	}
+	if sig.Kind == ir.Const {
+		ref := e.rootSignalRef(sig)
+		ref = e.normalizeResolvedSignalRef(sig, ref)
+		if cache != nil {
+			cache[key] = ref
+		}
+		return ref
+	}
+	producer, producerBlock := findSignalProducer(proc, sig)
+	if producer == nil || producerBlock == nil {
+		ref := e.rootSignalRef(sig)
+		ref = e.normalizeResolvedSignalRef(sig, ref)
+		if cache != nil {
+			cache[key] = ref
+		}
+		return ref
+	}
+	if clocked != nil && clocked[producerBlock] {
+		ref := e.rootSignalRef(sig)
+		ref = e.normalizeResolvedSignalRef(sig, ref)
+		if cache != nil {
+			cache[key] = ref
+		}
+		return ref
+	}
+	ref := ""
+	switch op := producer.(type) {
+	case *ir.AssignOperation:
+		ref = e.resolveDirectClockedSignalValue(proc, op.Value, producerBlock, pred, clocked, cache)
+	case *ir.PhiOperation:
+		if pred != nil {
+			for _, incoming := range op.Incomings {
+				if incoming.Block == pred && incoming.Value != nil {
+					ref = e.resolveDirectClockedSignalValue(proc, incoming.Value, incoming.Block, nil, clocked, cache)
+					break
+				}
+			}
+		}
+	case *ir.NotOperation:
+		value := e.resolveDirectClockedSignalValue(proc, op.Value, producerBlock, pred, clocked, cache)
+		if value != "" && value != "%unknown" {
+			name := e.freshValueName("comb_not")
+			ones := e.boolConst(true)
+			if signalWidth(op.Value.Type) != 1 {
+				ones = e.emitterAllOnesConst(op.Value.Type)
+			}
+			e.printIndent()
+			fmt.Fprintf(e.w, "%s = comb.xor %s, %s : %s\n", name, value, ones, typeString(op.Value.Type))
+			ref = name
+		}
+	case *ir.BinOperation:
+		left := e.resolveDirectClockedSignalValue(proc, op.Left, producerBlock, pred, clocked, cache)
+		right := e.resolveDirectClockedSignalValue(proc, op.Right, producerBlock, pred, clocked, cache)
+		if left != "" && right != "" && left != "%unknown" && right != "%unknown" {
+			name := e.freshValueName("comb_bin")
+			e.printIndent()
+			fmt.Fprintf(e.w, "%s = comb.%s %s, %s : %s\n", name, binOpName(op.Op), left, right, typeString(op.Dest.Type))
+			ref = name
+		}
+	case *ir.CompareOperation:
+		left := e.resolveDirectClockedSignalValue(proc, op.Left, producerBlock, pred, clocked, cache)
+		right := e.resolveDirectClockedSignalValue(proc, op.Right, producerBlock, pred, clocked, cache)
+		if left != "" && right != "" && left != "%unknown" && right != "%unknown" {
+			name := e.freshValueName("comb_cmp")
+			e.printIndent()
+			fmt.Fprintf(e.w, "%s = comb.icmp %s %s, %s : %s\n", name, comparePredicateName(op.Predicate), left, right, typeString(op.Left.Type))
+			ref = name
+		}
+	case *ir.MuxOperation:
+		cond := e.resolveDirectClockedSignalValue(proc, op.Cond, producerBlock, pred, clocked, cache)
+		tval := e.resolveDirectClockedSignalValue(proc, op.TrueValue, producerBlock, pred, clocked, cache)
+		fval := e.resolveDirectClockedSignalValue(proc, op.FalseValue, producerBlock, pred, clocked, cache)
+		if cond != "" && tval != "" && fval != "" && cond != "%unknown" && tval != "%unknown" && fval != "%unknown" {
+			name := e.freshValueName("comb_mux")
+			e.printIndent()
+			fmt.Fprintf(e.w, "%s = comb.mux %s, %s, %s : %s\n", name, cond, tval, fval, typeString(op.Dest.Type))
+			ref = name
+		}
+	case *ir.ConvertOperation:
+		value := e.resolveDirectClockedSignalValue(proc, op.Value, producerBlock, pred, clocked, cache)
+		if value != "" && value != "%unknown" {
+			ref = e.emitResolvedConvert(value, op.Value.Type, op.Dest.Type)
+		}
+	default:
+		ref = e.rootSignalRef(sig)
+	}
+	ref = e.normalizeResolvedSignalRef(sig, ref)
+	if cache != nil {
+		cache[key] = ref
+	}
+	return ref
+}
+
+func (e *emitter) resolveDirectClockedOutputAtBlock(proc *ir.Process, block *ir.BasicBlock, pred *ir.BasicBlock, target *ir.Signal, current string, clocked map[*ir.BasicBlock]bool, cache map[combResolveKey]string, visiting map[combOutputKey]bool) (string, bool) {
+	if e == nil || proc == nil || block == nil || target == nil || strings.TrimSpace(target.Name) == "" {
+		return current, current != ""
+	}
+	key := combOutputKey{target: target, block: block, pred: pred}
+	if visiting[key] {
+		return current, current != ""
+	}
+	visiting[key] = true
+	defer delete(visiting, key)
+	value := current
+	if !clocked[block] {
+		for _, op := range block.Ops {
+			assign, ok := op.(*ir.AssignOperation)
+			if !ok || assign == nil || assign.Dest == nil || assign.Value == nil {
+				continue
+			}
+			if assign.Dest.Name != target.Name {
+				continue
+			}
+			ref := e.resolveDirectClockedSignalValue(proc, assign.Value, block, pred, clocked, cache)
+			ref = e.normalizeResolvedSignalRef(assign.Value, ref)
+			if ref == "" || ref == "%unknown" {
+				continue
+			}
+			value = ref
+		}
+	}
+	switch term := block.Terminator.(type) {
+	case *ir.JumpTerminator:
+		return e.resolveDirectClockedOutputAtBlock(proc, term.Target, block, target, value, clocked, cache, visiting)
+	case *ir.ReturnTerminator, nil:
+		return value, value != ""
+	case *ir.BranchTerminator:
+		trueVal, trueOK := e.resolveDirectClockedOutputAtBlock(proc, term.True, block, target, value, clocked, cache, visiting)
+		falseVal, falseOK := e.resolveDirectClockedOutputAtBlock(proc, term.False, block, target, value, clocked, cache, visiting)
+		switch {
+		case trueOK && falseOK && trueVal == falseVal:
+			return trueVal, trueVal != ""
+		case trueOK && !falseOK:
+			return trueVal, trueVal != ""
+		case !trueOK && falseOK:
+			return falseVal, falseVal != ""
+		case !trueOK && !falseOK:
+			return value, value != ""
+		}
+		cond := e.rootSignalRef(term.Cond)
+		cond = e.normalizeResolvedSignalRef(term.Cond, cond)
+		if cond == "" || cond == "%unknown" {
+			return value, value != ""
+		}
+		name := e.freshValueName("out_mux")
+		e.printIndent()
+		fmt.Fprintf(e.w, "%s = comb.mux %s, %s, %s : %s\n", name, cond, trueVal, falseVal, typeString(target.Type))
+		return name, true
+	default:
+		return value, value != ""
+	}
+}
+
+type emitterClockedVisitKey struct {
+	block     *ir.BasicBlock
+	inClocked bool
+}
+
+func computeEmitterClockedBlocks(proc *ir.Process) map[*ir.BasicBlock]bool {
+	blocks := make(map[*ir.BasicBlock]bool)
+	if proc == nil || len(proc.Blocks) == 0 {
+		return blocks
+	}
+	visited := make(map[emitterClockedVisitKey]bool)
+	clockedReach := make(map[*ir.BasicBlock]bool)
+	nonClockedReach := make(map[*ir.BasicBlock]bool)
+	var visit func(block *ir.BasicBlock, inClocked bool)
+	visit = func(block *ir.BasicBlock, inClocked bool) {
+		if block == nil {
+			return
+		}
+		key := emitterClockedVisitKey{block: block, inClocked: inClocked}
+		if visited[key] {
+			return
+		}
+		visited[key] = true
+		if inClocked {
+			clockedReach[block] = true
+		} else {
+			nonClockedReach[block] = true
+		}
+		switch term := block.Terminator.(type) {
+		case *ir.BranchTerminator:
+			if term.Cond != nil && isClockLikeName(term.Cond.Name) {
+				visit(term.True, true)
+				visit(term.False, false)
+				return
+			}
+			if term.Cond != nil && isResetPortName(term.Cond.Name) && block == proc.Blocks[0] {
+				visit(term.True, true)
+				visit(term.False, false)
+				return
+			}
+			visit(term.True, inClocked)
+			visit(term.False, inClocked)
+		case *ir.JumpTerminator:
+			visit(term.Target, inClocked)
+		}
+	}
+	visit(proc.Blocks[0], false)
+	for block := range clockedReach {
+		if !nonClockedReach[block] {
+			blocks[block] = true
+		}
+	}
+	return blocks
+}
+
+func (e *emitter) normalizeResolvedSignalRef(sig *ir.Signal, ref string) string {
+	if e == nil || sig == nil || ref == "" || ref == "%unknown" {
+		return ref
+	}
+	if sig.Kind != ir.Reg {
+		return ref
+	}
+	raw := "%" + sanitize(sig.Name)
+	if ref != raw {
+		return ref
+	}
+	name := e.freshValueName("norm_reg")
+	e.printIndent()
+	fmt.Fprintf(e.w, "%s = sv.read_inout %s : !hw.inout<%s>\n", name, raw, typeString(sig.Type))
+	return name
+}
+
+func (e *emitter) rootSignalRef(sig *ir.Signal) string {
+	if e == nil || sig == nil {
+		return ""
+	}
+	if unpacked := e.inputArrayElementRef(sig); unpacked != "" {
+		return unpacked
+	}
+	if e.rootValueNames != nil {
+		if ref, ok := e.rootValueNames[sig]; ok && ref != "" {
+			return ref
+		}
+	}
+	if sig.Kind == ir.Const {
+		if e.rootConstNames != nil {
+			if ref, ok := e.rootConstNames[sig]; ok && ref != "" {
+				return ref
+			}
+		}
+		return ""
+	}
+	if sig.Name == "" {
+		return ""
+	}
+	if sig.Kind == ir.Reg {
+		ref := e.freshValueName("root_reg")
+		e.printIndent()
+		fmt.Fprintf(e.w, "%s = sv.read_inout %%%s : !hw.inout<%s>\n", ref, sanitize(sig.Name), typeString(sig.Type))
+		return ref
+	}
+	return "%" + sanitize(sig.Name)
+}
+
+func (e *emitter) inputArrayElementRef(sig *ir.Signal) string {
+	if e == nil || sig == nil || sig.Name == "" || e.topPortTypes == nil {
+		return ""
+	}
+	base, index, ok := indexedSignalName(sig.Name)
+	if !ok {
+		return ""
+	}
+	portType, ok := e.topPortTypes[base]
+	if !ok || portType == nil {
+		return ""
+	}
+	elemWidth := signalWidth(sig.Type)
+	if elemWidth <= 0 {
+		elemWidth = 1
+	}
+	offset := index * elemWidth
+	name := e.freshValueName("in_elem")
+	e.printIndent()
+	fmt.Fprintf(e.w, "%s = comb.extract %%%s from %d : (%s) -> %s\n",
+		name,
+		sanitize(base),
+		offset,
+		typeString(portType),
+		typeString(sig.Type),
+	)
+	return name
+}
+
+func (e *emitter) emitResolvedConvert(value string, srcType, destType *ir.SignalType) string {
+	if e == nil || value == "" || value == "%unknown" {
+		return value
+	}
+	srcWidth := signalWidth(srcType)
+	destWidth := signalWidth(destType)
+	if srcWidth <= 0 || destWidth <= 0 || srcWidth == destWidth {
+		return value
+	}
+	from := typeString(srcType)
+	to := typeString(destType)
+	if destWidth > srcWidth {
+		extendWidth := destWidth - srcWidth
+		if srcType != nil && srcType.Signed {
+			signBit := e.freshValueName("sext_msb")
+			e.printIndent()
+			fmt.Fprintf(e.w, "%s = comb.extract %s from %d : (%s) -> i1\n", signBit, value, srcWidth-1, from)
+			replicated := e.freshValueName("sext_bits")
+			e.printIndent()
+			fmt.Fprintf(e.w, "%s = comb.replicate %s : (i1) -> i%d\n", replicated, signBit, extendWidth)
+			dest := e.freshValueName("comb_conv")
+			e.printIndent()
+			fmt.Fprintf(e.w, "%s = comb.concat %s, %s : i%d, %s\n", dest, replicated, value, extendWidth, from)
+			return dest
+		}
+		zeros := e.freshValueName("zext_pad")
+		e.printIndent()
+		fmt.Fprintf(e.w, "%s = hw.constant 0 : i%d\n", zeros, extendWidth)
+		dest := e.freshValueName("comb_conv")
+		e.printIndent()
+		fmt.Fprintf(e.w, "%s = comb.concat %s, %s : i%d, %s\n", dest, zeros, value, extendWidth, from)
+		return dest
+	}
+	dest := e.freshValueName("comb_conv")
+	e.printIndent()
+	fmt.Fprintf(e.w, "%s = comb.extract %s from 0 : (%s) -> %s\n", dest, value, from, to)
+	return dest
+}
+
+func outputBindingName(port ir.Port) string {
+	if strings.TrimSpace(port.Binding) != "" {
+		return port.Binding
+	}
+	return "out_" + port.Name
+}
+
+func shouldPreferRootOutputValue(module *ir.Module, binding string, useInoutRegs bool, sig *ir.Signal) bool {
+	if sig == nil {
+		return false
+	}
+	if useInoutRegs && sig.Kind == ir.Reg {
+		return false
+	}
+	if sig.Name == binding {
+		return true
+	}
+	if base, _, ok := indexedSignalName(sig.Name); ok && base == binding {
+		return true
+	}
+	return false
 }
 
 func (e *emitter) emitChannelWires(loweredModule *ir.LoweredChannelModule) map[*ir.Channel]*channelWireSet {
@@ -368,14 +1238,14 @@ func (e *emitter) emitMultiProducerArbitration(loweredFIFO *ir.LoweredChannelFIF
 	}
 }
 
-func (e *emitter) emitInternalSignals(module *ir.Module, useInoutRegs bool) {
+func (e *emitter) emitInternalSignals(module *ir.Module, topPorts []ir.Port, useInoutRegs bool) {
 	if module == nil || len(module.Signals) == 0 {
 		return
 	}
 
 	// Build a set of port names for quick lookup
 	portNames := make(map[string]bool)
-	for _, port := range module.Ports {
+	for _, port := range topPorts {
 		portNames[port.Name] = true
 	}
 
@@ -417,12 +1287,13 @@ func (e *emitter) emitInternalSignals(module *ir.Module, useInoutRegs bool) {
 		// Array elements and scalar globals need to be declared as registers for persistent storage.
 		// FSM-driven processes require inout regs so per-state updates can use sv.passign.
 		if isArrayElement {
-			e.printIndent()
-			// Initialize register with constant value if available, otherwise 0
-			initValue := formatHWConstant(e.getSignalInitValue(sig), sig.Type)
-			constName := fmt.Sprintf("%%c_init_%s", sanitize(name))
-			fmt.Fprintf(e.w, "%s = hw.constant %s : %s\n", constName, initValue, typeString(sig.Type))
+			// Only emit registers if we're using FSM (useInoutRegs)
 			if useInoutRegs {
+				e.printIndent()
+				// Initialize register with constant value if available, otherwise 0
+				initValue := formatHWConstant(e.getSignalInitValue(sig), sig.Type)
+				constName := fmt.Sprintf("%%c_init_%s", sanitize(name))
+				fmt.Fprintf(e.w, "%s = hw.constant %s : %s\n", constName, initValue, typeString(sig.Type))
 				e.printIndent()
 				fmt.Fprintf(e.w, "%%%s = sv.reg : !hw.inout<%s>\n", sanitize(name), typeString(sig.Type))
 				e.printIndent()
@@ -433,10 +1304,8 @@ func (e *emitter) emitInternalSignals(module *ir.Module, useInoutRegs bool) {
 				e.indent--
 				e.printIndent()
 				fmt.Fprintln(e.w, "}")
-			} else {
-				clk := e.seqClock()
-				fmt.Fprintf(e.w, "%%%s = seq.compreg %s, %s : %s\n", sanitize(name), constName, clk, typeString(sig.Type))
 			}
+			// For combinational logic, don't emit register declarations
 		} else if sig.Kind == ir.Reg {
 			// All register-kind signals that are not array elements
 			// This includes scalar globals like xout1, xout2, nbl, dlt, dec_plt1, etc.
@@ -445,21 +1314,16 @@ func (e *emitter) emitInternalSignals(module *ir.Module, useInoutRegs bool) {
 			initValue := formatHWConstant(e.getSignalInitValue(sig), sig.Type)
 			constName := fmt.Sprintf("%%c_init_%s", sanitize(name))
 			fmt.Fprintf(e.w, "%s = hw.constant %s : %s\n", constName, initValue, typeString(sig.Type))
-			if useInoutRegs {
-				e.printIndent()
-				fmt.Fprintf(e.w, "%%%s = sv.reg : !hw.inout<%s>\n", sanitize(name), typeString(sig.Type))
-				e.printIndent()
-				fmt.Fprintln(e.w, "sv.initial {")
-				e.indent++
-				e.printIndent()
-				fmt.Fprintf(e.w, "sv.bpassign %%%s, %s : %s\n", sanitize(name), constName, typeString(sig.Type))
-				e.indent--
-				e.printIndent()
-				fmt.Fprintln(e.w, "}")
-			} else {
-				clk := e.seqClock()
-				fmt.Fprintf(e.w, "%%%s = seq.compreg %s, %s : %s\n", sanitize(name), constName, clk, typeString(sig.Type))
-			}
+			e.printIndent()
+			fmt.Fprintf(e.w, "%%%s = sv.reg : !hw.inout<%s>\n", sanitize(name), typeString(sig.Type))
+			e.printIndent()
+			fmt.Fprintln(e.w, "sv.initial {")
+			e.indent++
+			e.printIndent()
+			fmt.Fprintf(e.w, "sv.bpassign %%%s, %s : %s\n", sanitize(name), constName, typeString(sig.Type))
+			e.indent--
+			e.printIndent()
+			fmt.Fprintln(e.w, "}")
 		} else {
 			// Don't emit wire declarations for internal signals
 			// Intermediate computation values are created as SSA values during process emission
@@ -467,14 +1331,26 @@ func (e *emitter) emitInternalSignals(module *ir.Module, useInoutRegs bool) {
 	}
 }
 
-func (e *emitter) emitProcessInstance(idx int, info *processInfo, wires map[*ir.Channel]*channelWireSet) {
+func (e *emitter) emitProcessInstance(module *ir.Module, idx int, info *processInfo, wires map[*ir.Channel]*channelWireSet) {
 	if info == nil {
 		return
 	}
-	ports := e.processPorts(info)
+	ports := e.processPorts(module, info)
 	connections := map[string]string{
 		"%clk": "%clk",
 		"%rst": "%rst",
+	}
+	// Add global output signals
+	if module != nil && module.Signals != nil {
+		for sig := range info.usedSignals {
+			if sig != nil && sig.Kind == ir.Reg {
+				// Check if this signal is a module-level signal
+				if _, isModuleSignal := module.Signals[sig.Name]; isModuleSignal {
+					portName := "%" + sanitize(sig.Name)
+					connections[portName] = portName
+				}
+			}
+		}
 	}
 	for _, ch := range info.channelOrder {
 		role := info.channelRoles[ch]
@@ -530,7 +1406,7 @@ func (e *emitter) emitProcessModule(module *ir.Module, info *processInfo) {
 	if info == nil || info.proc == nil {
 		return
 	}
-	ports := e.processPorts(info)
+	ports := e.processPorts(module, info)
 
 	// Store port information for later use in hw.instance operations
 	e.modulePorts[info.moduleName] = ports
@@ -564,9 +1440,11 @@ func (e *emitter) emitProcessModule(module *ir.Module, info *processInfo) {
 		usedSignals:   info.usedSignals,
 		channelPorts:  info.channelPorts,
 		portNames:     portNames,
+		portTypes:     collectPortTypesFromDescs(ports),
 		moduleName:    sanitize(module.Name),
 		modulePorts:   e.modulePorts,
 		emitter:       e,
+		proc:          info.proc,
 	}
 	pp.resetState()
 	pp.emitProcess(info.proc)
@@ -576,14 +1454,14 @@ func (e *emitter) emitProcessModule(module *ir.Module, info *processInfo) {
 	fmt.Fprintln(e.w, "}")
 }
 
-func (e *emitter) emitRootProcess(module *ir.Module, info *processInfo, wires map[*ir.Channel]*channelWireSet) {
+func (e *emitter) emitRootProcess(module *ir.Module, topPorts []ir.Port, info *processInfo, wires map[*ir.Channel]*channelWireSet) {
 	if info == nil || info.proc == nil {
 		return
 	}
 
 	// Build port names set from module ports
 	portNames := make(map[string]string)
-	for _, port := range module.Ports {
+	for _, port := range topPorts {
 		name := strings.TrimPrefix(port.Name, "%")
 		portNames[name] = "%" + name
 	}
@@ -594,15 +1472,21 @@ func (e *emitter) emitRootProcess(module *ir.Module, info *processInfo, wires ma
 		usedSignals:   info.usedSignals,
 		channelPorts:  channelPortsFromWires(info, wires),
 		portNames:     portNames,
+		portTypes:     collectPortTypesFromIRPorts(topPorts),
 		moduleName:    sanitize(module.Name),
 		modulePorts:   e.modulePorts,
 		emitter:       e,
+		proc:          info.proc,
 	}
 	pp.resetState()
 	pp.emitProcess(info.proc)
+
+	// Store the valueNames for output resolution
+	e.rootValueNames = pp.valueNames
+	e.rootConstNames = pp.constNames
 }
 
-func (e *emitter) processPorts(info *processInfo) []portDesc {
+func (e *emitter) processPorts(module *ir.Module, info *processInfo) []portDesc {
 	ports := []portDesc{
 		{name: "%clk", typ: "i1"},
 		{name: "%rst", typ: "i1"},
@@ -621,6 +1505,30 @@ func (e *emitter) processPorts(info *processInfo) []portDesc {
 	if info.proc.Return != nil {
 		portName := "%result"
 		ports = append(ports, portDesc{name: portName, typ: typeString(info.proc.Return.Type)})
+	}
+
+	// Add global output signals as inout ports
+	if module != nil && module.Signals != nil {
+		// Build set of port names already added to avoid duplicates
+		existingPorts := make(map[string]bool)
+		for _, port := range ports {
+			existingPorts[port.name] = true
+		}
+
+		for sig := range info.usedSignals {
+			if sig != nil && sig.Kind == ir.Reg {
+				portName := "%" + sanitize(sig.Name)
+				// Skip if this port name is already in the ports list
+				if existingPorts[portName] {
+					continue
+				}
+				// Check if this signal is a module-level signal
+				if _, isModuleSignal := module.Signals[sig.Name]; isModuleSignal {
+					ports = append(ports, portDesc{name: portName, typ: inoutTypeString(sig.Type), inout: true})
+					existingPorts[portName] = true
+				}
+			}
+		}
 	}
 
 	for _, ch := range info.channelOrder {
@@ -655,6 +1563,41 @@ func (e *emitter) processPorts(info *processInfo) []portDesc {
 		}
 	}
 	return ports
+}
+
+func emittedTopLevelPorts(module *ir.Module) []ir.Port {
+	if module == nil || len(module.Ports) == 0 {
+		return nil
+	}
+	ports := make([]ir.Port, 0, len(module.Ports))
+	outputIndex := make(map[string]int)
+	for _, port := range module.Ports {
+		if port.Direction != ir.Output {
+			ports = append(ports, port)
+			continue
+		}
+		binding := outputBindingName(port)
+		if idx, ok := outputIndex[binding]; ok {
+			if preferPublicOutputPort(port, ports[idx]) {
+				ports[idx] = port
+			}
+			continue
+		}
+		outputIndex[binding] = len(ports)
+		ports = append(ports, port)
+	}
+	return ports
+}
+
+func preferPublicOutputPort(candidate, current ir.Port) bool {
+	return outputPortPriority(candidate) < outputPortPriority(current)
+}
+
+func outputPortPriority(port ir.Port) int {
+	if strings.HasPrefix(strings.TrimSpace(port.Name), "out_") {
+		return 1
+	}
+	return 0
 }
 
 func (e *emitter) emitChannelMetadata(ch *ir.Channel) {
@@ -700,6 +1643,16 @@ func (e *emitter) boolConst(val bool) string {
 		intVal = 1
 	}
 	fmt.Fprintf(e.w, "%s = hw.constant %d : i1\n", name, intVal)
+	return name
+}
+
+func (e *emitter) emitterAllOnesConst(t *ir.SignalType) string {
+	if signalWidth(t) == 1 {
+		return e.boolConst(true)
+	}
+	name := e.freshValueName("c_ones")
+	e.printIndent()
+	fmt.Fprintf(e.w, "%s = hw.constant -1 : %s\n", name, typeString(t))
 	return name
 }
 
@@ -867,9 +1820,10 @@ func buildProcessInfos(module *ir.Module) []*processInfo {
 		if proc == nil {
 			continue
 		}
-		// Skip processes that have function parameters
-		// These are modular functions called via CallOperation, not spawned processes
-		if len(proc.Params) > 0 {
+		// Skip processes that have function parameters, EXCEPT the root process
+		// The root process (same name as module) should be included even if it has params
+		// Other processes with params are modular functions called via CallOperation
+		if len(proc.Params) > 0 && proc.Name != module.Name {
 			continue
 		}
 		roles, order := collectProcessChannelRoles(proc)
@@ -1075,6 +2029,7 @@ type fsmBuilder struct {
 	printer            *processPrinter
 	proc               *ir.Process
 	blockOrder         []*ir.BasicBlock
+	clockedBlocks      map[*ir.BasicBlock]bool
 	blockChannelOps    map[*ir.BasicBlock][]*channelOpInfo
 	channelOpsByChan   map[*ir.Channel][]*channelOpInfo
 	sendOpInfos        []*channelOpInfo
@@ -1118,6 +2073,7 @@ func newFSMBuilder(printer *processPrinter, proc *ir.Process) *fsmBuilder {
 	builder := &fsmBuilder{
 		printer:            printer,
 		proc:               proc,
+		clockedBlocks:      printer.computeDirectClockedBlocks(proc),
 		blockChannelOps:    make(map[*ir.BasicBlock][]*channelOpInfo),
 		channelOpsByChan:   make(map[*ir.Channel][]*channelOpInfo),
 		blockEntryStateIDs: make(map[*ir.BasicBlock]int),
@@ -1474,6 +2430,20 @@ func (f *fsmBuilder) registerPhi(block *ir.BasicBlock, phi *ir.PhiOperation) {
 	regName := f.printer.freshValueName("phi_reg")
 	f.printer.printIndent()
 	fmt.Fprintf(f.printer.w, "%s = sv.reg : !hw.inout<%s>\n", regName, typeStr)
+
+	// Initialize phi register to zero
+	zeroConst := f.printer.freshValueName("c_init_phi")
+	f.printer.printIndent()
+	fmt.Fprintf(f.printer.w, "%s = hw.constant 0 : %s\n", zeroConst, typeStr)
+	f.printer.printIndent()
+	fmt.Fprintln(f.printer.w, "sv.initial {")
+	f.printer.indent++
+	f.printer.printIndent()
+	fmt.Fprintf(f.printer.w, "sv.bpassign %s, %s : %s\n", regName, zeroConst, typeStr)
+	f.printer.indent--
+	f.printer.printIndent()
+	fmt.Fprintln(f.printer.w, "}")
+
 	destName := f.printer.bindSSA(phi.Dest)
 	f.printer.printIndent()
 	fmt.Fprintf(f.printer.w, "%s = sv.read_inout %s : !hw.inout<%s>\n", destName, regName, typeStr)
@@ -1656,7 +2626,7 @@ func (f *fsmBuilder) emitControlLogic() {
 		fmt.Fprintf(f.printer.w, "// deadlock warning: %s\n", warning)
 	}
 	clk := f.printer.portRef("clk")
-	rst := f.printer.portRef("rst")
+	rst := f.printer.resetAssertedRef()
 	entryStateConst := f.ensureStateConst(f.entryStateID)
 	if entryStateConst == "" {
 		entryStateConst = f.ensureStateConst(f.doneID)
@@ -1664,15 +2634,17 @@ func (f *fsmBuilder) emitControlLogic() {
 	f.printer.printIndent()
 	fmt.Fprintf(f.printer.w, "sv.always posedge %s {\n", clk)
 	f.printer.indent++
-	f.printer.printIndent()
-	fmt.Fprintf(f.printer.w, "sv.if %s {\n", rst)
-	f.printer.indent++
-	f.printer.printIndent()
-	fmt.Fprintf(f.printer.w, "sv.passign %s, %s : %s\n", f.stateRegInout, entryStateConst, f.stateType)
-	f.printer.indent--
-	f.printer.printIndent()
-	fmt.Fprintln(f.printer.w, "} else {")
-	f.printer.indent++
+	if f.printer.hasResetPort {
+		f.printer.printIndent()
+		fmt.Fprintf(f.printer.w, "sv.if %s {\n", rst)
+		f.printer.indent++
+		f.printer.printIndent()
+		fmt.Fprintf(f.printer.w, "sv.passign %s, %s : %s\n", f.stateRegInout, entryStateConst, f.stateType)
+		f.printer.indent--
+		f.printer.printIndent()
+		fmt.Fprintln(f.printer.w, "} else {")
+		f.printer.indent++
+	}
 	f.printer.printIndent()
 	fmt.Fprintf(f.printer.w, "sv.case %s : %s\n", f.stateValue, f.stateType)
 	for _, state := range f.stateOrder {
@@ -1691,9 +2663,11 @@ func (f *fsmBuilder) emitControlLogic() {
 	f.printer.indent--
 	f.printer.printIndent()
 	fmt.Fprintln(f.printer.w, "}")
-	f.printer.indent--
-	f.printer.printIndent()
-	fmt.Fprintln(f.printer.w, "}")
+	if f.printer.hasResetPort {
+		f.printer.indent--
+		f.printer.printIndent()
+		fmt.Fprintln(f.printer.w, "}")
+	}
 	f.printer.indent--
 	f.printer.printIndent()
 	fmt.Fprintln(f.printer.w, "}")
@@ -1746,20 +2720,29 @@ func (f *fsmBuilder) emitBlockSideEffects(block *ir.BasicBlock) {
 	for _, op := range block.Ops {
 		switch typed := op.(type) {
 		case *ir.AssignOperation:
-			f.emitAssignUpdate(typed)
+			f.emitAssignUpdate(block, typed)
 		case *ir.PrintOperation:
 			f.emitInlinePrint(typed)
 		}
 	}
 }
 
-func (f *fsmBuilder) emitAssignUpdate(op *ir.AssignOperation) {
+func (f *fsmBuilder) emitAssignUpdate(block *ir.BasicBlock, op *ir.AssignOperation) {
 	if f == nil || f.printer == nil || op == nil || op.Dest == nil || op.Value == nil {
 		return
 	}
 	moduleSig, ok := f.printer.moduleSignals[op.Dest.Name]
 	if !ok || moduleSig == nil || moduleSig.Kind != ir.Reg {
 		return
+	}
+	if isOutputGlobalName(op.Dest.Name) && (f.clockedBlocks == nil || !f.clockedBlocks[block]) {
+		return
+	}
+	// Skip assignments to parameters - they are input ports and cannot be assigned
+	if f.printer.portNames != nil {
+		if _, isPort := f.printer.portNames[op.Dest.Name]; isPort {
+			return
+		}
 	}
 	dest := "%" + sanitize(op.Dest.Name)
 	value := f.printer.valueRef(op.Value)
@@ -1949,7 +2932,7 @@ func (f *fsmBuilder) emitTransition(pred, succ *ir.BasicBlock) {
 		if info == nil || update.value == nil {
 			continue
 		}
-		val := f.printer.valueRef(update.value)
+		val := f.printer.edgeValueRef(update.value)
 		if val == "" || val == "%unknown" {
 			continue
 		}
@@ -1965,6 +2948,7 @@ type processPrinter struct {
 	constNames          map[*ir.Signal]string
 	valueNames          map[*ir.Signal]string
 	portNames           map[string]string
+	portTypes           map[string]*ir.SignalType
 	channelPorts        map[*ir.Channel]*channelPortSet
 	moduleSignals       map[string]*ir.Signal
 	usedSignals         map[*ir.Signal]struct{}
@@ -1977,6 +2961,19 @@ type processPrinter struct {
 	modulePorts         map[string][]portDesc // Module port information for instances
 	emitter             *emitter              // Reference to parent emitter for global state
 	emittedRegisters    map[string]bool       // Track which registers have already been emitted
+	proc                *ir.Process           // The process being emitted
+	hasResetPort        bool
+	resetPortRef        string
+	resetActiveLow      bool
+	resetAssertedName   string
+	directClocked       bool
+	clockedBlocks       map[*ir.BasicBlock]bool
+	blockValueRestores  map[*ir.Signal]valueRestore
+}
+
+type valueRestore struct {
+	existed bool
+	value   string
 }
 
 func (p *processPrinter) resetState() {
@@ -1987,15 +2984,14 @@ func (p *processPrinter) resetState() {
 	for name, value := range p.portNames {
 		portNames[name] = value
 	}
-	if _, ok := portNames["clk"]; !ok {
-		portNames["clk"] = "%clk"
-	}
-	if _, ok := portNames["rst"]; !ok {
-		portNames["rst"] = "%rst"
-	}
+	p.hasResetPort, p.resetPortRef, p.resetActiveLow = explicitResetPortInfo(portNames)
+	normalizeControlPortAliases(portNames)
 	p.portNames = portNames
 	if p.channelPorts == nil {
 		p.channelPorts = make(map[*ir.Channel]*channelPortSet)
+	}
+	if p.portTypes == nil {
+		p.portTypes = make(map[string]*ir.SignalType)
 	}
 	if p.usedSignals == nil {
 		p.usedSignals = make(map[*ir.Signal]struct{})
@@ -2012,6 +3008,84 @@ func (p *processPrinter) resetState() {
 	p.stdoutFD = ""
 	p.fsm = nil
 	p.seqClockName = ""
+	p.resetAssertedName = ""
+	p.directClocked = false
+	p.clockedBlocks = nil
+	p.blockValueRestores = nil
+}
+
+func normalizeControlPortAliases(portNames map[string]string) {
+	if portNames == nil {
+		return
+	}
+	if _, ok := portNames["clk"]; !ok {
+		if value, ok := portNames["clock"]; ok {
+			portNames["clk"] = value
+		} else {
+			portNames["clk"] = "%clk"
+		}
+	}
+	if _, ok := portNames["clock"]; !ok {
+		if value, ok := portNames["clk"]; ok {
+			portNames["clock"] = value
+		}
+	}
+	if _, ok := portNames["rst"]; !ok {
+		switch {
+		case portNames["reset"] != "":
+			portNames["rst"] = portNames["reset"]
+		case portNames["areset"] != "":
+			portNames["rst"] = portNames["areset"]
+		case portNames["resetn"] != "":
+			portNames["rst"] = portNames["resetn"]
+		case portNames["aresetn"] != "":
+			portNames["rst"] = portNames["aresetn"]
+		default:
+			portNames["rst"] = "%rst"
+		}
+	}
+	if _, ok := portNames["reset"]; !ok {
+		if value, ok := portNames["rst"]; ok {
+			portNames["reset"] = value
+		}
+	}
+}
+
+func hasExplicitResetPort(portNames map[string]string) bool {
+	for name := range portNames {
+		if isResetPortName(name) {
+			return true
+		}
+	}
+	return false
+}
+
+func explicitResetPortInfo(portNames map[string]string) (bool, string, bool) {
+	if len(portNames) == 0 {
+		return false, "", false
+	}
+	for _, name := range []string{"rst", "reset", "ar", "areset", "resetn", "aresetn"} {
+		if value := portNames[name]; value != "" {
+			return true, value, isActiveLowResetPortName(name)
+		}
+	}
+	return false, "", false
+}
+
+func isActiveLowResetPortName(name string) bool {
+	switch strings.ToLower(strings.TrimSpace(name)) {
+	case "resetn", "aresetn":
+		return true
+	default:
+		return false
+	}
+}
+
+func canEmitDirectClockedControl(proc *ir.Process) bool {
+	if proc == nil || proc.Sensitivity != ir.Sequential {
+		return false
+	}
+	return !processHasLoop(proc) && !processHasChannelOps(proc) && !processNeedsPrintControlFSM(proc)
 }
 
 // initArrayElementRegisters pre-populates valueNames with array element registers
@@ -2043,15 +3117,6 @@ func (p *processPrinter) initArrayElementRegisters() {
 			p.valueNames[sig] = regName
 			p.emittedRegisters[regName] = true
 		}
-
-		// Also handle all scalar global registers (any Reg that's not an array element)
-		if !isArrayElement && sig != nil && sig.Kind == ir.Reg {
-			// This is a scalar global register declared at module level
-			// Map the signal to its register name and mark as emitted
-			regName := "%" + sanitize(name)
-			p.valueNames[sig] = regName
-			p.emittedRegisters[regName] = true
-		}
 	}
 }
 
@@ -2063,7 +3128,11 @@ func (p *processPrinter) emitProcess(proc *ir.Process) {
 	p.emitConstants()
 	p.emitSignals()
 	p.initArrayElementRegisters()
-	if processHasPhi(proc) || processHasChannelOps(proc) || processNeedsPrintControlFSM(proc) {
+	p.directClocked = canEmitDirectClockedControl(proc)
+	if p.directClocked {
+		p.clockedBlocks = p.computeDirectClockedBlocks(proc)
+	}
+	if !p.directClocked && (proc.Sensitivity == ir.Sequential || processHasChannelOps(proc) || processNeedsPrintControlFSM(proc)) {
 		p.fsm = newFSMBuilder(p, proc)
 		if p.fsm != nil {
 			p.fsm.emitStateConstants()
@@ -2074,23 +3143,386 @@ func (p *processPrinter) emitProcess(proc *ir.Process) {
 	} else {
 		p.fsm = nil
 	}
-	for _, block := range proc.Blocks {
-		for _, op := range block.Ops {
-			p.emitOperation(block, op, proc)
-		}
-	}
 	if p.fsm != nil {
+		for _, block := range proc.Blocks {
+			p.beginBlockValueScope()
+			for _, op := range block.Ops {
+				p.emitOperation(block, op, proc)
+			}
+			p.endBlockValueScope()
+		}
 		if hasPrintOps {
 			p.stdoutConstant()
 		}
 		p.fsm.emitChannelPortLogic()
 		p.fsm.emitControlLogic()
+	} else if p.directClocked {
+		for _, block := range proc.Blocks {
+			for _, op := range block.Ops {
+				p.emitOperation(block, op, proc)
+			}
+		}
+		p.emitDirectClockedControl(proc)
+	} else {
+		for _, block := range proc.Blocks {
+			p.beginBlockValueScope()
+			for _, op := range block.Ops {
+				p.emitOperation(block, op, proc)
+			}
+			p.endBlockValueScope()
+		}
+		if p.hasCombinationalRegAssignments(proc) {
+			p.emitCombinationalRegControl(proc)
+		}
 	}
 	p.fsm = nil
+	p.directClocked = false
+	p.clockedBlocks = nil
+}
+
+type directClockedVisitKey struct {
+	block     *ir.BasicBlock
+	inClocked bool
+}
+
+func (p *processPrinter) computeDirectClockedBlocks(proc *ir.Process) map[*ir.BasicBlock]bool {
+	blocks := make(map[*ir.BasicBlock]bool)
+	if p == nil || proc == nil || len(proc.Blocks) == 0 {
+		return blocks
+	}
+	visited := make(map[directClockedVisitKey]bool)
+	clockedReach := make(map[*ir.BasicBlock]bool)
+	nonClockedReach := make(map[*ir.BasicBlock]bool)
+	var visit func(block *ir.BasicBlock, inClocked bool)
+	visit = func(block *ir.BasicBlock, inClocked bool) {
+		if block == nil {
+			return
+		}
+		key := directClockedVisitKey{block: block, inClocked: inClocked}
+		if visited[key] {
+			return
+		}
+		visited[key] = true
+		if inClocked {
+			clockedReach[block] = true
+		} else {
+			nonClockedReach[block] = true
+		}
+		switch term := block.Terminator.(type) {
+		case *ir.BranchTerminator:
+			if term.Cond != nil && isClockLikeName(term.Cond.Name) {
+				visit(term.True, true)
+				visit(term.False, false)
+				return
+			}
+			if term.Cond != nil && isResetPortName(term.Cond.Name) && block == proc.Blocks[0] {
+				if isActiveLowResetName(term.Cond.Name) {
+					visit(term.True, false)
+					visit(term.False, true)
+				} else {
+					visit(term.True, true)
+					visit(term.False, false)
+				}
+				return
+			}
+			visit(term.True, inClocked)
+			visit(term.False, inClocked)
+		case *ir.JumpTerminator:
+			visit(term.Target, inClocked)
+		}
+	}
+	visit(proc.Blocks[0], false)
+	for block := range clockedReach {
+		if !nonClockedReach[block] {
+			blocks[block] = true
+		}
+	}
+	return blocks
 }
 
 func (p *processPrinter) emitSignals() {
 	// Signal declarations are emitted on demand by operation emission.
+}
+
+func (p *processPrinter) beginBlockValueScope() {
+	if p == nil {
+		return
+	}
+	p.blockValueRestores = make(map[*ir.Signal]valueRestore)
+}
+
+func (p *processPrinter) endBlockValueScope() {
+	if p == nil || p.blockValueRestores == nil {
+		return
+	}
+	for sig, restore := range p.blockValueRestores {
+		if !restore.existed {
+			delete(p.valueNames, sig)
+			continue
+		}
+		p.valueNames[sig] = restore.value
+	}
+	p.blockValueRestores = nil
+}
+
+func (p *processPrinter) recordBlockValueOverride(sig *ir.Signal) {
+	if p == nil || sig == nil || p.blockValueRestores == nil {
+		return
+	}
+	if _, exists := p.blockValueRestores[sig]; exists {
+		return
+	}
+	value, existed := p.valueNames[sig]
+	p.blockValueRestores[sig] = valueRestore{existed: existed, value: value}
+}
+
+func (p *processPrinter) emitDirectClockedControl(proc *ir.Process) {
+	if p == nil || proc == nil || len(proc.Blocks) == 0 {
+		return
+	}
+	sensitivity := p.directClockedSensitivity(proc)
+	p.printIndent()
+	fmt.Fprintf(p.w, "sv.always %s {\n", sensitivity)
+	p.indent++
+	p.emitDirectClockedBlock(proc.Blocks[0], make(map[*ir.BasicBlock]bool))
+	p.indent--
+	p.printIndent()
+	fmt.Fprintln(p.w, "}")
+}
+
+func (p *processPrinter) hasCombinationalRegAssignments(proc *ir.Process) bool {
+	if p == nil || proc == nil {
+		return false
+	}
+	for _, block := range proc.Blocks {
+		if block == nil {
+			continue
+		}
+		for _, op := range block.Ops {
+			assign, ok := op.(*ir.AssignOperation)
+			if !ok || assign == nil || assign.Dest == nil {
+				continue
+			}
+			moduleSig, ok := p.moduleSignals[assign.Dest.Name]
+			if !ok || moduleSig == nil || moduleSig.Kind != ir.Reg {
+				continue
+			}
+			if p.portNames != nil {
+				if _, isPort := p.portNames[assign.Dest.Name]; isPort {
+					continue
+				}
+			}
+			return true
+		}
+	}
+	return false
+}
+
+func (p *processPrinter) emitCombinationalRegControl(proc *ir.Process) {
+	if p == nil || proc == nil || len(proc.Blocks) == 0 {
+		return
+	}
+	p.printIndent()
+	fmt.Fprintln(p.w, "sv.alwayscomb {")
+	p.indent++
+	p.emitCombinationalRegBlock(proc.Blocks[0], make(map[*ir.BasicBlock]bool))
+	p.indent--
+	p.printIndent()
+	fmt.Fprintln(p.w, "}")
+}
+
+func (p *processPrinter) emitCombinationalRegBlock(block *ir.BasicBlock, active map[*ir.BasicBlock]bool) {
+	if p == nil || block == nil {
+		return
+	}
+	if active[block] {
+		return
+	}
+	active[block] = true
+	defer delete(active, block)
+
+	for _, op := range block.Ops {
+		assign, ok := op.(*ir.AssignOperation)
+		if !ok || assign == nil {
+			continue
+		}
+		p.emitCombinationalRegAssign(assign)
+	}
+
+	switch term := block.Terminator.(type) {
+	case *ir.BranchTerminator:
+		cond := p.valueRef(term.Cond)
+		if cond == "" || cond == "%unknown" {
+			cond = p.boolConst(false)
+		}
+		p.printIndent()
+		fmt.Fprintf(p.w, "sv.if %s {\n", cond)
+		p.indent++
+		p.emitCombinationalRegBlock(term.True, active)
+		p.indent--
+		p.printIndent()
+		fmt.Fprintln(p.w, "} else {")
+		p.indent++
+		p.emitCombinationalRegBlock(term.False, active)
+		p.indent--
+		p.printIndent()
+		fmt.Fprintln(p.w, "}")
+	case *ir.JumpTerminator:
+		p.emitCombinationalRegBlock(term.Target, active)
+	case *ir.ReturnTerminator:
+		return
+	}
+}
+
+func (p *processPrinter) emitCombinationalRegAssign(op *ir.AssignOperation) {
+	if p == nil || op == nil || op.Dest == nil || op.Value == nil {
+		return
+	}
+	moduleSig, ok := p.moduleSignals[op.Dest.Name]
+	if !ok || moduleSig == nil || moduleSig.Kind != ir.Reg {
+		return
+	}
+	if p.portNames != nil {
+		if _, isPort := p.portNames[op.Dest.Name]; isPort {
+			return
+		}
+	}
+	value := p.valueRef(op.Value)
+	if value == "" || value == "%unknown" {
+		return
+	}
+	dest := "%" + sanitize(op.Dest.Name)
+	p.printIndent()
+	fmt.Fprintf(p.w, "sv.bpassign %s, %s : %s\n", dest, value, typeString(op.Dest.Type))
+}
+
+func (p *processPrinter) directClockedSensitivity(proc *ir.Process) string {
+	clk := p.portRef("clk")
+	if p == nil || proc == nil || !p.hasResetPort || !p.directClockedHasAsyncReset(proc) {
+		return fmt.Sprintf("posedge %s", clk)
+	}
+	if p.resetActiveLow {
+		return fmt.Sprintf("posedge %s, negedge %s", clk, p.resetPortRef)
+	}
+	return fmt.Sprintf("posedge %s, posedge %s", clk, p.resetPortRef)
+}
+
+func (p *processPrinter) directClockedHasAsyncReset(proc *ir.Process) bool {
+	if p == nil || proc == nil || len(proc.Blocks) == 0 {
+		return false
+	}
+	entry := proc.Blocks[0]
+	branch, ok := entry.Terminator.(*ir.BranchTerminator)
+	if !ok || branch == nil || branch.Cond == nil {
+		return false
+	}
+	return isResetPortName(branch.Cond.Name)
+}
+
+func (p *processPrinter) emitDirectClockedBlock(block *ir.BasicBlock, active map[*ir.BasicBlock]bool) {
+	if p == nil || block == nil {
+		return
+	}
+	if active[block] {
+		return
+	}
+	active[block] = true
+	defer delete(active, block)
+
+	if p.clockedBlocks != nil && p.clockedBlocks[block] {
+		for _, op := range block.Ops {
+			assign, ok := op.(*ir.AssignOperation)
+			if !ok || assign == nil {
+				continue
+			}
+			p.emitDirectAssignUpdate(assign)
+		}
+	}
+
+	switch term := block.Terminator.(type) {
+	case *ir.BranchTerminator:
+		if term.Cond != nil && isClockLikeName(term.Cond.Name) {
+			p.emitDirectClockedBlock(term.True, active)
+			return
+		}
+		if term.Cond != nil && p.directClockedHasAsyncResetInEntry(block, term) {
+			cond := p.resetAssertedRef()
+			assertedBlock := term.True
+			deassertedBlock := term.False
+			if isActiveLowResetName(term.Cond.Name) {
+				assertedBlock = term.False
+				deassertedBlock = term.True
+			}
+			p.printIndent()
+			fmt.Fprintf(p.w, "sv.if %s {\n", cond)
+			p.indent++
+			p.emitDirectClockedBlock(assertedBlock, active)
+			p.indent--
+			p.printIndent()
+			fmt.Fprintln(p.w, "} else {")
+			p.indent++
+			p.emitDirectClockedBlock(deassertedBlock, active)
+			p.indent--
+			p.printIndent()
+			fmt.Fprintln(p.w, "}")
+			return
+		}
+		cond := p.valueRef(term.Cond)
+		if cond == "" || cond == "%unknown" {
+			cond = p.boolConst(false)
+		}
+		p.printIndent()
+		fmt.Fprintf(p.w, "sv.if %s {\n", cond)
+		p.indent++
+		p.emitDirectClockedBlock(term.True, active)
+		p.indent--
+		p.printIndent()
+		fmt.Fprintln(p.w, "} else {")
+		p.indent++
+		p.emitDirectClockedBlock(term.False, active)
+		p.indent--
+		p.printIndent()
+		fmt.Fprintln(p.w, "}")
+	case *ir.JumpTerminator:
+		p.emitDirectClockedBlock(term.Target, active)
+	case *ir.ReturnTerminator:
+		return
+	}
+}
+
+func (p *processPrinter) directClockedHasAsyncResetInEntry(block *ir.BasicBlock, term *ir.BranchTerminator) bool {
+	if p == nil || block == nil || term == nil || term.Cond == nil {
+		return false
+	}
+	if !p.hasResetPort || !isResetPortName(term.Cond.Name) {
+		return false
+	}
+	if p.proc == nil || len(p.proc.Blocks) == 0 || p.proc.Blocks[0] != block {
+		return false
+	}
+	return true
+}
+
+func (p *processPrinter) emitDirectAssignUpdate(op *ir.AssignOperation) {
+	if p == nil || op == nil || op.Dest == nil || op.Value == nil {
+		return
+	}
+	moduleSig, ok := p.moduleSignals[op.Dest.Name]
+	if !ok || moduleSig == nil || moduleSig.Kind != ir.Reg {
+		return
+	}
+	if p.portNames != nil {
+		if _, isPort := p.portNames[op.Dest.Name]; isPort {
+			return
+		}
+	}
+	value := p.valueRef(op.Value)
+	if value == "" || value == "%unknown" {
+		return
+	}
+	dest := "%" + sanitize(op.Dest.Name)
+	p.printIndent()
+	fmt.Fprintf(p.w, "sv.passign %s, %s : %s\n", dest, value, typeString(op.Dest.Type))
 }
 
 func (p *processPrinter) emitConstants() {
@@ -2133,9 +3565,36 @@ func (p *processPrinter) emitOperation(block *ir.BasicBlock, op ir.Operation, pr
 	case *ir.ConvertOperation:
 		p.emitConvertOperation(o)
 	case *ir.AssignOperation:
-		if p.fsm != nil {
+		if p.fsm != nil || p.directClocked {
+			if p.directClocked {
+				moduleSig, ok := p.moduleSignals[o.Dest.Name]
+				isModuleReg := ok && moduleSig != nil && moduleSig.Kind == ir.Reg
+				if p.clockedBlocks == nil || !p.clockedBlocks[block] {
+					if isModuleReg && !isOutputGlobalName(o.Dest.Name) {
+						return
+					}
+					src := p.valueRef(o.Value)
+					if src != "" && src != "%unknown" {
+						p.valueNames[o.Dest] = src
+					}
+					return
+				}
+				// Inside clocked blocks, keep local/combinational temporaries available for
+				// later RHS evaluation, but do not overwrite the visible value of module regs.
+				if !isModuleReg {
+					src := p.valueRef(o.Value)
+					if src != "" && src != "%unknown" {
+						p.valueNames[o.Dest] = src
+					}
+				}
+				return
+			}
 			src := p.valueRef(o.Value)
 			if src != "" && src != "%unknown" {
+				moduleSig, ok := p.moduleSignals[o.Dest.Name]
+				if ok && moduleSig != nil && moduleSig.Kind == ir.Reg {
+					p.recordBlockValueOverride(o.Dest)
+				}
 				p.valueNames[o.Dest] = src
 			}
 			moduleSig, ok := p.moduleSignals[o.Dest.Name]
@@ -2145,6 +3604,13 @@ func (p *processPrinter) emitOperation(block *ir.BasicBlock, op ir.Operation, pr
 			return
 		}
 		src := p.valueRef(o.Value)
+
+		// For combinational processes, just map the value directly without creating a register
+		if p.proc != nil && p.proc.Sensitivity == ir.Combinational {
+			p.recordBlockValueOverride(o.Dest)
+			p.valueNames[o.Dest] = src
+			return
+		}
 
 		// Check if this is an assignment to an array element
 		// Array elements have module-level registers that should be reused
@@ -2305,8 +3771,8 @@ func (p *processPrinter) emitOperation(block *ir.BasicBlock, op ir.Operation, pr
 		if p.fsm != nil {
 			p.fsm.registerPhi(block, o)
 		} else {
-			p.printIndent()
-			fmt.Fprintf(p.w, "// phi %s has %d incoming values\n", sanitize(o.Dest.Name), len(o.Incomings))
+			// Combinational logic: lower phi to mux
+			p.emitPhiAsMux(o)
 		}
 	case *ir.PrintOperation:
 		if p.fsm != nil {
@@ -2332,6 +3798,195 @@ func (p *processPrinter) seqClock() string {
 	return name
 }
 
+// emitPhiAsMux lowers a phi operation to a combinational mux.
+// For a phi with 2 incoming values from an if-then-else, we generate:
+//
+//	%result = comb.mux %condition, %true_value, %false_value
+func (p *processPrinter) emitPhiAsMux(phi *ir.PhiOperation) {
+	if phi == nil || len(phi.Incomings) == 0 {
+		return
+	}
+
+	dest := p.bindSSA(phi.Dest)
+
+	// For now, handle the simple case of 2 incoming values (if-then-else)
+	if len(phi.Incomings) == 2 {
+		// The phi node merges values from different control flow paths
+		block0 := phi.Incomings[0].Block
+		block1 := phi.Incomings[1].Block
+		val0 := p.valueRef(phi.Incomings[0].Value)
+		val1 := p.valueRef(phi.Incomings[1].Value)
+
+		// Find a branch that determines which incoming value to use
+		// Look for a branch in one of the incoming blocks
+		var cond *ir.Signal
+		var trueVal, falseVal string
+
+		// Check if block0 has a branch that goes to block1
+		if branch, ok := block0.Terminator.(*ir.BranchTerminator); ok {
+			// If block0 branches to block1, then:
+			// - when condition is true, we go to block1 (use val1)
+			// - when condition is false, we stay/go elsewhere (use val0)
+			if branch.True == block1 {
+				cond = branch.Cond
+				trueVal = val1
+				falseVal = val0
+			} else if branch.False == block1 {
+				cond = branch.Cond
+				trueVal = val0
+				falseVal = val1
+			}
+		}
+
+		// Check if block1 has a branch that goes to block0
+		if cond == nil {
+			if branch, ok := block1.Terminator.(*ir.BranchTerminator); ok {
+				if branch.True == block0 {
+					cond = branch.Cond
+					trueVal = val0
+					falseVal = val1
+				} else if branch.False == block0 {
+					cond = branch.Cond
+					trueVal = val1
+					falseVal = val0
+				}
+			}
+		}
+
+		// Check predecessors of the incoming blocks
+		if cond == nil {
+			for _, pred := range block0.Predecessors {
+				if branch, ok := pred.Terminator.(*ir.BranchTerminator); ok {
+					if branch.True == block0 && branch.False == block1 {
+						cond = branch.Cond
+						trueVal = val0
+						falseVal = val1
+						break
+					} else if branch.True == block1 && branch.False == block0 {
+						cond = branch.Cond
+						trueVal = val1
+						falseVal = val0
+						break
+					}
+				}
+			}
+		}
+
+		if cond == nil {
+			for _, pred := range block1.Predecessors {
+				if branch, ok := pred.Terminator.(*ir.BranchTerminator); ok {
+					if branch.True == block0 && branch.False == block1 {
+						cond = branch.Cond
+						trueVal = val0
+						falseVal = val1
+						break
+					} else if branch.True == block1 && branch.False == block0 {
+						cond = branch.Cond
+						trueVal = val1
+						falseVal = val0
+						break
+					}
+				}
+			}
+		}
+
+		if cond != nil {
+			condRef := p.valueRef(cond)
+			p.printIndent()
+			fmt.Fprintf(p.w, "%s = comb.mux %s, %s, %s : %s\n",
+				dest, condRef, trueVal, falseVal, typeString(phi.Dest.Type))
+			p.valueNames[phi.Dest] = dest
+			return
+		}
+	}
+	p.emitPhiAsMuxTree(phi, dest)
+}
+
+func (p *processPrinter) emitPhiAsMuxTree(phi *ir.PhiOperation, dest string) {
+	if phi == nil || len(phi.Incomings) == 0 {
+		return
+	}
+
+	// Start with the last incoming value as the default.
+	currentVal := p.valueRef(phi.Incomings[len(phi.Incomings)-1].Value)
+	for i := len(phi.Incomings) - 2; i >= 0; i-- {
+		incoming := phi.Incomings[i]
+		incomingBlock := incoming.Block
+		incomingVal := p.valueRef(incoming.Value)
+		var cond *ir.Signal
+
+		for _, pred := range incomingBlock.Predecessors {
+			if branch, ok := pred.Terminator.(*ir.BranchTerminator); ok {
+				if branch.True == incomingBlock {
+					cond = branch.Cond
+					break
+				}
+				if branch.False == incomingBlock {
+					cond = branch.Cond
+					incomingVal, currentVal = currentVal, incomingVal
+					break
+				}
+			}
+		}
+
+		if cond == nil {
+			currentVal = incomingVal
+			continue
+		}
+
+		condRef := p.valueRef(cond)
+		name := dest
+		if i > 0 {
+			name = p.freshValueName("mux")
+		}
+		p.printIndent()
+		fmt.Fprintf(p.w, "%s = comb.mux %s, %s, %s : %s\n",
+			name, condRef, incomingVal, currentVal, typeString(phi.Dest.Type))
+		currentVal = name
+	}
+	p.valueNames[phi.Dest] = currentVal
+}
+
+// canReach checks if there's a path from 'from' to 'to' block (simple BFS)
+func canReach(from, to *ir.BasicBlock) bool {
+	if from == to {
+		return true
+	}
+	visited := make(map[*ir.BasicBlock]bool)
+	queue := []*ir.BasicBlock{from}
+	visited[from] = true
+
+	for len(queue) > 0 {
+		current := queue[0]
+		queue = queue[1:]
+
+		// Check successors
+		switch term := current.Terminator.(type) {
+		case *ir.BranchTerminator:
+			if term.True == to || term.False == to {
+				return true
+			}
+			if !visited[term.True] {
+				visited[term.True] = true
+				queue = append(queue, term.True)
+			}
+			if !visited[term.False] {
+				visited[term.False] = true
+				queue = append(queue, term.False)
+			}
+		case *ir.JumpTerminator:
+			if term.Target == to {
+				return true
+			}
+			if !visited[term.Target] {
+				visited[term.Target] = true
+				queue = append(queue, term.Target)
+			}
+		}
+	}
+	return false
+}
+
 func (e *emitter) seqClock() string {
 	if e.seqClockName != "" {
 		return e.seqClockName
@@ -2354,6 +4009,43 @@ func processHasPhi(proc *ir.Process) bool {
 			}
 		}
 	}
+	return false
+}
+
+// processHasLoop checks if a process has loops (phi nodes with back-edges).
+// A back-edge exists if a phi node has an incoming edge from a block that appears
+// later in the block list, indicating a loop in the control flow.
+func processHasLoop(proc *ir.Process) bool {
+	if proc == nil {
+		return false
+	}
+
+	// Build block index map
+	blockIndex := make(map[*ir.BasicBlock]int)
+	for i, block := range proc.Blocks {
+		blockIndex[block] = i
+	}
+
+	// Check each phi node for back-edges
+	for blockIdx, block := range proc.Blocks {
+		if block == nil {
+			continue
+		}
+		for _, op := range block.Ops {
+			if phi, ok := op.(*ir.PhiOperation); ok {
+				// Check if any incoming edge is a back-edge
+				for _, incoming := range phi.Incomings {
+					if incomingIdx, exists := blockIndex[incoming.Block]; exists {
+						if incomingIdx >= blockIdx {
+							// Back-edge detected - this is a loop
+							return true
+						}
+					}
+				}
+			}
+		}
+	}
+
 	return false
 }
 
@@ -2422,13 +4114,23 @@ func (p *processPrinter) valueRef(sig *ir.Signal) string {
 	if sig.Kind == ir.Const {
 		return p.assignConst(sig)
 	}
+	if unpacked := p.inputArrayElementRef(sig); unpacked != "" {
+		p.valueNames[sig] = unpacked
+		return unpacked
+	}
 	if sig.Name != "" {
 		if portName, ok := p.portNames[sig.Name]; ok {
 			p.valueNames[sig] = portName
 			return portName
 		}
 	}
-	if p.fsm != nil && sig.Name != "" && sig.Name != "clk" && sig.Name != "rst" {
+	if (p.fsm != nil || p.directClocked) && sig.Name != "" && sig.Name != "clk" && sig.Name != "rst" {
+		if name, ok := p.valueNames[sig]; ok && name != "" {
+			rawName := "%" + sanitize(sig.Name)
+			if name != rawName {
+				return name
+			}
+		}
 		if moduleSig, ok := p.moduleSignals[sig.Name]; ok && moduleSig != nil && moduleSig.Kind == ir.Reg {
 			wireName := "%" + sanitize(sig.Name)
 			readName := fmt.Sprintf("%%v%d", p.emitter.globalTempID)
@@ -2457,13 +4159,25 @@ func (p *processPrinter) valueRef(sig *ir.Signal) string {
 	}
 
 	if !isPort && sig.Name != "" && !isArrayElement {
+		if packed := p.packArraySignalValue(sig); packed != "" {
+			p.valueNames[sig] = packed
+			return packed
+		}
 		// Check if this is a scalar global register (pre-declared at module level)
-		// All register-kind signals that are not array elements are pre-declared
+		// All register-kind signals that are not array elements are pre-declared.
+		// In combinational logic they still need a read_inout to produce a plain value.
 		if sig.Kind == ir.Reg {
-			// Reference the pre-declared register directly
-			name := "%" + sanitize(sig.Name)
-			p.valueNames[sig] = name
-			return name
+			if readName, ok := p.internalSignalReads[sig.Name]; ok {
+				return readName
+			}
+			wireName := "%" + sanitize(sig.Name)
+			readName := fmt.Sprintf("%%v%d", p.emitter.globalTempID)
+			p.emitter.globalTempID++
+			p.printIndent()
+			fmt.Fprintf(p.w, "%s = sv.read_inout %s : %s\n", readName, wireName, inoutTypeString(sig.Type))
+			p.internalSignalReads[sig.Name] = readName
+			p.valueNames[sig] = readName
+			return readName
 		}
 
 		// This is an internal signal, need to read it with sv.read_inout
@@ -2490,11 +4204,178 @@ func (p *processPrinter) valueRef(sig *ir.Signal) string {
 	return name
 }
 
+func (p *processPrinter) inputArrayElementRef(sig *ir.Signal) string {
+	if p == nil || sig == nil || sig.Name == "" || p.portNames == nil {
+		return ""
+	}
+	base, index, ok := indexedSignalName(sig.Name)
+	if !ok {
+		return ""
+	}
+	portRef, ok := p.portNames[base]
+	if !ok || portRef == "" {
+		return ""
+	}
+	elemWidth := signalWidth(sig.Type)
+	if elemWidth <= 0 {
+		elemWidth = 1
+	}
+	offset := index * elemWidth
+	name := p.freshValueName("in_elem")
+	p.printIndent()
+	fmt.Fprintf(p.w, "%s = comb.extract %s from %d : (%s) -> %s\n",
+		name,
+		portRef,
+		offset,
+		typeString(arrayElementContainerType(base, elemWidth, p.portTypes, p.moduleSignals)),
+		typeString(sig.Type),
+	)
+	return name
+}
+
+func indexedSignalName(name string) (string, int, bool) {
+	if strings.TrimSpace(name) == "" {
+		return "", 0, false
+	}
+	for i := len(name) - 1; i >= 0; i-- {
+		if name[i] != '_' {
+			continue
+		}
+		if i == len(name)-1 {
+			return "", 0, false
+		}
+		raw := name[i+1:]
+		idx, err := strconv.Atoi(raw)
+		if err != nil {
+			return "", 0, false
+		}
+		return name[:i], idx, true
+	}
+	return "", 0, false
+}
+
+func arrayElementContainerType(base string, elemWidth int, portTypes map[string]*ir.SignalType, moduleSignals map[string]*ir.Signal) *ir.SignalType {
+	if portTypes != nil {
+		if typ, ok := portTypes[base]; ok && typ != nil {
+			return typ
+		}
+	}
+	if moduleSignals != nil {
+		if sig, ok := moduleSignals[base]; ok && sig != nil && sig.Type != nil {
+			return sig.Type
+		}
+	}
+	if elemWidth <= 0 {
+		elemWidth = 1
+	}
+	return &ir.SignalType{Width: elemWidth, Signed: false}
+}
+
+func collectPortTypesFromIRPorts(ports []ir.Port) map[string]*ir.SignalType {
+	portTypes := make(map[string]*ir.SignalType, len(ports))
+	for _, port := range ports {
+		portTypes[port.Name] = port.Type
+	}
+	return portTypes
+}
+
+func collectPortTypesFromDescs(ports []portDesc) map[string]*ir.SignalType {
+	portTypes := make(map[string]*ir.SignalType, len(ports))
+	for _, port := range ports {
+		name := strings.TrimPrefix(port.name, "%")
+		if name == "" {
+			continue
+		}
+		portTypes[name] = parseTypeString(port.typ)
+	}
+	return portTypes
+}
+
+func parseTypeString(typ string) *ir.SignalType {
+	typ = strings.TrimSpace(typ)
+	typ = strings.TrimPrefix(typ, "!hw.inout<")
+	typ = strings.TrimSuffix(typ, ">")
+	if !strings.HasPrefix(typ, "i") {
+		return &ir.SignalType{Width: 1, Signed: false}
+	}
+	width, err := strconv.Atoi(strings.TrimPrefix(typ, "i"))
+	if err != nil || width <= 0 {
+		width = 1
+	}
+	return &ir.SignalType{Width: width, Signed: false}
+}
+
+func (p *processPrinter) packArraySignalValue(sig *ir.Signal) string {
+	if p == nil || sig == nil || sig.Type == nil || sig.Type.Width <= 1 || sig.Name == "" || p.moduleSignals == nil {
+		return ""
+	}
+	elements := make([]string, 0, sig.Type.Width)
+	for i := 0; i < sig.Type.Width; i++ {
+		elemSig, ok := p.moduleSignals[fmt.Sprintf("%s_%d", sig.Name, i)]
+		if !ok || elemSig == nil {
+			return ""
+		}
+		elements = append(elements, p.valueRef(elemSig))
+	}
+	name := p.freshValueName("packed")
+	p.printIndent()
+	fmt.Fprintf(p.w, "%s = comb.concat ", name)
+	for i := len(elements) - 1; i >= 0; i-- {
+		if i < len(elements)-1 {
+			fmt.Fprint(p.w, ", ")
+		}
+		fmt.Fprint(p.w, elements[i])
+	}
+	fmt.Fprint(p.w, " : ")
+	for i := len(elements) - 1; i >= 0; i-- {
+		if i < len(elements)-1 {
+			fmt.Fprint(p.w, ", ")
+		}
+		fmt.Fprint(p.w, "i1")
+	}
+	fmt.Fprintln(p.w)
+	return name
+}
+
 func (p *processPrinter) portRef(name string) string {
 	if val, ok := p.portNames[name]; ok {
 		return val
 	}
 	return fmt.Sprintf("%%%s", sanitize(name))
+}
+
+func (p *processPrinter) resetAssertedRef() string {
+	if !p.hasResetPort {
+		return p.portRef("rst")
+	}
+	if !p.resetActiveLow {
+		return p.resetPortRef
+	}
+	if p.resetAssertedName != "" {
+		return p.resetAssertedName
+	}
+	one := p.boolConst(true)
+	name := p.freshValueName("rst_asserted")
+	p.printIndent()
+	fmt.Fprintf(p.w, "%s = comb.xor %s, %s : i1\n", name, p.resetPortRef, one)
+	p.resetAssertedName = name
+	return name
+}
+
+func (p *processPrinter) edgeValueRef(sig *ir.Signal) string {
+	if p == nil || sig == nil {
+		return "%unknown"
+	}
+	if sig.Name != "" && p.moduleSignals != nil {
+		if moduleSig, ok := p.moduleSignals[sig.Name]; ok && moduleSig != nil && moduleSig.Kind == ir.Reg {
+			wireName := "%" + sanitize(sig.Name)
+			readName := p.freshValueName("edge_reg")
+			p.printIndent()
+			fmt.Fprintf(p.w, "%s = sv.read_inout %s : !hw.inout<%s>\n", readName, wireName, typeString(sig.Type))
+			return readName
+		}
+	}
+	return p.valueRef(sig)
 }
 
 func (p *processPrinter) printIndent() {
@@ -2526,11 +4407,62 @@ func moduleUsesFSM(module *ir.Module) bool {
 		if proc == nil {
 			continue
 		}
-		if processHasPhi(proc) || processHasChannelOps(proc) || processNeedsPrintControlFSM(proc) {
+		if proc.Sensitivity == ir.Sequential || processHasChannelOps(proc) || processNeedsPrintControlFSM(proc) {
 			return true
 		}
 	}
 	return false
+}
+
+func moduleNeedsSyntheticReset(module *ir.Module) bool {
+	if module == nil {
+		return false
+	}
+	for _, port := range module.Ports {
+		if port.Direction == ir.Input && isResetPortName(port.Name) {
+			return false
+		}
+	}
+	for _, proc := range module.Processes {
+		if proc == nil {
+			continue
+		}
+		if processHasChannelOps(proc) || processNeedsPrintControlFSM(proc) {
+			return true
+		}
+	}
+	return false
+}
+
+func isResetPortName(name string) bool {
+	switch strings.ToLower(strings.TrimSpace(name)) {
+	case "rst", "reset", "ar", "areset", "resetn", "aresetn":
+		return true
+	default:
+		return false
+	}
+}
+
+func isActiveLowResetName(name string) bool {
+	switch strings.ToLower(strings.TrimSpace(name)) {
+	case "resetn", "aresetn":
+		return true
+	default:
+		return false
+	}
+}
+
+func isClockLikeName(name string) bool {
+	switch strings.ToLower(strings.TrimSpace(name)) {
+	case "clk", "clock":
+		return true
+	default:
+		return false
+	}
+}
+
+func isOutputGlobalName(name string) bool {
+	return strings.HasPrefix(strings.TrimSpace(name), "out_")
 }
 
 func (p *processPrinter) typedZeroConst(t *ir.SignalType) string {
