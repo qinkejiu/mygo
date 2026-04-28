@@ -1,0 +1,9 @@
+[
+  {
+    "case": "Prob075_counter_2bc",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob075_counter_2bc/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob075_counter_2bc/.mygo-tmp/.mygo-circt-3313560650/design.mlir:51:15: error: use of undeclared SSA value name\n    hw.output %out_state, %out_state : i8, i8\n              ^\nbackend: circt-opt --pass-pipeline failed: exit status 1\nexit status 1\n"
+  }
+]

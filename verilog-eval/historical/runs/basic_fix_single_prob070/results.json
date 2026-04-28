@@ -1,0 +1,11 @@
+[
+  {
+    "case": "Prob070_ece241_2013_q2",
+    "status": "not_equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/basic_fix_single_prob070/Prob070_ece241_2013_q2/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/basic_fix_single_prob070/Prob070_ece241_2013_q2/Prob070_ece241_2013_q2.sv",
+    "mismatches": 49,
+    "samples": 107,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/runs/basic_fix_batch_input/tests/Prob070_ece241_2013_q2_test.sv:63: $finish called at 535 (1ps)\nHint: Output 'out_sop' has 22 mismatches. First mismatch occurred at time 60.\nHint: Output 'out_pos' has 27 mismatches. First mismatch occurred at time 30.\nHint: Total mismatched samples is 49 out of 107 samples\n\nSimulation finished at 535 ps\nMismatches: 49 in 107 samples\n\n"
+  }
+]

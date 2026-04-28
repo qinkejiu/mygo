@@ -1,0 +1,44 @@
+[
+  {
+    "case": "Prob028_m2014_q4a",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob028_m2014_q4a/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob031_dff",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob031_dff/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob034_dff8",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob034_dff8/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob045_edgedetect2",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob045_edgedetect2/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob046_dff8p",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob046_dff8p/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob078_dualedge",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob078_dualedge/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  }
+]

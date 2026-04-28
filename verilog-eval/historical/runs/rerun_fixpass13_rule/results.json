@@ -1,0 +1,20 @@
+[
+  {
+    "case": "Prob108_rule90",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/current_go_156/Prob108_rule90/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/historical/runs/rerun_fixpass13_rule/Prob108_rule90/Prob108_rule90.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/historical/dataset_spec-to-rtl/tests/Prob108_rule90_test.sv:75: $finish called at 35606 (1ps)\nHint: Output 'q' has 7078 mismatches. First mismatch occurred at time 10.\nHint: Total mismatched samples is 7078 out of 7121 samples\n\nSimulation finished at 35606 ps\nMismatches: 7078 in 7121 samples\n\n",
+    "mismatches": 7078,
+    "samples": 7121,
+    "status": "not_equivalent"
+  },
+  {
+    "case": "Prob124_rule110",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/current_go_156/Prob124_rule110/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/historical/runs/rerun_fixpass13_rule/Prob124_rule110/Prob124_rule110.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/historical/dataset_spec-to-rtl/tests/Prob124_rule110_test.sv:73: $finish called at 31416 (1ps)\nHint: Output 'q' has 6240 mismatches. First mismatch occurred at time 10.\nHint: Total mismatched samples is 6240 out of 6283 samples\n\nSimulation finished at 31416 ps\nMismatches: 6240 in 6283 samples\n\n",
+    "mismatches": 6240,
+    "samples": 6283,
+    "status": "not_equivalent"
+  }
+]

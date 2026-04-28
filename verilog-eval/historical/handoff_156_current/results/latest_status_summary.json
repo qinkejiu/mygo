@@ -1,0 +1,18 @@
+{
+  "total_cases": 156,
+  "status_counts": {
+    "equivalent": 66,
+    "not_equivalent": 88,
+    "iverilog_compile_failed": 2
+  },
+  "source_precedence": {
+    "base_runs": [
+      "verilog-eval/runs/run_50_cases/results.json",
+      "verilog-eval/runs/run_remaining_106_merged_results.json"
+    ],
+    "overrides": [
+      "verilog-eval/runs/failed8_rerun/results.json",
+      "verilog-eval/runs/basic_fix_batch_rerun_v2/results.json"
+    ]
+  }
+}

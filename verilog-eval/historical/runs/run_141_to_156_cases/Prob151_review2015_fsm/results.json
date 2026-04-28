@@ -1,0 +1,11 @@
+[
+  {
+    "case": "Prob151_review2015_fsm",
+    "status": "not_equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_141_to_156_cases/Prob151_review2015_fsm/Prob151_review2015_fsm/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_141_to_156_cases/Prob151_review2015_fsm/Prob151_review2015_fsm/Prob151_review2015_fsm.sv",
+    "mismatches": 4810,
+    "samples": 5069,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\nHint: Your FSM didn't pass the sample timing diagram posted with the problem statement. Perhaps try debugging that?\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob151_review2015_fsm_test.sv:76: $finish called at 25346 (1ps)\nHint: Output 'shift_ena' has 4810 mismatches. First mismatch occurred at time 20.\nHint: Output 'counting' has 1872 mismatches. First mismatch occurred at time 130.\nHint: Output 'done' has 2024 mismatches. First mismatch occurred at time 180.\nHint: Total mismatched samples is 4810 out of 5069 samples\n\nSimulation finished at 25346 ps\nMismatches: 4810 in 5069 samples\n\n"
+  }
+]

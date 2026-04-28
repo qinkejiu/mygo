@@ -15,15 +15,23 @@ import (
 )
 
 // BuildDesign converts the SSA program into the hardware IR described in README.
-func BuildDesign(prog *ssa.Program, reporter *diag.Reporter) (*Design, error) {
+func BuildDesign(prog *ssa.Program, reporter *diag.Reporter, targetFuncs ...string) (*Design, error) {
 	mainPkg := findMainPackage(prog)
 	if mainPkg == nil {
 		return nil, fmt.Errorf("no main package found")
 	}
 
-	mainFn := mainPkg.Func("main")
+	targetFunc := ""
+	if len(targetFuncs) > 0 {
+		targetFunc = strings.TrimSpace(targetFuncs[0])
+	}
+	if targetFunc == "" {
+		targetFunc = selectEntryFunction(mainPkg)
+	}
+
+	mainFn := mainPkg.Func(targetFunc)
 	if mainFn == nil {
-		return nil, fmt.Errorf("main function not found in package %s", mainPkg.Pkg.Path())
+		return nil, fmt.Errorf("target function %q not found in package %s", targetFunc, mainPkg.Pkg.Path())
 	}
 
 	builder := &builder{
@@ -35,6 +43,7 @@ func BuildDesign(prog *ssa.Program, reporter *diag.Reporter) (*Design, error) {
 		globalValues:         make(map[*ssa.Global]*Signal),
 		globalStorage:        make(map[*ssa.Global]*Signal),
 		blockGlobalValues:    make(map[*BasicBlock]map[*ssa.Global]*Signal),
+		blockAllocValues:     make(map[*BasicBlock]map[*ssa.Alloc]*Signal),
 		processes:            make(map[*ssa.Function]*Process),
 		channels:             make(map[ssa.Value]*Channel),
 		paramSignals:         make(map[*ssa.Parameter]*Signal),
@@ -42,6 +51,7 @@ func BuildDesign(prog *ssa.Program, reporter *diag.Reporter) (*Design, error) {
 		channelParamBindings: make(map[*ssa.Parameter]map[*Channel]struct{}),
 		channelUsage:         make(map[*Channel]int),
 		loopFSMs:             make(map[*ssa.Function][]*loopFSM),
+		latchGlobals:         make(map[*ssa.Global]struct{}),
 		mergedCalls:          make(map[*BasicBlock]*mergedCallInfo),
 		nextStage:            1,
 	}
@@ -62,6 +72,13 @@ func BuildDesign(prog *ssa.Program, reporter *diag.Reporter) (*Design, error) {
 	return design, nil
 }
 
+func selectEntryFunction(mainPkg *ssa.Package) string {
+	if mainPkg.Func("TopModule") != nil {
+		return "TopModule"
+	}
+	return "main"
+}
+
 type builder struct {
 	reporter             *diag.Reporter
 	mainPkg              *ssa.Package
@@ -72,6 +89,7 @@ type builder struct {
 	globalValues         map[*ssa.Global]*Signal
 	globalStorage        map[*ssa.Global]*Signal
 	blockGlobalValues    map[*BasicBlock]map[*ssa.Global]*Signal
+	blockAllocValues     map[*BasicBlock]map[*ssa.Alloc]*Signal
 	processes            map[*ssa.Function]*Process
 	channels             map[ssa.Value]*Channel
 	paramSignals         map[*ssa.Parameter]*Signal
@@ -79,9 +97,11 @@ type builder struct {
 	channelParamBindings map[*ssa.Parameter]map[*Channel]struct{}
 	channelUsage         map[*Channel]int
 	loopFSMs             map[*ssa.Function][]*loopFSM
+	latchGlobals         map[*ssa.Global]struct{}
 	mergedCalls          map[*BasicBlock]*mergedCallInfo
 	nextStage            int
 	blocks               map[*ssa.BasicBlock]*BasicBlock
+	ssaBlocks            map[*BasicBlock]*ssa.BasicBlock
 	currentBlock         *BasicBlock
 	tempID               int
 }
@@ -122,10 +142,20 @@ type loopFSM struct {
 	transitions []fsmTransition
 }
 
+func sameSignal(a, b *Signal) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	if a == b {
+		return true
+	}
+	return a.Name != "" && a.Name == b.Name
+}
+
 func (b *builder) buildModule(fn *ssa.Function) *Module {
 	mod := &Module{
 		Name:     fn.Name(),
-		Ports:    defaultPorts(),
+		Ports:    []Port{},
 		Signals:  make(map[string]*Signal),
 		Channels: make(map[string]*Channel),
 		Source:   fn.Pos(),
@@ -136,7 +166,134 @@ func (b *builder) buildModule(fn *ssa.Function) *Module {
 	if entry != nil && entry.Stage < 0 {
 		entry.Stage = 0
 	}
+	b.addInputPortsForParams(fn)
+	b.addOutputPortsForGlobals(fn.Pkg)
 	return mod
+}
+
+func (b *builder) addInputPortsForParams(fn *ssa.Function) {
+	if fn == nil || b.module == nil || fn.Signature == nil || fn.Signature.Params() == nil {
+		return
+	}
+	outputPortNames := b.outputPortNames(fn.Pkg)
+	params := fn.Signature.Params()
+	for i := 0; i < params.Len(); i++ {
+		param := params.At(i)
+		if param == nil {
+			continue
+		}
+		name := strings.TrimSpace(param.Name())
+		if name == "" || b.hasPort(name) {
+			continue
+		}
+		if _, ok := outputPortNames[name]; ok {
+			continue
+		}
+		typ := signalType(param.Type())
+		if typ == nil {
+			continue
+		}
+		b.module.Ports = append(b.module.Ports, Port{
+			Name:      name,
+			Direction: Input,
+			Type:      typ.Clone(),
+		})
+	}
+}
+
+func (b *builder) outputPortNames(pkg *ssa.Package) map[string]struct{} {
+	names := make(map[string]struct{})
+	if b == nil || pkg == nil {
+		return names
+	}
+	for _, member := range pkg.Members {
+		global, ok := member.(*ssa.Global)
+		if !ok || global == nil {
+			continue
+		}
+		name := global.Name()
+		if !strings.HasPrefix(name, "out_") {
+			continue
+		}
+		portName := strings.TrimPrefix(name, "out_")
+		if portName == "" {
+			continue
+		}
+		names[portName] = struct{}{}
+		names[name] = struct{}{}
+	}
+	return names
+}
+
+func (b *builder) addOutputPortsForGlobals(pkg *ssa.Package) {
+	if pkg == nil || b.module == nil {
+		return
+	}
+	globalNames := make(map[string]struct{})
+	for name, member := range pkg.Members {
+		if _, ok := member.(*ssa.Global); ok {
+			globalNames[name] = struct{}{}
+		}
+	}
+	for _, member := range pkg.Members {
+		global, ok := member.(*ssa.Global)
+		if !ok || global == nil {
+			continue
+		}
+		name := global.Name()
+		if !strings.HasPrefix(name, "out_") {
+			continue
+		}
+		if shouldSkipOutputHelperGlobal(name, globalNames) {
+			continue
+		}
+		portName := strings.TrimPrefix(name, "out_")
+		if portName == "" {
+			continue
+		}
+		ptrType, ok := global.Type().(*types.Pointer)
+		if !ok {
+			continue
+		}
+		sigType := signalType(ptrType.Elem())
+		if sigType == nil {
+			continue
+		}
+		// Only add the full output name (e.g., "out_both"), not the aliased name (e.g., "both")
+		// The aliased name can conflict with local variables
+		b.appendOutputPort(name, name, sigType)
+	}
+}
+
+func shouldSkipOutputHelperGlobal(name string, globals map[string]struct{}) bool {
+	if len(globals) == 0 {
+		return false
+	}
+	switch {
+	case strings.HasSuffix(name, "_reg"):
+		_, ok := globals[strings.TrimSuffix(name, "_reg")]
+		return ok
+	case strings.HasSuffix(name, "_r"):
+		_, ok := globals[strings.TrimSuffix(name, "_r")]
+		return ok
+	default:
+		return false
+	}
+}
+
+func (b *builder) appendOutputPort(portName, binding string, sigType *SignalType) {
+	if b == nil || b.module == nil || portName == "" || sigType == nil {
+		return
+	}
+	if b.hasPort(portName) {
+		return
+	}
+	b.module.Ports = append(b.module.Ports, Port{
+		Name:      portName,
+		Binding:   binding,
+		Direction: Output,
+		Type:      sigType.Clone(),
+	})
 }
 
 // buildReferencedProcesses scans for CallOperations and builds referenced processes
@@ -206,8 +363,13 @@ func (b *builder) buildProcess(fn *ssa.Function) *Process {
 	b.bindFunctionParams(fn, proc)
 
 	prevBlocks := b.blocks
+	prevSSABlocks := b.ssaBlocks
 	b.blocks = make(map[*ssa.BasicBlock]*BasicBlock)
-	defer func() { b.blocks = prevBlocks }()
+	b.ssaBlocks = make(map[*BasicBlock]*ssa.BasicBlock)
+	defer func() {
+		b.blocks = prevBlocks
+		b.ssaBlocks = prevSSABlocks
+	}()
 
 	ordered := make([]*ssa.BasicBlock, 0, len(fn.Blocks))
 	var entryBB *BasicBlock
@@ -220,6 +382,7 @@ func (b *builder) buildProcess(fn *ssa.Function) *Process {
 			entryBB = bb
 		}
 		b.blocks[block] = bb
+		b.ssaBlocks[bb] = block
 		proc.Blocks = append(proc.Blocks, bb)
 		ordered = append(ordered, block)
 	}
@@ -231,6 +394,7 @@ func (b *builder) buildProcess(fn *ssa.Function) *Process {
 	b.repairPhiPredecessors(proc)
 	b.orderBlocks(proc, entryBB)
 	b.buildLoopFSMs(fn)
+	b.inferProcessSensitivity(proc)
 	return proc
 }
 
@@ -341,7 +505,7 @@ func (b *builder) repairPhiPredecessors(proc *Process) {
 				if incoming == nil || containsBlock(block.Predecessors, incoming) {
 					continue
 				}
-				replacement := matchPhiPredecessor(block.Predecessors, incoming)
+				replacement := b.matchPhiPredecessor(block.Predecessors, incoming)
 				if replacement != nil {
 					phi.Incomings[i].Block = replacement
 				}
@@ -359,9 +523,22 @@ func containsBlock(blocks []*BasicBlock, target *BasicBlock) bool {
 	return false
 }
 
-func matchPhiPredecessor(preds []*BasicBlock, incoming *BasicBlock) *BasicBlock {
+func (b *builder) matchPhiPredecessor(preds []*BasicBlock, incoming *BasicBlock) *BasicBlock {
 	if incoming == nil {
 		return nil
+	}
+	if b != nil && b.ssaBlocks != nil {
+		incomingSSA := b.ssaBlocks[incoming]
+		if incomingSSA != nil {
+			for _, pred := range preds {
+				if pred == nil {
+					continue
+				}
+				if b.ssaBlocks[pred] == incomingSSA {
+					return pred
+				}
+			}
+		}
 	}
 	for _, pred := range preds {
 		if pred == nil {
@@ -867,6 +1044,12 @@ func (b *builder) handleUnOp(proc *Process, bb *BasicBlock, op *ssa.UnOp) {
 				return
 			}
 		}
+		if alloc, ok := unwrapAddressValue(op.X).(*ssa.Alloc); ok && bb != nil {
+			if value := b.blockAllocValue(bb, alloc); value != nil {
+				b.bindResolvedValue(bb, op, value)
+				return
+			}
+		}
 		ptr := b.signalForValue(op.X)
 		if ptr != nil {
 			b.bindResolvedValue(bb, op, ptr)
@@ -956,6 +1139,130 @@ func (b *builder) bindResolvedValue(bb *BasicBlock, value ssa.Value, resolved *S
 	return resolved
 }
 
+func (b *builder) setBlockAllocValue(block *BasicBlock, alloc *ssa.Alloc, value *Signal) {
+	if b == nil || block == nil || alloc == nil || value == nil {
+		return
+	}
+	values := b.blockAllocValues[block]
+	if values == nil {
+		values = make(map[*ssa.Alloc]*Signal)
+		b.blockAllocValues[block] = values
+	}
+	values[alloc] = value
+}
+
+func (b *builder) blockAllocValue(block *BasicBlock, alloc *ssa.Alloc) *Signal {
+	return b.currentAllocValue(block, alloc, make(map[*BasicBlock]bool))
+}
+
+func (b *builder) currentAllocValue(block *BasicBlock, alloc *ssa.Alloc, seen map[*BasicBlock]bool) *Signal {
+	if b == nil || block == nil || alloc == nil {
+		return nil
+	}
+	if values := b.blockAllocValues[block]; values != nil {
+		if sig := values[alloc]; sig != nil {
+			return sig
+		}
+	}
+	if seen[block] {
+		return b.signalForValue(alloc)
+	}
+	seen[block] = true
+	defer delete(seen, block)
+	preds := b.currentBlockPredecessors(block)
+	switch len(preds) {
+	case 0:
+		return b.signalForValue(alloc)
+	case 1:
+		if sig := b.currentAllocValue(preds[0], alloc, seen); sig != nil {
+			return sig
+		}
+		return b.signalForValue(alloc)
+	case 2:
+		if merged := b.mergeAllocPredecessorValues(block, alloc, seen); merged != nil {
+			b.setBlockAllocValue(block, alloc, merged)
+			return merged
+		}
+	}
+	return b.signalForValue(alloc)
+}
+
+func (b *builder) mergeAllocPredecessorValues(block *BasicBlock, alloc *ssa.Alloc, seen map[*BasicBlock]bool) *Signal {
+	preds := b.currentBlockPredecessors(block)
+	if b == nil || block == nil || alloc == nil || len(preds) != 2 {
+		return nil
+	}
+	predA := preds[0]
+	predB := preds[1]
+	if predA == nil || predB == nil {
+		return nil
+	}
+	valA := b.currentAllocValue(predA, alloc, seen)
+	valB := b.currentAllocValue(predB, alloc, seen)
+	if valA == nil {
+		valA = b.signalForValue(alloc)
+	}
+	if valB == nil {
+		valB = b.signalForValue(alloc)
+	}
+	if sameSignal(valA, valB) {
+		return valA
+	}
+	if merged := b.mergeAllocDiamondValue(block, predA, predB, valA, valB, alloc); merged != nil {
+		return merged
+	}
+	if merged := b.mergeAllocDiamondValue(block, predB, predA, valB, valA, alloc); merged != nil {
+		return merged
+	}
+	return nil
+}
+
+func (b *builder) mergeAllocDiamondValue(join, branchBlock, otherPred *BasicBlock, branchVal, otherVal *Signal, alloc *ssa.Alloc) *Signal {
+	if b == nil || join == nil || branchBlock == nil || otherPred == nil || alloc == nil {
+		return nil
+	}
+	preds := b.currentBlockPredecessors(branchBlock)
+	if len(preds) != 1 {
+		return nil
+	}
+	header := preds[0]
+	term, ok := header.Terminator.(*BranchTerminator)
+	if !ok || term == nil || term.Cond == nil {
+		return nil
+	}
+	switch {
+	case term.True == branchBlock && term.False == join && otherPred == header:
+		return b.synthesizeMux(join, "allocphi", term.Cond, branchVal, otherVal, signalType(alloc.Type().Underlying().(*types.Pointer).Elem()), alloc.Pos())
+	case term.False == branchBlock && term.True == join && otherPred == header:
+		return b.synthesizeMux(join, "allocphi", term.Cond, otherVal, branchVal, signalType(alloc.Type().Underlying().(*types.Pointer).Elem()), alloc.Pos())
+	default:
+		return nil
+	}
+}
+
+func (b *builder) currentBlockPredecessors(block *BasicBlock) []*BasicBlock {
+	if b == nil || block == nil {
+		return nil
+	}
+	if len(block.Predecessors) > 0 || b.ssaBlocks == nil {
+		return block.Predecessors
+	}
+	ssaBlock := b.ssaBlocks[block]
+	if ssaBlock == nil || len(ssaBlock.Preds) == 0 {
+		return block.Predecessors
+	}
+	preds := make([]*BasicBlock, 0, len(ssaBlock.Preds))
+	for _, pred := range ssaBlock.Preds {
+		if pred == nil {
+			continue
+		}
+		if bb := b.blocks[pred]; bb != nil {
+			preds = appendUniqueBlock(preds, bb)
+		}
+	}
+	return preds
+}
+
 func (b *builder) tryLowerPhiToMux(block *ssa.BasicBlock, incomings []PhiIncoming, dest *Signal) *MuxOperation {
 	if block == nil || len(block.Preds) != 2 || len(incomings) != 2 {
 		return nil
@@ -965,7 +1272,7 @@ func (b *builder) tryLowerPhiToMux(block *ssa.BasicBlock, incomings []PhiIncomin
 	if predA == nil || predB == nil {
 		return nil
 	}
-	if len(predA.Preds) == 0 || len(predB.Preds) == 0 {
+	if len(predA.Preds) != 1 || len(predB.Preds) != 1 {
 		return nil
 	}
 	header := predA.Preds[0]
@@ -1010,7 +1317,7 @@ func (b *builder) tryLowerPhiToMux(block *ssa.BasicBlock, incomings []PhiIncomin
 func (b *builder) translateInstr(proc *Process, block *ssa.BasicBlock, bb *BasicBlock, instrIndex int, instr ssa.Instruction) bool {
 	switch v := instr.(type) {
 	case *ssa.Alloc:
-		b.handleAlloc(v)
+		b.handleAlloc(v, proc)
 	case *ssa.Store:
 		if b.lowerIndexedStore(bb, v) {
 			return false
@@ -1023,6 +1330,24 @@ func (b *builder) translateInstr(proc *Process, block *ssa.BasicBlock, bb *Basic
 			}
 			bb.Ops = append(bb.Ops, &AssignOperation{Dest: dest, Value: val})
 			b.setBlockGlobalValue(bb, g, val)
+			return false
+		}
+		if alloc, ok := unwrapAddressValue(v.Addr).(*ssa.Alloc); ok {
+			if block != nil && block.Index == 0 {
+				if c, ok := v.Val.(*ssa.Const); ok {
+					if dest := b.signalForValue(v.Addr); dest != nil && dest.Value == nil {
+						dest.Value = extractConstValue(c)
+						return false
+					}
+				}
+			}
+			dest := b.signalForValue(v.Addr)
+			val := b.signalForValue(v.Val)
+			if dest == nil || val == nil {
+				return false
+			}
+			bb.Ops = append(bb.Ops, &AssignOperation{Dest: dest, Value: val})
+			b.setBlockAllocValue(bb, alloc, val)
 			return false
 		}
 		dest := b.signalForValue(v.Addr)
@@ -1069,7 +1394,7 @@ func (b *builder) translateInstr(proc *Process, block *ssa.BasicBlock, bb *Basic
 	return false
 }
 
-func (b *builder) handleAlloc(a *ssa.Alloc) {
+func (b *builder) handleAlloc(a *ssa.Alloc, proc *Process) {
 	ptrType, ok := a.Type().(*types.Pointer)
 	if !ok {
 		b.reporter.Warning(a.Pos(), "allocation without pointer type encountered")
@@ -1077,6 +1402,10 @@ func (b *builder) handleAlloc(a *ssa.Alloc) {
 	}
 	elem := ptrType.Elem()
 	name := b.allocName(a)
+	// Don't set Kind here based on current sensitivity - it's not yet inferred.
+	// Default to Reg, and let inferProcessSensitivity adjust it later:
+	// - For combinational processes, markIndexedLocalsAsWires will fix indexed arrays
+	// - For sequential processes, Reg is correct
 	sig := &Signal{
 		Name:   name,
 		Type:   signalType(elem),
@@ -1357,6 +1686,16 @@ func (b *builder) memoryAccess(bb *BasicBlock, addr *ssa.IndexAddr) *Signal {
 		return nil
 	}
 	if idx, ok := indexedConstantFlatIndex(state, indices); ok {
+		if packed := b.lowerPackedIndexedRead(
+			bb,
+			base,
+			state,
+			b.newConstSignal(int64(idx), &SignalType{Width: 32, Signed: true}, addr.Pos()),
+			addr.Pos(),
+		); packed != nil {
+			b.signals[addr] = packed
+			return packed
+		}
 		elem := b.indexedElementSignal(state, idx, addr.Pos())
 		if elem != nil {
 			b.signals[addr] = elem
@@ -1373,6 +1712,10 @@ func (b *builder) memoryAccess(bb *BasicBlock, addr *ssa.IndexAddr) *Signal {
 	if !ok || index == nil {
 		return nil
 	}
+	if packed := b.lowerPackedIndexedRead(bb, base, state, index, addr.Pos()); packed != nil {
+		b.signals[addr] = packed
+		return packed
+	}
 	maxLen := state.length
 	if maxLen < 0 {
 		maxLen = defaultDynamicSliceIndexMax
@@ -1382,6 +1725,56 @@ func (b *builder) memoryAccess(bb *BasicBlock, addr *ssa.IndexAddr) *Signal {
 		b.signals[addr] = selected
 	}
 	return selected
+}
+
+func (b *builder) lowerPackedIndexedRead(bb *BasicBlock, base ssa.Value, state *indexedBaseState, index *Signal, pos token.Pos) *Signal {
+	if b == nil || bb == nil || state == nil || index == nil || state.elemType == nil || len(state.dims) != 1 {
+		return nil
+	}
+	baseSig := b.signalForValue(base)
+	if baseSig == nil || baseSig.Type == nil {
+		return nil
+	}
+	elemWidth := state.elemType.Width
+	if elemWidth <= 0 {
+		elemWidth = 1
+	}
+	if baseSig.Type.Width <= elemWidth || state.length <= 0 || baseSig.Type.Width != state.length*elemWidth {
+		return nil
+	}
+	shiftIndex := b.castSignalIfNeeded(bb, index, baseSig.Type.Clone(), pos)
+	if shiftIndex == nil {
+		return nil
+	}
+	shifted := b.synthesizeBinOp(bb, "idxshr", ShrU, baseSig, shiftIndex, baseSig.Type.Clone(), pos)
+	if shifted == nil {
+		return nil
+	}
+	maskValue := int64(1)
+	if elemWidth > 1 {
+		maskValue = (1 << elemWidth) - 1
+	}
+	masked := b.synthesizeBinOp(
+		bb,
+		"idxmask",
+		And,
+		shifted,
+		b.newConstSignal(maskValue, baseSig.Type.Clone(), pos),
+		baseSig.Type.Clone(),
+		pos,
+	)
+	if masked == nil {
+		return nil
+	}
+	if elemWidth == baseSig.Type.Width {
+		return masked
+	}
+	dest := b.newAnonymousSignal("idxextract", state.elemType.Clone(), pos)
+	bb.Ops = append(bb.Ops, &ConvertOperation{
+		Dest:  dest,
+		Value: masked,
+	})
+	return dest
 }
 
 func (b *builder) lowerIndexedLoad(bb *BasicBlock, load *ssa.UnOp, addr *ssa.IndexAddr) bool {
@@ -1556,8 +1949,14 @@ func (b *builder) indexedStateForBase(base ssa.Value, pos token.Pos) *indexedBas
 	if state.elemType == nil {
 		state.elemType = &SignalType{Width: 32, Signed: true}
 	}
+	if portBase := b.indexedBasePortName(base); portBase != "" {
+		b.bindNamedIndexedInputElements(portBase, state, pos)
+	}
 	if g, ok := base.(*ssa.Global); ok {
 		b.bindGlobalIndexedInputPorts(g, state)
+	}
+	if param, ok := base.(*ssa.Parameter); ok {
+		b.bindParamIndexedInputElements(param, state)
 	}
 	_ = pos
 	b.indexedBases[base] = state
@@ -1575,6 +1974,34 @@ func (b *builder) indexedElementSignal(state *indexedBaseState, idx int, pos tok
 		return sig
 	}
 	if sig, ok := state.storage[idx]; ok && sig != nil {
+		state.elements[idx] = sig
+		return sig
+	}
+	if base := b.indexedBasePortName(state.base); base != "" {
+		sig := &Signal{
+			Name:   fmt.Sprintf("%s_%d", base, idx),
+			Type:   state.elemType.Clone(),
+			Kind:   Wire,
+			Source: pos,
+		}
+		if sig.Type == nil {
+			sig.Type = &SignalType{Width: 1, Signed: false}
+		}
+		state.elements[idx] = sig
+		return sig
+	}
+	if param, ok := state.base.(*ssa.Parameter); ok && param != nil {
+		base := defaultName(param.Name(), "param")
+		base = strings.ReplaceAll(base, ".", "_")
+		sig := &Signal{
+			Name:   fmt.Sprintf("%s_%d", base, idx),
+			Type:   state.elemType.Clone(),
+			Kind:   Wire,
+			Source: param.Pos(),
+		}
+		if sig.Type == nil {
+			sig.Type = &SignalType{Width: 1, Signed: false}
+		}
 		state.elements[idx] = sig
 		return sig
 	}
@@ -1698,6 +2125,66 @@ func (b *builder) bindGlobalIndexedInputPorts(g *ssa.Global, state *indexedBaseS
 			})
 		}
 	}
+}
+
+func (b *builder) bindParamIndexedInputElements(param *ssa.Parameter, state *indexedBaseState) {
+	if b == nil || param == nil || state == nil || state.length <= 0 {
+		return
+	}
+	base := defaultName(param.Name(), "param")
+	b.bindNamedIndexedInputElements(base, state, param.Pos())
+}
+
+func (b *builder) bindNamedIndexedInputElements(base string, state *indexedBaseState, pos token.Pos) {
+	if b == nil || state == nil || state.length <= 0 {
+		return
+	}
+	base = strings.ReplaceAll(base, ".", "_")
+	for i := 0; i < state.length; i++ {
+		if _, ok := state.elements[i]; ok {
+			continue
+		}
+		typ := state.elemType.Clone()
+		if typ == nil {
+			typ = &SignalType{Width: 1, Signed: false}
+		}
+		state.elements[i] = &Signal{
+			Name:   fmt.Sprintf("%s_%d", base, i),
+			Type:   typ,
+			Kind:   Wire,
+			Source: pos,
+		}
+	}
+}
+
+func (b *builder) indexedBasePortName(base ssa.Value) string {
+	if b == nil || base == nil {
+		return ""
+	}
+	if sig, ok := b.signals[base]; ok && sig != nil {
+		name := strings.ReplaceAll(defaultName(sig.Name, ""), ".", "_")
+		if name != "" && b.hasPort(name) {
+			return name
+		}
+	}
+	switch val := base.(type) {
+	case *ssa.Parameter:
+		name := strings.ReplaceAll(defaultName(val.Name(), ""), ".", "_")
+		if name != "" && b.hasPort(name) {
+			return name
+		}
+	case *ssa.Alloc:
+		name := strings.ReplaceAll(defaultName(b.allocName(val), ""), ".", "_")
+		if name != "" && b.hasPort(name) {
+			return name
+		}
+	default:
+		name := strings.ReplaceAll(defaultName(base.Name(), ""), ".", "_")
+		if name != "" && b.hasPort(name) {
+			return name
+		}
+	}
+	return ""
 }
 
 func (b *builder) hasPort(name string) bool {
@@ -2008,9 +2495,12 @@ func (b *builder) linearizeIndexedAccess(bb *BasicBlock, state *indexedBaseState
 			return nil, false
 		}
 		if index.Type != nil {
-			indexType = index.Type.Clone()
+			indexType = indexType.Promote(index.Type)
 		}
-		term := index
+		term := b.castSignalIfNeeded(bb, index, indexType.Clone(), pos)
+		if term == nil {
+			return nil, false
+		}
 		if stride != 1 {
 			term = b.synthesizeBinOp(
 				bb,
@@ -2028,6 +2518,10 @@ func (b *builder) linearizeIndexedAccess(bb *BasicBlock, state *indexedBaseState
 		if acc == nil {
 			acc = term
 			continue
+		}
+		acc = b.castSignalIfNeeded(bb, acc, indexType.Clone(), pos)
+		if acc == nil {
+			return nil, false
 		}
 		acc = b.synthesizeBinOp(bb, "idxadd", Add, acc, term, indexType.Clone(), pos)
 		if acc == nil {
@@ -2053,6 +2547,21 @@ func (b *builder) linearizeIndexedAccess(bb *BasicBlock, state *indexedBaseState
 		}
 	}
 	return acc, true
+}
+
+func (b *builder) castSignalIfNeeded(bb *BasicBlock, sig *Signal, target *SignalType, pos token.Pos) *Signal {
+	if bb == nil || sig == nil || target == nil {
+		return sig
+	}
+	if sig.Type == nil || sig.Type.Equal(target) {
+		return sig
+	}
+	dest := b.newAnonymousSignal("idxcast", target, pos)
+	bb.Ops = append(bb.Ops, &ConvertOperation{
+		Dest:  dest,
+		Value: sig,
+	})
+	return dest
 }
 
 func (b *builder) snapshotLoadedSignal(bb *BasicBlock, sig *Signal, pos token.Pos) *Signal {
@@ -2878,6 +3387,20 @@ func boolSignalType() *SignalType {
 }
 
 func signalType(t types.Type) *SignalType {
+	if elem, length, _, ok := indexedShapeInfo(t); ok && length > 0 {
+		elemType := signalType(elem)
+		if elemType == nil {
+			return &SignalType{Width: length, Signed: false}
+		}
+		width := elemType.Width
+		if width <= 0 {
+			width = 1
+		}
+		return &SignalType{
+			Width:  length * width,
+			Signed: elemType.Signed,
+		}
+	}
 	switch bt := t.Underlying().(type) {
 	case *types.Basic:
 		width, signed := widthForBasic(bt)

@@ -1,0 +1,1094 @@
+[
+  {
+    "case": "Prob001_zero",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob001_zero/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob002_m2014_q4i",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob002_m2014_q4i/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob003_step_one",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob003_step_one/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob004_vector2",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob004_vector2/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob005_notgate",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob005_notgate/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob006_vectorr",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob006_vectorr/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob007_wire",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob007_wire/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob008_m2014_q4h",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob008_m2014_q4h/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob009_popcount3",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob009_popcount3/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob010_mt2015_q4a",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob010_mt2015_q4a/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob011_norgate",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob011_norgate/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob012_xnorgate",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob012_xnorgate/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob013_m2014_q4e",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob013_m2014_q4e/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob014_andgate",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob014_andgate/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob015_vector1",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob015_vector1/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob016_m2014_q4j",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob016_m2014_q4j/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob017_mux2to1v",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob017_mux2to1v/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob018_mux256to1",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob018_mux256to1/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob019_m2014_q4f",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob019_m2014_q4f/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob020_mt2015_eq2",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob020_mt2015_eq2/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob021_mux256to1v",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob021_mux256to1v/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob022_mux2to1",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob022_mux2to1/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob023_vector100r",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob023_vector100r/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob024_hadd",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob024_hadd/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob025_reduction",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob025_reduction/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob026_alwaysblock1",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob026_alwaysblock1/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob027_fadd",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob027_fadd/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob028_m2014_q4a",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob028_m2014_q4a/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob029_m2014_q4g",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob029_m2014_q4g/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob030_popcount255",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob030_popcount255/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob031_dff",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob031_dff/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob032_vector0",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob032_vector0/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob033_ece241_2014_q1c",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob033_ece241_2014_q1c/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob034_dff8",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob034_dff8/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob035_count1to10",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob035_count1to10/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob036_ringer",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob036_ringer/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob037_review2015_count1k",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob037_review2015_count1k/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob038_count15",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob038_count15/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob039_always_if",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob039_always_if/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob040_count10",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob040_count10/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob041_dff8r",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob041_dff8r/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob042_vector4",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob042_vector4/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob043_vector5",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob043_vector5/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob044_vectorgates",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob044_vectorgates/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob045_edgedetect2",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob045_edgedetect2/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob046_dff8p",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob046_dff8p/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob047_dff8ar",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob047_dff8ar/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob048_m2014_q4c",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob048_m2014_q4c/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob049_m2014_q4b",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob049_m2014_q4b/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob050_kmap1",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob050_kmap1/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob051_gates4",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob051_gates4/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob052_gates100",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob052_gates100/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob053_m2014_q4d",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob053_m2014_q4d/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob054_edgedetect",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob054_edgedetect/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob055_conditional",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob055_conditional/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob056_ece241_2013_q7",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob056_ece241_2013_q7/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob057_kmap2",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob057_kmap2/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob058_alwaysblock2",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob058_alwaysblock2/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob059_wire4",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob059_wire4/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob060_m2014_q4k",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob060_m2014_q4k/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob061_2014_q4a",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob061_2014_q4a/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob062_bugs_mux2",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob062_bugs_mux2/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob063_review2015_shiftcount",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob063_review2015_shiftcount/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob064_vector3",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob064_vector3/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob065_7420",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob065_7420/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob066_edgecapture",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob066_edgecapture/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob067_countslow",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob067_countslow/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob068_countbcd",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob068_countbcd/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob069_truthtable1",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob069_truthtable1/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob070_ece241_2013_q2",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob070_ece241_2013_q2/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob071_always_casez",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob071_always_casez/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob072_thermostat",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob072_thermostat/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob073_dff16e",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob073_dff16e/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob074_ece241_2014_q4",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob074_ece241_2014_q4/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob075_counter_2bc",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob075_counter_2bc/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob076_always_case",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob076_always_case/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob077_wire_decl",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob077_wire_decl/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob078_dualedge",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob078_dualedge/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob079_fsm3onehot",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob079_fsm3onehot/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob080_timer",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob080_timer/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob081_7458",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob081_7458/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob082_lfsr32",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob082_lfsr32/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob083_mt2015_q4b",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob083_mt2015_q4b/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob084_ece241_2013_q12",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob084_ece241_2013_q12/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob085_shift4",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob085_shift4/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob086_lfsr5",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob086_lfsr5/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob087_gates",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob087_gates/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob088_ece241_2014_q5b",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob088_ece241_2014_q5b/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob089_ece241_2014_q5a",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob089_ece241_2014_q5a/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob090_circuit1",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob090_circuit1/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob091_2012_q2b",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob091_2012_q2b/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob092_gatesv100",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob092_gatesv100/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob093_ece241_2014_q3",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob093_ece241_2014_q3/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob094_gatesv",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob094_gatesv/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob095_review2015_fsmshift",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob095_review2015_fsmshift/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob096_review2015_fsmseq",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob096_review2015_fsmseq/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob097_mux9to1v",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob097_mux9to1v/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob098_circuit7",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob098_circuit7/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob099_m2014_q6c",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob099_m2014_q6c/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob100_fsm3comb",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob100_fsm3comb/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob101_circuit4",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob101_circuit4/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob102_circuit3",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob102_circuit3/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob103_circuit2",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob103_circuit2/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob104_mt2015_muxdff",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob104_mt2015_muxdff/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob105_rotate100",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob105_rotate100/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob106_always_nolatches",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob106_always_nolatches/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob107_fsm1s",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob107_fsm1s/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob108_rule90",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob108_rule90/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob109_fsm1",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob109_fsm1/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob110_fsm2",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob110_fsm2/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob111_fsm2s",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob111_fsm2s/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob112_always_case2",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob112_always_case2/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob113_2012_q1g",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob113_2012_q1g/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob114_bugs_case",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob114_bugs_case/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob115_shift18",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob115_shift18/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob116_m2014_q3",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob116_m2014_q3/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob117_circuit9",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob117_circuit9/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob118_history_shift",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob118_history_shift/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob119_fsm3",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob119_fsm3/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob120_fsm3s",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob120_fsm3s/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob121_2014_q3bfsm",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob121_2014_q3bfsm/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob122_kmap4",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob122_kmap4/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob123_bugs_addsubz",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob123_bugs_addsubz/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob124_rule110",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob124_rule110/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob125_kmap3",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob125_kmap3/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob126_circuit6",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob126_circuit6/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob127_lemmings1",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob127_lemmings1/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob128_fsm_ps2",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob128_fsm_ps2/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob129_ece241_2013_q8",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob129_ece241_2013_q8/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob130_circuit5",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob130_circuit5/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob131_mt2015_q4",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob131_mt2015_q4/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob132_always_if2",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob132_always_if2/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob133_2014_q3fsm",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob133_2014_q3fsm/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob134_2014_q3c",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob134_2014_q3c/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob135_m2014_q6b",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob135_m2014_q6b/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob136_m2014_q6",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob136_m2014_q6/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob137_fsm_serial",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob137_fsm_serial/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob138_2012_q2fsm",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob138_2012_q2fsm/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob139_2013_q2bfsm",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob139_2013_q2bfsm/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob140_fsm_hdlc",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob140_fsm_hdlc/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob141_count_clock",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob141_count_clock/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob142_lemmings2",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob142_lemmings2/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob143_fsm_onehot",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob143_fsm_onehot/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob144_conwaylife",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob144_conwaylife/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob145_circuit8",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob145_circuit8/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob146_fsm_serialdata",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob146_fsm_serialdata/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob147_circuit10",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob147_circuit10/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob148_2013_q2afsm",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob148_2013_q2afsm/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob149_ece241_2013_q4",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob149_ece241_2013_q4/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob150_review2015_fsmonehot",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob150_review2015_fsmonehot/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob151_review2015_fsm",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob151_review2015_fsm/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob152_lemmings3",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob152_lemmings3/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob153_gshare",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob153_gshare/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob154_fsm_ps2data",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob154_fsm_ps2data/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob155_lemmings4",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob155_lemmings4/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  },
+  {
+    "case": "Prob156_review2015_fancytimer",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob156_review2015_fancytimer/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "open /home/qinkejiu/.cache/go-build/5a/5a08ccbec24d17b876dd345b38951a654001a72e2fd9208aec0360f1263a1ac8-a: read-only file system\n"
+  }
+]

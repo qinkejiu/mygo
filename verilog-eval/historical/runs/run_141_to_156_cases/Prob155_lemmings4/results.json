@@ -1,0 +1,11 @@
+[
+  {
+    "case": "Prob155_lemmings4",
+    "status": "not_equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_141_to_156_cases/Prob155_lemmings4/Prob155_lemmings4/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_141_to_156_cases/Prob155_lemmings4/Prob155_lemmings4/Prob155_lemmings4.sv",
+    "mismatches": 1003,
+    "samples": 1003,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob155_lemmings4_test.sv:158: $finish called at 5016 (1ps)\nHint: Output 'walk_left' has 851 mismatches. First mismatch occurred at time 40.\nHint: Output 'walk_right' has 61 mismatches. First mismatch occurred at time 790.\nHint: Output 'aaah' has 595 mismatches. First mismatch occurred at time 5.\nHint: Output 'digging' has 779 mismatches. First mismatch occurred at time 5.\nHint: Total mismatched samples is 1003 out of 1003 samples\n\nSimulation finished at 5016 ps\nMismatches: 1003 in 1003 samples\n\n"
+  }
+]

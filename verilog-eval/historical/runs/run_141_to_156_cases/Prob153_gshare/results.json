@@ -1,0 +1,11 @@
+[
+  {
+    "case": "Prob153_gshare",
+    "status": "not_equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_141_to_156_cases/Prob153_gshare/Prob153_gshare/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_141_to_156_cases/Prob153_gshare/Prob153_gshare/Prob153_gshare.sv",
+    "mismatches": 461,
+    "samples": 1083,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob153_gshare_test.sv:161: $finish called at 5416 (1ps)\nHint: Output 'predict_taken' has 109 mismatches. First mismatch occurred at time 30.\nHint: Output 'predict_history' has 432 mismatches. First mismatch occurred at time 30.\nHint: Total mismatched samples is 461 out of 1083 samples\n\nSimulation finished at 5416 ps\nMismatches: 461 in 1083 samples\n\n"
+  }
+]

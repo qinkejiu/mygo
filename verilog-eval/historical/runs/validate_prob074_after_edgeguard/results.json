@@ -1,0 +1,11 @@
+[
+  {
+    "case": "Prob074_ece241_2014_q4",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob074_ece241_2014_q4/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_prob074_after_edgeguard/Prob074_ece241_2014_q4/Prob074_ece241_2014_q4.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob074_ece241_2014_q4_test.sv:42: $finish called at 590 (1ps)\nHint: Output 'z' has 34 mismatches. First mismatch occurred at time 10.\nHint: Total mismatched samples is 34 out of 118 samples\n\nSimulation finished at 590 ps\nMismatches: 34 in 118 samples\n\n",
+    "mismatches": 34,
+    "samples": 118,
+    "status": "not_equivalent"
+  }
+]

@@ -1,0 +1,42 @@
+[
+  {
+    "case": "Prob056_ece241_2013_q7",
+    "compile_rc": 0,
+    "compile_stderr": "",
+    "iverilog_stderr": "",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/historical/dataset_spec-to-rtl/tests/Prob056_ece241_2013_q7_test.sv:43: $finish called at 2110 (1ps)\nHint: Output 'Q' has no mismatches.\nHint: Total mismatched samples is 0 out of 422 samples\n\nSimulation finished at 2110 ps\nMismatches: 0 in 422 samples\n\n",
+    "mismatches": 0,
+    "samples": 422,
+    "status": "equivalent"
+  },
+  {
+    "case": "Prob068_countbcd",
+    "compile_rc": 0,
+    "compile_stderr": "",
+    "iverilog_stderr": "",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/historical/dataset_spec-to-rtl/tests/Prob068_countbcd_test.sv:68: $finish called at 199026 (1ps)\nHint: Output 'ena' has no mismatches.\nHint: Output 'q' has no mismatches.\nHint: Total mismatched samples is 0 out of 39805 samples\n\nSimulation finished at 199026 ps\nMismatches: 0 in 39805 samples\n\n",
+    "mismatches": 0,
+    "samples": 39805,
+    "status": "equivalent"
+  },
+  {
+    "case": "Prob145_circuit8",
+    "compile_rc": 0,
+    "compile_stderr": "",
+    "iverilog_stderr": "",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/historical/dataset_spec-to-rtl/tests/Prob145_circuit8_test.sv:45: $finish called at 1200 (1ps)\nHint: Output 'p' has 112 mismatches. First mismatch occurred at time 90.\nHint: Output 'q' has no mismatches.\nHint: Total mismatched samples is 112 out of 240 samples\n\nSimulation finished at 1200 ps\nMismatches: 112 in 240 samples\n\n",
+    "mismatches": 112,
+    "samples": 240,
+    "status": "not_equivalent"
+  },
+  {
+    "case": "Prob147_circuit10",
+    "compile_rc": 0,
+    "compile_stderr": "",
+    "iverilog_stderr": "",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/historical/dataset_spec-to-rtl/tests/Prob147_circuit10_test.sv:50: $finish called at 1160 (1ps)\nHint: Output 'q' has no mismatches.\nHint: Output 'state' has no mismatches.\nHint: Total mismatched samples is 0 out of 232 samples\n\nSimulation finished at 1160 ps\nMismatches: 0 in 232 samples\n\n",
+    "mismatches": 0,
+    "samples": 232,
+    "status": "equivalent"
+  }
+]

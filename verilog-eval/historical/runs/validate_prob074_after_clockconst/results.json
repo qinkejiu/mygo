@@ -1,0 +1,10 @@
+[
+  {
+    "case": "Prob074_ece241_2014_q4",
+    "status": "iverilog_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob074_ece241_2014_q4/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_prob074_after_clockconst/Prob074_ece241_2014_q4/Prob074_ece241_2014_q4.sv",
+    "iverilog_stdout": "",
+    "iverilog_stderr": "/home/qinkejiu/mygo/verilog-eval/runs/validate_prob074_after_clockconst/Prob074_ece241_2014_q4/Prob074_ece241_2014_q4.sv:21: sorry: Overriding the default variable lifetime is not yet supported.\n/home/qinkejiu/mygo/verilog-eval/runs/validate_prob074_after_clockconst/Prob074_ece241_2014_q4/Prob074_ece241_2014_q4.sv:25: sorry: Overriding the default variable lifetime is not yet supported.\n/home/qinkejiu/mygo/verilog-eval/runs/validate_prob074_after_clockconst/Prob074_ece241_2014_q4/Prob074_ece241_2014_q4.sv:36: sorry: Overriding the default variable lifetime is not yet supported.\n/home/qinkejiu/mygo/verilog-eval/runs/validate_prob074_after_clockconst/Prob074_ece241_2014_q4/Prob074_ece241_2014_q4.sv:48: sorry: Overriding the default variable lifetime is not yet supported.\n/home/qinkejiu/mygo/verilog-eval/runs/validate_prob074_after_clockconst/Prob074_ece241_2014_q4/Prob074_ece241_2014_q4.sv:52: sorry: Overriding the default variable lifetime is not yet supported.\n/home/qinkejiu/mygo/verilog-eval/runs/validate_prob074_after_clockconst/Prob074_ece241_2014_q4/Prob074_ece241_2014_q4.sv:63: sorry: Overriding the default variable lifetime is not yet supported.\n"
+  }
+]

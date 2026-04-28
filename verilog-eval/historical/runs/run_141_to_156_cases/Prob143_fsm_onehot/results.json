@@ -1,0 +1,11 @@
+[
+  {
+    "case": "Prob143_fsm_onehot",
+    "status": "not_equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_141_to_156_cases/Prob143_fsm_onehot/Prob143_fsm_onehot/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_141_to_156_cases/Prob143_fsm_onehot/Prob143_fsm_onehot/Prob143_fsm_onehot.sv",
+    "mismatches": 224,
+    "samples": 224,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\nHint: next_state[0] is incorrect.\nHint: next_state[1] is incorrect.\nHint: next_state[2] is incorrect.\nHint: next_state[3] is incorrect.\nHint: next_state[4] is incorrect.\nHint: next_state[5] is incorrect.\nHint: next_state[6] is incorrect.\nHint: next_state[7] is incorrect.\nHint: next_state[8] is incorrect.\nHint: next_state[9] is incorrect.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob143_fsm_onehot_test.sv:62: $finish called at 1121 (1ps)\nHint: Output 'next_state' has 224 mismatches. First mismatch occurred at time 5.\nHint: Output 'out1' has no mismatches.\nHint: Output 'out2' has no mismatches.\nHint: Total mismatched samples is 224 out of 224 samples\n\nSimulation finished at 1121 ps\nMismatches: 224 in 224 samples\n\n"
+  }
+]

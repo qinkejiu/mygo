@@ -1,0 +1,11 @@
+[
+  {
+    "case": "Prob092_gatesv100",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob092_gatesv100/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_compile_pipeline_regressions/Prob092_gatesv100/Prob092_gatesv100.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob092_gatesv100_test.sv:18: $finish called at 1006 (1ps)\nHint: Output 'out_both' has 201 mismatches. First mismatch occurred at time 5.\nHint: Output 'out_any' has 201 mismatches. First mismatch occurred at time 5.\nHint: Output 'out_different' has 201 mismatches. First mismatch occurred at time 5.\nHint: Total mismatched samples is 201 out of 201 samples\n\nSimulation finished at 1006 ps\nMismatches: 201 in 201 samples\n\n",
+    "mismatches": 201,
+    "samples": 201,
+    "status": "not_equivalent"
+  }
+]

@@ -1,0 +1,11 @@
+[
+  {
+    "case": "Prob105_rotate100",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob105_rotate100/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_prob105_after_next_array/Prob105_rotate100/Prob105_rotate100.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob105_rotate100_test.sv:25: $finish called at 20026 (1ps)\nHint: Output 'q' has 4002 mismatches. First mismatch occurred at time 20.\nHint: Total mismatched samples is 4002 out of 4005 samples\n\nSimulation finished at 20026 ps\nMismatches: 4002 in 4005 samples\n\n",
+    "mismatches": 4002,
+    "samples": 4005,
+    "status": "not_equivalent"
+  }
+]

@@ -1,0 +1,9 @@
+[
+  {
+    "case": "Prob150_review2015_fsmonehot",
+    "status": "go_compile_failed",
+    "compile_stdout": "",
+    "compile_stderr": "error: /home/qinkejiu/mygo/verilog-eval/runs/run_141_to_156_cases/Prob150_review2015_fsmonehot/Prob150_review2015_fsmonehot/main.go:19:5: declared and not used: s11_state\npackage loading failed\nexit status 1\n",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_141_to_156_cases/Prob150_review2015_fsmonehot/Prob150_review2015_fsmonehot/main.go"
+  }
+]

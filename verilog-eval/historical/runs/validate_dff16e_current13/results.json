@@ -1,0 +1,11 @@
+[
+  {
+    "case": "Prob073_dff16e",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob073_dff16e/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_dff16e_current13/Prob073_dff16e/Prob073_dff16e.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob073_dff16e_test.sv:80: $finish called at 2216 (1ps)\nHint: Output 'q' has 310 mismatches. First mismatch occurred at time 40.\nHint: Total mismatched samples is 310 out of 443 samples\n\nSimulation finished at 2216 ps\nMismatches: 310 in 443 samples\n\n",
+    "mismatches": 310,
+    "samples": 443,
+    "status": "not_equivalent"
+  }
+]

@@ -280,6 +280,59 @@ func TestRewriteFIFOStubInstances(t *testing.T) {
 	}
 }
 
+func TestBuildBenchmarkWrapperBindsOutPrefixedImplementationOutputs(t *testing.T) {
+	expected := []verilogPort{
+		{Name: "zero", Direction: "output", Width: 1},
+		{Name: "out", Direction: "output", Width: 1},
+		{Name: "z", Direction: "output", Width: 1},
+	}
+	actual := []verilogPort{
+		{Name: "out_zero", Direction: "output", Width: 1},
+		{Name: "out_out", Direction: "output", Width: 1},
+		{Name: "out_z", Direction: "output", Width: 1},
+	}
+	wrapper, err := buildBenchmarkWrapper("TopModule", "TopModule__impl", expected, actual)
+	if err != nil {
+		t.Fatalf("buildBenchmarkWrapper() error: %v", err)
+	}
+	for _, want := range []string{
+		".out_zero(zero)",
+		".out_out(out)",
+		".out_z(z)",
+	} {
+		if !strings.Contains(wrapper, want) {
+			t.Fatalf("expected wrapper to contain %q, got:\n%s", want, wrapper)
+		}
+	}
+}
+
+func TestBuildBenchmarkWrapperBindsPackedOutPrefixedImplementationOutputs(t *testing.T) {
+	expected := []verilogPort{
+		{Name: "g", Direction: "output", Width: 3},
+	}
+	actual := []verilogPort{
+		{Name: "out_g0", Direction: "output", Width: 1},
+		{Name: "out_g1", Direction: "output", Width: 1},
+		{Name: "out_g2", Direction: "output", Width: 1},
+	}
+	wrapper, err := buildBenchmarkWrapper("TopModule", "TopModule__impl", expected, actual)
+	if err != nil {
+		t.Fatalf("buildBenchmarkWrapper() error: %v", err)
+	}
+	for _, want := range []string{
+		".out_g0(__mygo_out_g0)",
+		".out_g1(__mygo_out_g1)",
+		".out_g2(__mygo_out_g2)",
+		"assign g[0] = __mygo_out_g0;",
+		"assign g[1] = __mygo_out_g1;",
+		"assign g[2] = __mygo_out_g2;",
+	} {
+		if !strings.Contains(wrapper, want) {
+			t.Fatalf("expected wrapper to contain %q, got:\n%s", want, wrapper)
+		}
+	}
+}
+
 func TestGenerateFIFOVerilogSelectsImplementationStyle(t *testing.T) {
 	shallow := GenerateFIFOVerilog("fifo_shallow", 32, 16, false, 0)
 	if !strings.Contains(shallow, "localparam integer ALMOST_FULL_LEVEL = 15;") {
@@ -464,6 +517,44 @@ func TopModule(a [3]bool) {
 	}
 	if !strings.Contains(string(data), "// indexed lookup export") {
 		t.Fatalf("expected stub export output, got:\n%s", data)
+	}
+}
+
+func TestStripUnsupportedAutomaticLifetimeHoistsDeclsToModuleScope(t *testing.T) {
+	tmp := t.TempDir()
+	path := filepath.Join(tmp, "auto.sv")
+	const src = `module TopModule(
+  input clk
+);
+  always @(posedge clk) begin
+    out_q <= 1'b0;
+    automatic logic [7:0] _GEN_0 = in_data;
+    automatic logic [7:0] _GEN_1 =
+      in_data + 8'h1; // keep comment
+    out_q <= _GEN_0[0];
+    out_q <= _GEN_1[0];
+  end
+endmodule
+`
+	if err := os.WriteFile(path, []byte(src), 0o644); err != nil {
+		t.Fatalf("write source: %v", err)
+	}
+	if err := stripUnsupportedAutomaticLifetime(path); err != nil {
+		t.Fatalf("stripUnsupportedAutomaticLifetime() error: %v", err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read output: %v", err)
+	}
+	text := string(data)
+	if strings.Contains(text, "automatic logic") {
+		t.Fatalf("expected automatic lifetimes to be removed, got:\n%s", text)
+	}
+	if !strings.Contains(text, "logic [7:0] _GEN_0;") || !strings.Contains(text, "logic [7:0] _GEN_1;") {
+		t.Fatalf("expected hoisted module declarations, got:\n%s", text)
+	}
+	if !strings.Contains(text, "_GEN_0 = in_data;") || !strings.Contains(text, "_GEN_1 =\n      in_data + 8'h1; // keep comment") {
+		t.Fatalf("expected in-block assignments to remain, got:\n%s", text)
 	}
 }
 

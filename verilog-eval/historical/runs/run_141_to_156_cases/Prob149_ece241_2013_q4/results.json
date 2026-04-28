@@ -1,0 +1,11 @@
+[
+  {
+    "case": "Prob149_ece241_2013_q4",
+    "status": "not_equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_141_to_156_cases/Prob149_ece241_2013_q4/Prob149_ece241_2013_q4/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_141_to_156_cases/Prob149_ece241_2013_q4/Prob149_ece241_2013_q4/Prob149_ece241_2013_q4.sv",
+    "mismatches": 1403,
+    "samples": 2040,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob149_ece241_2013_q4_test.sv:84: $finish called at 10200 (1ps)\nHint: Output 'fr2' has 1403 mismatches. First mismatch occurred at time 30.\nHint: Output 'fr1' has 801 mismatches. First mismatch occurred at time 130.\nHint: Output 'fr0' has 232 mismatches. First mismatch occurred at time 140.\nHint: Output 'dfr' has 799 mismatches. First mismatch occurred at time 30.\nHint: Total mismatched samples is 1403 out of 2040 samples\n\nSimulation finished at 10200 ps\nMismatches: 1403 in 2040 samples\n\n"
+  }
+]

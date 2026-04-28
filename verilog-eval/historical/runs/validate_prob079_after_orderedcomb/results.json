@@ -1,0 +1,11 @@
+[
+  {
+    "case": "Prob079_fsm3onehot",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob079_fsm3onehot/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_prob079_after_orderedcomb/Prob079_fsm3onehot/Prob079_fsm3onehot.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob079_fsm3onehot_test.sv:20: $finish called at 1001 (1ps)\nHint: Output 'next_state' has 102 mismatches. First mismatch occurred at time 25.\nHint: Output 'out' has no mismatches.\nHint: Total mismatched samples is 102 out of 200 samples\n\nSimulation finished at 1001 ps\nMismatches: 102 in 200 samples\n\n",
+    "mismatches": 102,
+    "samples": 200,
+    "status": "not_equivalent"
+  }
+]

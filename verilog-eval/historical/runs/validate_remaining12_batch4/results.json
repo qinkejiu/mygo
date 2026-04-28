@@ -1,0 +1,45 @@
+[
+  {
+    "case": "Prob139_2013_q2bfsm",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/current_go_156/Prob139_2013_q2bfsm/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/historical/runs/validate_remaining12_batch4/Prob139_2013_q2bfsm/Prob139_2013_q2bfsm.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/historical/dataset_spec-to-rtl/tests/Prob139_2013_q2bfsm_test.sv:24: $finish called at 5011 (1ps)\nHint: Output 'f' has no mismatches.\nHint: Output 'g' has no mismatches.\nHint: Total mismatched samples is 0 out of 1002 samples\n\nSimulation finished at 5011 ps\nMismatches: 0 in 1002 samples\n\n",
+    "mismatches": 0,
+    "samples": 1002,
+    "status": "equivalent"
+  },
+  {
+    "case": "Prob145_circuit8",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/current_go_156/Prob145_circuit8/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/historical/runs/validate_remaining12_batch4/Prob145_circuit8/Prob145_circuit8.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/historical/dataset_spec-to-rtl/tests/Prob145_circuit8_test.sv:45: $finish called at 1200 (1ps)\nHint: Output 'p' has 67 mismatches. First mismatch occurred at time 120.\nHint: Output 'q' has no mismatches.\nHint: Total mismatched samples is 67 out of 240 samples\n\nSimulation finished at 1200 ps\nMismatches: 67 in 240 samples\n\n",
+    "mismatches": 67,
+    "samples": 240,
+    "status": "not_equivalent"
+  },
+  {
+    "case": "Prob146_fsm_serialdata",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/current_go_156/Prob146_fsm_serialdata/main.go",
+    "compile_stdout": "DEBUG emitter: useInoutRegs=true for module TopModule\n",
+    "compile_stderr": "/home/qinkejiu/mygo/verilog-eval/current_go_156/Prob146_fsm_serialdata/.mygo-tmp/.mygo-circt-3264549035/design.mlir:667:53: error: use of value '%root_reg623' expects different type than prior uses: 'i8' vs 'i1'\n    %dualedge_mux624 = comb.mux %clk, %root_reg622, %root_reg623 : i8\n                                                    ^\n/home/qinkejiu/mygo/verilog-eval/current_go_156/Prob146_fsm_serialdata/.mygo-tmp/.mygo-circt-3264549035/design.mlir:666:5: note: prior use here\n    %root_reg623 = sv.read_inout %prev_clk_146 : !hw.inout<i1>\n    ^\nbackend: circt-opt --pass-pipeline failed: exit status 1\nexit status 1\n"
+  },
+  {
+    "case": "Prob151_review2015_fsm",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/current_go_156/Prob151_review2015_fsm/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/historical/runs/validate_remaining12_batch4/Prob151_review2015_fsm/Prob151_review2015_fsm.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/historical/dataset_spec-to-rtl/tests/Prob151_review2015_fsm_test.sv:76: $finish called at 25346 (1ps)\nHint: Output 'shift_ena' has no mismatches.\nHint: Output 'counting' has no mismatches.\nHint: Output 'done' has no mismatches.\nHint: Total mismatched samples is 0 out of 5069 samples\n\nSimulation finished at 25346 ps\nMismatches: 0 in 5069 samples\n\n",
+    "mismatches": 0,
+    "samples": 5069,
+    "status": "equivalent"
+  },
+  {
+    "case": "Prob155_lemmings4",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/current_go_156/Prob155_lemmings4/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/historical/runs/validate_remaining12_batch4/Prob155_lemmings4/Prob155_lemmings4.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/historical/dataset_spec-to-rtl/tests/Prob155_lemmings4_test.sv:158: $finish called at 5016 (1ps)\nHint: Output 'walk_left' has no mismatches.\nHint: Output 'walk_right' has no mismatches.\nHint: Output 'aaah' has no mismatches.\nHint: Output 'digging' has no mismatches.\nHint: Total mismatched samples is 0 out of 1003 samples\n\nSimulation finished at 5016 ps\nMismatches: 0 in 1003 samples\n\n",
+    "mismatches": 0,
+    "samples": 1003,
+    "status": "equivalent"
+  }
+]

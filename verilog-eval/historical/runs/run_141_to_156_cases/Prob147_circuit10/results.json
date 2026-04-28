@@ -1,0 +1,9 @@
+[
+  {
+    "case": "Prob147_circuit10",
+    "status": "go_compile_failed",
+    "compile_stdout": "",
+    "compile_stderr": "error: /home/qinkejiu/mygo/verilog-eval/runs/run_141_to_156_cases/Prob147_circuit10/Prob147_circuit10/main.go:8:5: declared and not used: static_c\npackage loading failed\nexit status 1\n",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_141_to_156_cases/Prob147_circuit10/Prob147_circuit10/main.go"
+  }
+]

@@ -41,7 +41,7 @@ func (b *builder) inferProcessSensitivity(proc *Process) {
 	//   if clk { q_reg = d }
 	//   if reset { ... } else if clk { ... }
 	// should lower as sequential logic even without loops or channels.
-	if b.hasClockedGlobalAssignments(proc) {
+	if b.hasClockedGlobalAssignments(proc) || b.hasImplicitClockedOutputState(proc) {
 		proc.Sensitivity = Sequential
 		b.classifyGlobalSignals(proc)
 		return
@@ -49,6 +49,7 @@ func (b *builder) inferProcessSensitivity(proc *Process) {
 
 	// Otherwise, it's combinational - mark globals as wires
 	proc.Sensitivity = Combinational
+	b.markLatchGlobals(proc)
 	b.classifyGlobalSignals(proc)
 	b.markIndexedLocalsAsWires()
 	b.markIndexedOutputsAsCombinational()
@@ -60,8 +61,20 @@ func (b *builder) classifyGlobalSignals(proc *Process) {
 	}
 	if proc.Sensitivity == Sequential {
 		clockedBlocks := b.computeDirectClockedBlocks(proc)
+		hasInternalState := b.processHasInternalStateAssignments(proc)
 		for _, sig := range b.module.Signals {
-			if sig == nil || sig.Kind == Const || !b.isGlobalPersistentSignal(sig) {
+			if sig == nil || sig.Kind == Const {
+				continue
+			}
+			if !b.isGlobalPersistentSignal(sig) && !isOutputLikeSignal(sig.Name) {
+				continue
+			}
+			if isOutputLikeSignal(sig.Name) && hasInternalState {
+				if signalAssignedOnAllPathsIR(proc, sig, proc.Blocks[0], make(map[*BasicBlock]bool)) {
+					sig.Kind = Wire
+					continue
+				}
+				sig.Kind = Reg
 				continue
 			}
 			clockedAssign, nonClockedAssign := b.signalAssignmentKinds(proc, sig, clockedBlocks)
@@ -94,6 +107,26 @@ func (b *builder) computeDirectClockedBlocks(proc *Process) map[*BasicBlock]bool
 	if b == nil || proc == nil || len(proc.Blocks) == 0 {
 		return blocks
 	}
+	if !b.processHasExplicitClockGuard(proc) {
+		for _, block := range proc.Blocks {
+			if block != nil {
+				blocks[block] = true
+			}
+		}
+		return blocks
+	}
+	if b.hasImplicitClockedOutputState(proc) {
+		for _, block := range proc.Blocks {
+			if block != nil {
+				blocks[block] = true
+			}
+		}
+		return blocks
+	}
+	entry := b.directClockControlEntry(proc)
+	if entry == nil {
+		entry = proc.Blocks[0]
+	}
 	type visitKey struct {
 		block     *BasicBlock
 		inClocked bool
@@ -119,11 +152,12 @@ func (b *builder) computeDirectClockedBlocks(proc *Process) map[*BasicBlock]bool
 		switch term := block.Terminator.(type) {
 		case *BranchTerminator:
 			if term.Cond != nil && isClockLikeName(term.Cond.Name) {
-				visit(term.True, true)
-				visit(term.False, false)
+				trueClocked, falseClocked := b.clockedBranchPolarity(proc, term)
+				visit(term.True, trueClocked)
+				visit(term.False, falseClocked)
 				return
 			}
-			if term.Cond != nil && isResetLikeName(term.Cond.Name) && block == proc.Blocks[0] {
+			if term.Cond != nil && isResetLikeName(term.Cond.Name) && block == entry {
 				visit(term.True, true)
 				visit(term.False, false)
 				return
@@ -134,13 +168,198 @@ func (b *builder) computeDirectClockedBlocks(proc *Process) map[*BasicBlock]bool
 			visit(term.Target, inClocked)
 		}
 	}
-	visit(proc.Blocks[0], false)
+	visit(entry, false)
 	for block := range clockedReach {
 		if !nonClockedReach[block] {
 			blocks[block] = true
 		}
 	}
+	if b.processHasDualClockEdges(proc) {
+		for block := range blocks {
+			if blockHasOnlyOutputAssignments(block) && !b.shouldRetainDualEdgeOutputBlock(proc, block, blocks) {
+				delete(blocks, block)
+			}
+		}
+	}
 	return blocks
+}
+
+func (b *builder) directClockControlEntry(proc *Process) *BasicBlock {
+	if b == nil || proc == nil || len(proc.Blocks) == 0 {
+		return nil
+	}
+	start := proc.Blocks[0]
+	queue := []*BasicBlock{start}
+	seen := map[*BasicBlock]bool{start: true}
+	for len(queue) > 0 {
+		block := queue[0]
+		queue = queue[1:]
+		if block == nil {
+			continue
+		}
+		if term, ok := block.Terminator.(*BranchTerminator); ok && term != nil && term.Cond != nil {
+			if isResetLikeName(term.Cond.Name) || isClockLikeName(term.Cond.Name) {
+				return block
+			}
+		}
+		for _, succ := range block.Successors {
+			if succ == nil || seen[succ] {
+				continue
+			}
+			seen[succ] = true
+			queue = append(queue, succ)
+		}
+	}
+	return start
+}
+
+func (b *builder) processHasExplicitClockGuard(proc *Process) bool {
+	if b == nil || proc == nil {
+		return false
+	}
+	for _, block := range proc.Blocks {
+		term, ok := block.Terminator.(*BranchTerminator)
+		if !ok || term == nil || term.Cond == nil {
+			continue
+		}
+		if isClockLikeName(term.Cond.Name) {
+			return true
+		}
+	}
+	return false
+}
+
+func (b *builder) processHasDualClockEdges(proc *Process) bool {
+	if b == nil || proc == nil {
+		return false
+	}
+	for _, block := range proc.Blocks {
+		if block == nil {
+			continue
+		}
+		term, ok := block.Terminator.(*BranchTerminator)
+		if !ok || term == nil || term.Cond == nil || !isClockLikeName(term.Cond.Name) {
+			continue
+		}
+		trueClocked, falseClocked := b.clockedBranchPolarity(proc, term)
+		if trueClocked && falseClocked {
+			return true
+		}
+	}
+	return false
+}
+
+func blockHasOnlyOutputAssignments(block *BasicBlock) bool {
+	if block == nil {
+		return false
+	}
+	hasAssign := false
+	for _, op := range block.Ops {
+		assign, ok := op.(*AssignOperation)
+		if !ok || assign == nil || assign.Dest == nil {
+			return false
+		}
+		if !isOutputLikeSignal(assign.Dest.Name) {
+			return false
+		}
+		hasAssign = true
+	}
+	return hasAssign
+}
+
+func (b *builder) shouldRetainDualEdgeOutputBlock(proc *Process, block *BasicBlock, clockedBlocks map[*BasicBlock]bool) bool {
+	if b == nil || proc == nil || block == nil {
+		return false
+	}
+	for _, op := range block.Ops {
+		assign, ok := op.(*AssignOperation)
+		if !ok || assign == nil || assign.Dest == nil || !isOutputLikeSignal(assign.Dest.Name) {
+			continue
+		}
+		clockedAssign, nonClockedAssign := b.signalAssignmentKinds(proc, assign.Dest, clockedBlocks)
+		if clockedAssign && !nonClockedAssign {
+			return true
+		}
+	}
+	return false
+}
+
+func (b *builder) clockedBranchPolarity(proc *Process, term *BranchTerminator) (bool, bool) {
+	if b == nil || proc == nil || term == nil {
+		return false, false
+	}
+	includeOutputs := !b.processHasInternalStateAssignments(proc)
+	trueClocked := b.blockPathHasPersistentAssignment(proc, term.True, includeOutputs, make(map[*BasicBlock]bool))
+	falseClocked := b.blockPathHasPersistentAssignment(proc, term.False, includeOutputs, make(map[*BasicBlock]bool))
+	switch {
+	case trueClocked && falseClocked:
+		return true, true
+	case trueClocked:
+		return true, false
+	case falseClocked:
+		return false, true
+	default:
+		return true, false
+	}
+}
+
+func (b *builder) blockPathHasPersistentAssignment(proc *Process, block *BasicBlock, includeOutputs bool, seen map[*BasicBlock]bool) bool {
+	if b == nil || proc == nil || block == nil {
+		return false
+	}
+	if seen[block] {
+		return false
+	}
+	seen[block] = true
+	defer delete(seen, block)
+	for _, op := range block.Ops {
+		assign, ok := op.(*AssignOperation)
+		if !ok || assign == nil || assign.Dest == nil {
+			continue
+		}
+		if b.isClockBodyAssignDest(assign.Dest, includeOutputs) {
+			return true
+		}
+	}
+	switch term := block.Terminator.(type) {
+	case *BranchTerminator:
+		return b.blockPathHasPersistentAssignment(proc, term.True, includeOutputs, seen) || b.blockPathHasPersistentAssignment(proc, term.False, includeOutputs, seen)
+	case *JumpTerminator:
+		return b.blockPathHasPersistentAssignment(proc, term.Target, includeOutputs, seen)
+	default:
+		return false
+	}
+}
+
+func (b *builder) isClockBodyAssignDest(sig *Signal, includeOutputs bool) bool {
+	if b == nil || sig == nil {
+		return false
+	}
+	if b.isGlobalPersistentSignal(sig) && !isOutputLikeSignal(sig.Name) {
+		return true
+	}
+	return includeOutputs && isOutputLikeSignal(sig.Name)
+}
+
+func (b *builder) processHasInternalStateAssignments(proc *Process) bool {
+	if b == nil || proc == nil {
+		return false
+	}
+	for _, block := range proc.Blocks {
+		if block == nil {
+			continue
+		}
+		for _, op := range block.Ops {
+			assign, ok := op.(*AssignOperation)
+			if !ok || assign == nil || assign.Dest == nil {
+				continue
+			}
+			if b.isGlobalPersistentSignal(assign.Dest) && !isOutputLikeSignal(assign.Dest.Name) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func (b *builder) signalAssignmentKinds(proc *Process, sig *Signal, clockedBlocks map[*BasicBlock]bool) (bool, bool) {
@@ -235,6 +454,46 @@ func isOutputLikeSignal(name string) bool {
 	return false
 }
 
+func signalAssignedOnAllPathsIR(proc *Process, sig *Signal, block *BasicBlock, seen map[*BasicBlock]bool) bool {
+	if proc == nil || sig == nil || block == nil {
+		return false
+	}
+	if seen[block] {
+		return true
+	}
+	seen[block] = true
+	defer delete(seen, block)
+	if blockAssignsSignalIR(block, sig) {
+		return true
+	}
+	switch term := block.Terminator.(type) {
+	case *ReturnTerminator, nil:
+		return false
+	case *JumpTerminator:
+		return signalAssignedOnAllPathsIR(proc, sig, term.Target, seen)
+	case *BranchTerminator:
+		return signalAssignedOnAllPathsIR(proc, sig, term.True, seen) && signalAssignedOnAllPathsIR(proc, sig, term.False, seen)
+	default:
+		return false
+	}
+}
+
+func blockAssignsSignalIR(block *BasicBlock, sig *Signal) bool {
+	if block == nil || sig == nil {
+		return false
+	}
+	for _, op := range block.Ops {
+		assign, ok := op.(*AssignOperation)
+		if !ok || assign == nil || assign.Dest == nil {
+			continue
+		}
+		if sameSignal(assign.Dest, sig) {
+			return true
+		}
+	}
+	return false
+}
+
 func (b *builder) hasClockedGlobalAssignments(proc *Process) bool {
 	if b == nil || proc == nil {
 		return false
@@ -288,6 +547,16 @@ func (b *builder) hasClockedGlobalAssignments(proc *Process) bool {
 							break
 						}
 					}
+				case *AssignOperation:
+					if typed == nil || typed.Dest == nil || typed.Value == nil {
+						continue
+					}
+					if _, ok := controlSignals[typed.Value]; ok {
+						if _, exists := controlSignals[typed.Dest]; !exists {
+							controlSignals[typed.Dest] = struct{}{}
+							changed = true
+						}
+					}
 				}
 			}
 		}
@@ -316,6 +585,125 @@ func (b *builder) hasClockedGlobalAssignments(proc *Process) bool {
 	}
 
 	return hasControlBranch && hasGlobalAssign
+}
+
+func (b *builder) hasImplicitClockedOutputState(proc *Process) bool {
+	if b == nil || proc == nil {
+		return false
+	}
+	hasClock := false
+	outputNames := b.outputPortNames(b.mainPkg)
+	stateParamNames := make(map[string]struct{})
+	for _, param := range proc.Params {
+		if param == nil {
+			continue
+		}
+		if isClockLikeName(param.Name) {
+			hasClock = true
+			continue
+		}
+		if _, ok := outputNames[param.Name]; ok {
+			stateParamNames[param.Name] = struct{}{}
+		}
+	}
+	if !hasClock || len(stateParamNames) == 0 {
+		return false
+	}
+	for _, block := range proc.Blocks {
+		if block == nil {
+			continue
+		}
+		for _, op := range block.Ops {
+			assign, ok := op.(*AssignOperation)
+			if !ok || assign == nil || assign.Dest == nil {
+				continue
+			}
+			portName := strings.TrimPrefix(assign.Dest.Name, "out_")
+			if _, ok := stateParamNames[portName]; ok {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (b *builder) markLatchGlobals(proc *Process) {
+	if b == nil || proc == nil {
+		return
+	}
+	assigned := make(map[*ssa.Global]struct{})
+	for _, block := range proc.Blocks {
+		if block == nil {
+			continue
+		}
+		for _, op := range block.Ops {
+			assign, ok := op.(*AssignOperation)
+			if !ok || assign == nil || assign.Dest == nil {
+				continue
+			}
+			base := b.globalForSignal(assign.Dest)
+			if base == nil {
+				continue
+			}
+			assigned[base] = struct{}{}
+		}
+	}
+	if len(assigned) == 0 {
+		return
+	}
+	for global := range assigned {
+		if global != nil && !b.globalAssignedOnAllPaths(proc, global, proc.Blocks[0], make(map[*BasicBlock]bool)) {
+			b.latchGlobals[global] = struct{}{}
+		}
+	}
+}
+
+func (b *builder) globalAssignedOnAllPaths(proc *Process, global *ssa.Global, block *BasicBlock, seen map[*BasicBlock]bool) bool {
+	if b == nil || proc == nil || global == nil || block == nil {
+		return false
+	}
+	if seen[block] {
+		return true
+	}
+	seen[block] = true
+	defer delete(seen, block)
+
+	if b.blockAssignsGlobal(block, global) {
+		return true
+	}
+	switch term := block.Terminator.(type) {
+	case *ReturnTerminator, nil:
+		return false
+	case *JumpTerminator:
+		return b.globalAssignedOnAllPaths(proc, global, term.Target, seen)
+	case *BranchTerminator:
+		return b.globalAssignedOnAllPaths(proc, global, term.True, seen) && b.globalAssignedOnAllPaths(proc, global, term.False, seen)
+	default:
+		return false
+	}
+}
+
+func (b *builder) blockAssignsGlobal(block *BasicBlock, global *ssa.Global) bool {
+	if b == nil || block == nil || global == nil {
+		return false
+	}
+	for _, op := range block.Ops {
+		assign, ok := op.(*AssignOperation)
+		if !ok || assign == nil || assign.Dest == nil {
+			continue
+		}
+		if sameGlobalForSignal(assign.Dest, global, b) {
+			return true
+		}
+	}
+	return false
+}
+
+func sameGlobalForSignal(sig *Signal, global *ssa.Global, b *builder) bool {
+	if b == nil || sig == nil || global == nil {
+		return false
+	}
+	return b.globalForSignal(sig) == global
 }
 
 func (b *builder) isGlobalStorageSignal(sig *Signal) bool {
@@ -423,11 +811,16 @@ func (b *builder) markIndexedLocalsAsWires() {
 		if _, isGlobal := state.base.(*ssa.Global); isGlobal {
 			continue
 		}
+		// Mark the indexed element signals as Wire
 		for _, sig := range state.storage {
 			if sig == nil || sig.Kind == Const {
 				continue
 			}
 			sig.Kind = Wire
+		}
+		// Also mark the base array signal itself as Wire
+		if baseSig := b.signalForValue(state.base); baseSig != nil && baseSig.Kind != Const {
+			baseSig.Kind = Wire
 		}
 	}
 }

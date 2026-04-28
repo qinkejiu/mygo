@@ -1,0 +1,10 @@
+[
+  {
+    "case": "Prob154_fsm_ps2data",
+    "status": "iverilog_compile_failed",
+    "iverilog_stdout": "",
+    "iverilog_stderr": "/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob154_fsm_ps2data_test.sv:88: error: port ``out_bytes'' is not a port of top_module1.\n1 error(s) during elaboration.\n",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_141_to_156_cases/Prob154_fsm_ps2data/Prob154_fsm_ps2data/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_141_to_156_cases/Prob154_fsm_ps2data/Prob154_fsm_ps2data/Prob154_fsm_ps2data.sv"
+  }
+]

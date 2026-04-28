@@ -1,0 +1,9 @@
+{
+  "total_cases": 3,
+  "status_counts": {
+    "iverilog_compile_failed": 1,
+    "go_compile_failed": 1,
+    "go_compile_timeout": 1
+  },
+  "generated_at_epoch": 1776662213.9248223
+}

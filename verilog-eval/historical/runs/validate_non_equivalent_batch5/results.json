@@ -1,0 +1,16 @@
+[
+  {
+    "case": "Prob145_circuit8",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/current_go_156/Prob145_circuit8/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "stat /home/qinkejiu/mygo/verilog-eval/cmd/mygo: directory not found\n"
+  },
+  {
+    "case": "Prob147_circuit10",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/current_go_156/Prob147_circuit10/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "stat /home/qinkejiu/mygo/verilog-eval/cmd/mygo: directory not found\n"
+  }
+]

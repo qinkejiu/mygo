@@ -9,15 +9,20 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"golang.org/x/tools/go/ast/astutil"
 )
 
 type preprocessState struct {
 	requiredBoolHelpers map[string]struct{}
+	promotedGlobals     []ast.Decl
 }
 
-const staticLoopUnrollLimit = 2048
+// Keep constant-loop unrolling small enough that we do not explode the IR on
+// wide reduction-style benchmarks; larger constant loops can stay structured.
+const staticLoopUnrollLimit = 64
+const staticLoopUnrollBudget = 256
 
 func preprocessSourcesForOverlay(sources []string) (map[string][]byte, error) {
 	overlay := make(map[string][]byte)
@@ -65,12 +70,766 @@ func rewriteFrontendFile(file *ast.File, state *preprocessState) (bool, error) {
 			continue
 		}
 		fnChanged := rewriteClockShadowConditions(fn.Body)
+		promoted := promoteClockedLocalState(file, fn, state)
 		typeHints := collectBoolTypeHints(fn)
 		unused := collectUnusedLocalNames(fn)
 		bodyChanged := rewriteStmtListForFrontend(&fn.Body.List, unused, typeHints, state)
-		changed = changed || fnChanged || bodyChanged
+		changed = changed || fnChanged || promoted || bodyChanged
+	}
+	if len(state.promotedGlobals) > 0 {
+		file.Decls = append(append([]ast.Decl{}, state.promotedGlobals...), file.Decls...)
+		changed = true
 	}
 	return changed, nil
+}
+
+type promotedLocal struct {
+	name       string
+	obj        *ast.Object
+	globalName string
+}
+
+func promoteClockedLocalState(file *ast.File, fn *ast.FuncDecl, state *preprocessState) bool {
+	if file == nil || fn == nil || fn.Body == nil || state == nil {
+		return false
+	}
+	assignedInClocked := make(map[string]struct{})
+	collectClockedAssignments(fn.Body.List, false, assignedInClocked)
+	if len(assignedInClocked) == 0 && functionHasClockParam(fn) {
+		collectImplicitClockStateCandidates(fn, assignedInClocked)
+	}
+	if len(assignedInClocked) == 0 {
+		return false
+	}
+	localConsts := collectFunctionLocalConstExprs(fn)
+
+	promoted := make(map[string]promotedLocal)
+	changed := false
+	for i, stmt := range fn.Body.List {
+		if assign, ok := stmt.(*ast.AssignStmt); ok && assign != nil && assign.Tok == token.DEFINE && len(assign.Lhs) == 1 && len(assign.Rhs) == 1 {
+			ident, ok := assign.Lhs[0].(*ast.Ident)
+			if ok && ident != nil && ident.Name != "_" {
+				if _, ok := assignedInClocked[ident.Name]; ok {
+					globalName := promotedGlobalName(fn.Name.Name, ident.Name)
+					values := []ast.Expr{}
+					if initExpr := rewritePromotedGlobalInitExpr(assign.Rhs[0], localConsts); initExpr != nil {
+						values = []ast.Expr{initExpr}
+					}
+					state.promotedGlobals = append(state.promotedGlobals, &ast.GenDecl{
+						Tok: token.VAR,
+						Specs: []ast.Spec{&ast.ValueSpec{
+							Names:  []*ast.Ident{ast.NewIdent(globalName)},
+							Values: values,
+						}},
+					})
+					promoted[ident.Name] = promotedLocal{
+						name:       ident.Name,
+						obj:        ident.Obj,
+						globalName: globalName,
+					}
+					fn.Body.List[i] = &ast.EmptyStmt{}
+					changed = true
+					continue
+				}
+			}
+		}
+		declStmt, ok := stmt.(*ast.DeclStmt)
+		if !ok {
+			continue
+		}
+		gen, ok := declStmt.Decl.(*ast.GenDecl)
+		if !ok || gen == nil || gen.Tok != token.VAR {
+			continue
+		}
+		newSpecs := make([]ast.Spec, 0, len(gen.Specs))
+		for _, spec := range gen.Specs {
+			valueSpec, ok := spec.(*ast.ValueSpec)
+			if !ok || valueSpec == nil {
+				newSpecs = append(newSpecs, spec)
+				continue
+			}
+			remaining := make([]*ast.Ident, 0, len(valueSpec.Names))
+			for idx, ident := range valueSpec.Names {
+				if ident == nil || ident.Name == "_" {
+					continue
+				}
+				if _, ok := assignedInClocked[ident.Name]; !ok {
+					remaining = append(remaining, ident)
+					continue
+				}
+				globalName := promotedGlobalName(fn.Name.Name, ident.Name)
+				state.promotedGlobals = append(state.promotedGlobals, buildPromotedGlobalDecl(globalName, valueSpec, idx, localConsts))
+				promoted[ident.Name] = promotedLocal{
+					name:       ident.Name,
+					obj:        ident.Obj,
+					globalName: globalName,
+				}
+				changed = true
+			}
+			if len(remaining) == 0 {
+				continue
+			}
+			cloned := *valueSpec
+			cloned.Names = remaining
+			newSpecs = append(newSpecs, &cloned)
+		}
+		if len(newSpecs) == 0 {
+			fn.Body.List[i] = &ast.EmptyStmt{}
+			continue
+		}
+		cloned := *gen
+		cloned.Specs = newSpecs
+		fn.Body.List[i] = &ast.DeclStmt{Decl: &cloned}
+	}
+	if !changed {
+		return false
+	}
+
+	astutil.Apply(fn.Body, func(c *astutil.Cursor) bool {
+		ident, ok := c.Node().(*ast.Ident)
+		if !ok || ident == nil {
+			return true
+		}
+		entry, ok := promoted[ident.Name]
+		if !ok {
+			return true
+		}
+		if ident.Obj != nil && entry.obj != nil && ident.Obj != entry.obj {
+			return true
+		}
+		c.Replace(ast.NewIdent(entry.globalName))
+		return false
+	}, nil)
+	return true
+}
+
+func functionHasClockParam(fn *ast.FuncDecl) bool {
+	if fn == nil || fn.Type == nil || fn.Type.Params == nil {
+		return false
+	}
+	for _, field := range fn.Type.Params.List {
+		if field == nil {
+			continue
+		}
+		for _, name := range field.Names {
+			if name != nil && isClockName(name.Name) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func buildPromotedGlobalDecl(globalName string, spec *ast.ValueSpec, index int, localConsts map[string]ast.Expr) ast.Decl {
+	valueSpec := &ast.ValueSpec{
+		Names: []*ast.Ident{ast.NewIdent(globalName)},
+	}
+	if spec != nil {
+		valueSpec.Type = spec.Type
+		if index >= 0 && index < len(spec.Values) {
+			if initExpr := rewritePromotedGlobalInitExpr(spec.Values[index], localConsts); initExpr != nil {
+				valueSpec.Values = []ast.Expr{initExpr}
+			}
+		}
+	}
+	return &ast.GenDecl{
+		Tok:   token.VAR,
+		Specs: []ast.Spec{valueSpec},
+	}
+}
+
+func rewritePromotedGlobalInitExpr(expr ast.Expr, localConsts map[string]ast.Expr) ast.Expr {
+	if expr == nil {
+		return nil
+	}
+	rewritten := cloneExpr(expr)
+	if rewritten == nil {
+		return nil
+	}
+	if len(localConsts) == 0 {
+		return rewritten
+	}
+	replaced := astutil.Apply(rewritten, func(c *astutil.Cursor) bool {
+		ident, ok := c.Node().(*ast.Ident)
+		if !ok || ident == nil {
+			return true
+		}
+		replacement, ok := localConsts[ident.Name]
+		if !ok || replacement == nil {
+			return true
+		}
+		c.Replace(cloneExpr(replacement))
+		return false
+	}, nil)
+	next, ok := replaced.(ast.Expr)
+	if !ok {
+		return nil
+	}
+	if exprContainsLocalConstReference(next, localConsts) {
+		return nil
+	}
+	return next
+}
+
+func exprContainsLocalConstReference(expr ast.Expr, localConsts map[string]ast.Expr) bool {
+	if expr == nil || len(localConsts) == 0 {
+		return false
+	}
+	found := false
+	ast.Inspect(expr, func(n ast.Node) bool {
+		if found {
+			return false
+		}
+		ident, ok := n.(*ast.Ident)
+		if !ok || ident == nil {
+			return true
+		}
+		if ident.Name == "iota" {
+			found = true
+			return false
+		}
+		if _, ok := localConsts[ident.Name]; ok {
+			found = true
+			return false
+		}
+		return true
+	})
+	return found
+}
+
+func collectFunctionLocalConstExprs(fn *ast.FuncDecl) map[string]ast.Expr {
+	consts := make(map[string]ast.Expr)
+	if fn == nil || fn.Body == nil {
+		return consts
+	}
+	for _, stmt := range fn.Body.List {
+		declStmt, ok := stmt.(*ast.DeclStmt)
+		if !ok || declStmt == nil {
+			continue
+		}
+		gen, ok := declStmt.Decl.(*ast.GenDecl)
+		if !ok || gen == nil || gen.Tok != token.CONST {
+			continue
+		}
+		var repeated []ast.Expr
+		iotaValue := int64(0)
+		for _, spec := range gen.Specs {
+			valueSpec, ok := spec.(*ast.ValueSpec)
+			if !ok || valueSpec == nil || len(valueSpec.Names) == 0 {
+				iotaValue++
+				continue
+			}
+			exprs := valueSpec.Values
+			if len(exprs) == 0 {
+				exprs = repeated
+			} else {
+				repeated = exprs
+			}
+			for idx, name := range valueSpec.Names {
+				if name == nil || name.Name == "_" {
+					continue
+				}
+				expr := repeatedConstExpr(exprs, idx)
+				if expr == nil {
+					continue
+				}
+				resolved, ok := resolveLocalConstExpr(expr, consts, iotaValue)
+				if !ok || resolved == nil {
+					continue
+				}
+				consts[name.Name] = resolved
+			}
+			iotaValue++
+		}
+	}
+	return consts
+}
+
+func repeatedConstExpr(exprs []ast.Expr, idx int) ast.Expr {
+	if len(exprs) == 0 {
+		return nil
+	}
+	if idx < len(exprs) {
+		return exprs[idx]
+	}
+	return exprs[len(exprs)-1]
+}
+
+func resolveLocalConstExpr(expr ast.Expr, known map[string]ast.Expr, iotaValue int64) (ast.Expr, bool) {
+	switch e := expr.(type) {
+	case *ast.BasicLit:
+		return cloneExpr(e), true
+	case *ast.Ident:
+		switch e.Name {
+		case "iota":
+			return &ast.BasicLit{Kind: token.INT, Value: strconv.FormatInt(iotaValue, 10)}, true
+		case "true", "false":
+			return ast.NewIdent(e.Name), true
+		default:
+			resolved, ok := known[e.Name]
+			if !ok || resolved == nil {
+				return nil, false
+			}
+			return cloneExpr(resolved), true
+		}
+	case *ast.ParenExpr:
+		x, ok := resolveLocalConstExpr(e.X, known, iotaValue)
+		if !ok {
+			return nil, false
+		}
+		return &ast.ParenExpr{X: x}, true
+	case *ast.UnaryExpr:
+		x, ok := resolveLocalConstExpr(e.X, known, iotaValue)
+		if !ok {
+			return nil, false
+		}
+		return &ast.UnaryExpr{Op: e.Op, X: x}, true
+	case *ast.BinaryExpr:
+		x, ok := resolveLocalConstExpr(e.X, known, iotaValue)
+		if !ok {
+			return nil, false
+		}
+		y, ok := resolveLocalConstExpr(e.Y, known, iotaValue)
+		if !ok {
+			return nil, false
+		}
+		return &ast.BinaryExpr{X: x, Op: e.Op, Y: y}, true
+	case *ast.CallExpr:
+		args := make([]ast.Expr, 0, len(e.Args))
+		for _, arg := range e.Args {
+			resolved, ok := resolveLocalConstExpr(arg, known, iotaValue)
+			if !ok {
+				return nil, false
+			}
+			args = append(args, resolved)
+		}
+		return &ast.CallExpr{Fun: cloneExpr(e.Fun), Args: args}, true
+	default:
+		return nil, false
+	}
+}
+
+func promotedGlobalName(funcName, localName string) string {
+	funcName = sanitizePromotedName(funcName)
+	localName = sanitizePromotedName(localName)
+	return "__mygo_state_" + funcName + "_" + localName
+}
+
+func sanitizePromotedName(name string) string {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return "state"
+	}
+	var b strings.Builder
+	for _, ch := range name {
+		switch {
+		case ch >= 'a' && ch <= 'z':
+			b.WriteRune(ch)
+		case ch >= 'A' && ch <= 'Z':
+			b.WriteRune(ch)
+		case ch >= '0' && ch <= '9':
+			b.WriteRune(ch)
+		default:
+			b.WriteByte('_')
+		}
+	}
+	if b.Len() == 0 {
+		return "state"
+	}
+	return b.String()
+}
+
+func collectClockedAssignments(list []ast.Stmt, inClocked bool, assigned map[string]struct{}) {
+	for _, stmt := range list {
+		switch s := stmt.(type) {
+		case *ast.BlockStmt:
+			collectClockedAssignments(s.List, inClocked, assigned)
+		case *ast.IfStmt:
+			clocked := inClocked || exprLooksClockGuard(s.Cond)
+			if s.Init != nil {
+				collectClockedAssignments([]ast.Stmt{s.Init}, inClocked, assigned)
+			}
+			collectClockedAssignments(s.Body.List, clocked, assigned)
+			if s.Else != nil {
+				collectClockedAssignments([]ast.Stmt{s.Else}, clocked, assigned)
+			}
+		case *ast.ForStmt:
+			clocked := inClocked || exprLooksClockGuard(s.Cond)
+			collectClockedAssignments(s.Body.List, clocked, assigned)
+		case *ast.RangeStmt:
+			collectClockedAssignments(s.Body.List, inClocked, assigned)
+		case *ast.SwitchStmt:
+			clocked := inClocked || exprLooksClockGuard(s.Tag)
+			for _, clause := range s.Body.List {
+				cc, ok := clause.(*ast.CaseClause)
+				if !ok {
+					continue
+				}
+				collectClockedAssignments(cc.Body, clocked, assigned)
+			}
+		case *ast.AssignStmt:
+			if !inClocked {
+				continue
+			}
+			for _, lhs := range s.Lhs {
+				if ident, ok := lhs.(*ast.Ident); ok && ident != nil && ident.Name != "_" {
+					assigned[ident.Name] = struct{}{}
+				}
+			}
+		case *ast.IncDecStmt:
+			if !inClocked {
+				continue
+			}
+			if ident, ok := s.X.(*ast.Ident); ok && ident != nil && ident.Name != "_" {
+				assigned[ident.Name] = struct{}{}
+			}
+		}
+	}
+}
+
+func collectAssignments(list []ast.Stmt, assigned map[string]struct{}) {
+	for _, stmt := range list {
+		switch s := stmt.(type) {
+		case *ast.BlockStmt:
+			collectAssignments(s.List, assigned)
+		case *ast.IfStmt:
+			if s.Init != nil {
+				collectAssignments([]ast.Stmt{s.Init}, assigned)
+			}
+			collectAssignments(s.Body.List, assigned)
+			if s.Else != nil {
+				collectAssignments([]ast.Stmt{s.Else}, assigned)
+			}
+		case *ast.ForStmt:
+			if s.Init != nil {
+				collectAssignments([]ast.Stmt{s.Init}, assigned)
+			}
+			if s.Post != nil {
+				collectAssignments([]ast.Stmt{s.Post}, assigned)
+			}
+			collectAssignments(s.Body.List, assigned)
+		case *ast.RangeStmt:
+			collectAssignments(s.Body.List, assigned)
+		case *ast.SwitchStmt:
+			if s.Init != nil {
+				collectAssignments([]ast.Stmt{s.Init}, assigned)
+			}
+			for _, clause := range s.Body.List {
+				cc, ok := clause.(*ast.CaseClause)
+				if !ok {
+					continue
+				}
+				collectAssignments(cc.Body, assigned)
+			}
+		case *ast.AssignStmt:
+			for _, lhs := range s.Lhs {
+				if ident, ok := lhs.(*ast.Ident); ok && ident != nil && ident.Name != "_" {
+					assigned[ident.Name] = struct{}{}
+				}
+			}
+		case *ast.IncDecStmt:
+			if ident, ok := s.X.(*ast.Ident); ok && ident != nil && ident.Name != "_" {
+				assigned[ident.Name] = struct{}{}
+			}
+		}
+	}
+}
+
+type implicitStateCandidate struct {
+	hasExplicitInit bool
+	initExpr        ast.Expr
+	selfReferenced  bool
+}
+
+func collectImplicitClockStateCandidates(fn *ast.FuncDecl, assigned map[string]struct{}) {
+	if fn == nil || fn.Body == nil || assigned == nil {
+		return
+	}
+	localConsts := collectFunctionLocalConstExprs(fn)
+	candidates := make(map[string]*implicitStateCandidate)
+	collectImplicitStateDecls(fn.Body.List, candidates)
+	if len(candidates) == 0 {
+		return
+	}
+	collectAssignments(fn.Body.List, assigned)
+	collectImplicitStateSelfReferences(fn.Body.List, candidates)
+	for name, candidate := range candidates {
+		if candidate == nil {
+			delete(assigned, name)
+			continue
+		}
+		if candidate.hasExplicitInit {
+			if candidate.initExpr == nil || !canPromoteImplicitStateInit(candidate.initExpr, localConsts) {
+				delete(assigned, name)
+			}
+			continue
+		}
+		if !candidate.selfReferenced {
+			delete(assigned, name)
+		}
+	}
+}
+
+func collectImplicitStateDecls(list []ast.Stmt, candidates map[string]*implicitStateCandidate) {
+	for _, stmt := range list {
+		switch s := stmt.(type) {
+		case *ast.BlockStmt:
+			collectImplicitStateDecls(s.List, candidates)
+		case *ast.IfStmt:
+			if s.Init != nil {
+				collectImplicitStateDecls([]ast.Stmt{s.Init}, candidates)
+			}
+			collectImplicitStateDecls(s.Body.List, candidates)
+			if s.Else != nil {
+				collectImplicitStateDecls([]ast.Stmt{s.Else}, candidates)
+			}
+		case *ast.ForStmt:
+			if s.Init != nil {
+				collectImplicitStateDecls([]ast.Stmt{s.Init}, candidates)
+			}
+			if s.Post != nil {
+				collectImplicitStateDecls([]ast.Stmt{s.Post}, candidates)
+			}
+			collectImplicitStateDecls(s.Body.List, candidates)
+		case *ast.RangeStmt:
+			collectImplicitStateDecls(s.Body.List, candidates)
+		case *ast.SwitchStmt:
+			if s.Init != nil {
+				collectImplicitStateDecls([]ast.Stmt{s.Init}, candidates)
+			}
+			for _, clause := range s.Body.List {
+				cc, ok := clause.(*ast.CaseClause)
+				if !ok {
+					continue
+				}
+				collectImplicitStateDecls(cc.Body, candidates)
+			}
+		case *ast.AssignStmt:
+			if s.Tok != token.DEFINE {
+				continue
+			}
+			for i, lhs := range s.Lhs {
+				ident, ok := lhs.(*ast.Ident)
+				if !ok || ident == nil || ident.Name == "_" {
+					continue
+				}
+				candidate := &implicitStateCandidate{}
+				if i < len(s.Rhs) && s.Rhs[i] != nil {
+					candidate.hasExplicitInit = true
+					candidate.initExpr = s.Rhs[i]
+				}
+				candidates[ident.Name] = candidate
+			}
+		case *ast.DeclStmt:
+			gen, ok := s.Decl.(*ast.GenDecl)
+			if !ok || gen == nil || gen.Tok != token.VAR {
+				continue
+			}
+			for _, spec := range gen.Specs {
+				valueSpec, ok := spec.(*ast.ValueSpec)
+				if !ok || valueSpec == nil {
+					continue
+				}
+				for i, name := range valueSpec.Names {
+					if name == nil || name.Name == "_" {
+						continue
+					}
+					candidate := &implicitStateCandidate{}
+					if i < len(valueSpec.Values) && valueSpec.Values[i] != nil {
+						candidate.hasExplicitInit = true
+						candidate.initExpr = valueSpec.Values[i]
+					}
+					candidates[name.Name] = candidate
+				}
+			}
+		}
+	}
+}
+
+func collectImplicitStateSelfReferences(list []ast.Stmt, candidates map[string]*implicitStateCandidate) {
+	for _, stmt := range list {
+		switch s := stmt.(type) {
+		case *ast.BlockStmt:
+			collectImplicitStateSelfReferences(s.List, candidates)
+		case *ast.IfStmt:
+			markCandidateExprReferences(s.Cond, candidates)
+			if s.Init != nil {
+				collectImplicitStateSelfReferences([]ast.Stmt{s.Init}, candidates)
+			}
+			collectImplicitStateSelfReferences(s.Body.List, candidates)
+			if s.Else != nil {
+				collectImplicitStateSelfReferences([]ast.Stmt{s.Else}, candidates)
+			}
+		case *ast.ForStmt:
+			if s.Init != nil {
+				collectImplicitStateSelfReferences([]ast.Stmt{s.Init}, candidates)
+			}
+			if s.Cond != nil {
+				markCandidateExprReferences(s.Cond, candidates)
+			}
+			if s.Post != nil {
+				collectImplicitStateSelfReferences([]ast.Stmt{s.Post}, candidates)
+			}
+			collectImplicitStateSelfReferences(s.Body.List, candidates)
+		case *ast.RangeStmt:
+			collectImplicitStateSelfReferences(s.Body.List, candidates)
+		case *ast.SwitchStmt:
+			if s.Init != nil {
+				collectImplicitStateSelfReferences([]ast.Stmt{s.Init}, candidates)
+			}
+			if s.Tag != nil {
+				markCandidateExprReferences(s.Tag, candidates)
+			}
+			for _, clause := range s.Body.List {
+				cc, ok := clause.(*ast.CaseClause)
+				if !ok {
+					continue
+				}
+				for _, expr := range cc.List {
+					markCandidateExprReferences(expr, candidates)
+				}
+				collectImplicitStateSelfReferences(cc.Body, candidates)
+			}
+		case *ast.AssignStmt:
+			lhsNames := make(map[string]struct{})
+			for _, lhs := range s.Lhs {
+				if ident, ok := lhs.(*ast.Ident); ok && ident != nil {
+					lhsNames[ident.Name] = struct{}{}
+				}
+			}
+			for name := range lhsNames {
+				candidate, ok := candidates[name]
+				if !ok || candidate == nil {
+					continue
+				}
+				for _, rhs := range s.Rhs {
+					if exprReferencesName(rhs, name) {
+						candidate.selfReferenced = true
+					}
+				}
+			}
+		case *ast.IncDecStmt:
+			if ident, ok := s.X.(*ast.Ident); ok && ident != nil {
+				if candidate, ok := candidates[ident.Name]; ok && candidate != nil {
+					candidate.selfReferenced = true
+				}
+			}
+		}
+	}
+}
+
+func markCandidateExprReferences(expr ast.Expr, candidates map[string]*implicitStateCandidate) {
+	if expr == nil || len(candidates) == 0 {
+		return
+	}
+	ast.Inspect(expr, func(n ast.Node) bool {
+		ident, ok := n.(*ast.Ident)
+		if !ok || ident == nil {
+			return true
+		}
+		if candidate, ok := candidates[ident.Name]; ok && candidate != nil {
+			candidate.selfReferenced = true
+		}
+		return true
+	})
+}
+
+func exprReferencesName(expr ast.Expr, name string) bool {
+	if expr == nil || strings.TrimSpace(name) == "" {
+		return false
+	}
+	found := false
+	ast.Inspect(expr, func(n ast.Node) bool {
+		ident, ok := n.(*ast.Ident)
+		if !ok || ident == nil {
+			return true
+		}
+		if ident.Name == name {
+			found = true
+			return false
+		}
+		return true
+	})
+	return found
+}
+
+func canPromoteImplicitStateInit(expr ast.Expr, localConsts map[string]ast.Expr) bool {
+	if expr == nil {
+		return false
+	}
+	rewritten := cloneExpr(expr)
+	if rewritten == nil {
+		return false
+	}
+	if len(localConsts) == 0 {
+		return exprIsConstLike(rewritten)
+	}
+	replaced := astutil.Apply(rewritten, func(c *astutil.Cursor) bool {
+		ident, ok := c.Node().(*ast.Ident)
+		if !ok || ident == nil {
+			return true
+		}
+		replacement, ok := localConsts[ident.Name]
+		if !ok || replacement == nil {
+			return true
+		}
+		c.Replace(cloneExpr(replacement))
+		return false
+	}, nil)
+	next, ok := replaced.(ast.Expr)
+	if !ok || next == nil {
+		return false
+	}
+	return exprIsConstLike(next)
+}
+
+func exprIsConstLike(expr ast.Expr) bool {
+	switch e := expr.(type) {
+	case *ast.BasicLit:
+		return true
+	case *ast.Ident:
+		return e.Name == "true" || e.Name == "false"
+	case *ast.ParenExpr:
+		return exprIsConstLike(e.X)
+	case *ast.UnaryExpr:
+		return exprIsConstLike(e.X)
+	case *ast.BinaryExpr:
+		return exprIsConstLike(e.X) && exprIsConstLike(e.Y)
+	case *ast.CallExpr:
+		if ident, ok := e.Fun.(*ast.Ident); !ok || ident == nil {
+			return false
+		}
+		for _, arg := range e.Args {
+			if !exprIsConstLike(arg) {
+				return false
+			}
+		}
+		return true
+	default:
+		return false
+	}
+}
+
+func exprLooksClockGuard(expr ast.Expr) bool {
+	switch e := expr.(type) {
+	case *ast.Ident:
+		return isClockName(e.Name)
+	case *ast.ParenExpr:
+		return exprLooksClockGuard(e.X)
+	case *ast.UnaryExpr:
+		return e.Op == token.NOT && exprLooksClockGuard(e.X)
+	default:
+		return false
+	}
+}
+
+func isClockName(name string) bool {
+	switch strings.ToLower(strings.TrimSpace(name)) {
+	case "clk", "clock":
+		return true
+	default:
+		return false
+	}
 }
 
 func rewriteClockShadowConditions(block *ast.BlockStmt) bool {
@@ -189,7 +948,13 @@ func rewriteStmtListForFrontend(list *[]ast.Stmt, unused map[string]struct{}, hi
 	}
 	changed := false
 	var out []ast.Stmt
-	for _, stmt := range *list {
+	stmts := *list
+	for i := 0; i < len(stmts); i++ {
+		stmt := stmts[i]
+		if rewritten, ok := rewriteBooleanMuxAssign(stmt); ok {
+			stmt = rewritten
+			changed = true
+		}
 		if forStmt, ok := stmt.(*ast.ForStmt); ok {
 			if expanded, ok := tryUnrollConstFor(forStmt); ok {
 				for _, expandedStmt := range expanded {
@@ -221,6 +986,76 @@ func rewriteStmtListForFrontend(list *[]ast.Stmt, unused map[string]struct{}, hi
 	return changed
 }
 
+func rewriteBooleanMuxAssign(stmt ast.Stmt) (ast.Stmt, bool) {
+	assign, ok := stmt.(*ast.AssignStmt)
+	if !ok || assign == nil || len(assign.Lhs) != 1 || len(assign.Rhs) != 1 {
+		return stmt, false
+	}
+	orExpr, ok := assign.Rhs[0].(*ast.BinaryExpr)
+	if !ok || orExpr == nil || orExpr.Op != token.LOR {
+		return stmt, false
+	}
+	left, ok := orExpr.X.(*ast.BinaryExpr)
+	if !ok || left == nil || left.Op != token.LAND {
+		return stmt, false
+	}
+	right, ok := orExpr.Y.(*ast.BinaryExpr)
+	if !ok || right == nil || right.Op != token.LAND {
+		return stmt, false
+	}
+	neg, ok := right.X.(*ast.UnaryExpr)
+	if !ok || neg == nil || neg.Op != token.NOT {
+		return stmt, false
+	}
+	if !sameASTExpr(left.X, neg.X) {
+		return stmt, false
+	}
+	thenAssign := &ast.AssignStmt{
+		Lhs: []ast.Expr{cloneExpr(assign.Lhs[0])},
+		Tok: token.ASSIGN,
+		Rhs: []ast.Expr{cloneExpr(left.Y)},
+	}
+	elseAssign := &ast.AssignStmt{
+		Lhs: []ast.Expr{cloneExpr(assign.Lhs[0])},
+		Tok: token.ASSIGN,
+		Rhs: []ast.Expr{cloneExpr(right.Y)},
+	}
+	return &ast.IfStmt{
+		Cond: cloneExpr(left.X),
+		Body: &ast.BlockStmt{List: []ast.Stmt{thenAssign}},
+		Else: &ast.BlockStmt{List: []ast.Stmt{elseAssign}},
+	}, true
+}
+
+func sameASTExpr(a, b ast.Expr) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	var abuf, bbuf bytes.Buffer
+	if err := format.Node(&abuf, token.NewFileSet(), a); err != nil {
+		return false
+	}
+	if err := format.Node(&bbuf, token.NewFileSet(), b); err != nil {
+		return false
+	}
+	return abuf.String() == bbuf.String()
+}
+
+func cloneExpr(expr ast.Expr) ast.Expr {
+	if expr == nil {
+		return nil
+	}
+	var buf bytes.Buffer
+	if err := format.Node(&buf, token.NewFileSet(), expr); err != nil {
+		return expr
+	}
+	parsed, err := parser.ParseExpr(buf.String())
+	if err != nil {
+		return expr
+	}
+	return parsed
+}
+
 type constForLoopSpec struct {
 	name string
 	cur  int64
@@ -243,6 +1078,13 @@ func tryUnrollConstFor(stmt *ast.ForStmt) ([]ast.Stmt, bool) {
 		if tripCount > staticLoopUnrollLimit {
 			return nil, false
 		}
+	}
+	bodyCost := estimateStmtListCost(stmt.Body.List)
+	if bodyCost <= 0 {
+		bodyCost = 1
+	}
+	if tripCount*bodyCost > staticLoopUnrollBudget {
+		return nil, false
 	}
 	if tripCount == 0 {
 		return []ast.Stmt{}, true
@@ -410,6 +1252,58 @@ func constForCondHolds(cur, end int64, op token.Token) bool {
 		return cur >= end
 	default:
 		return false
+	}
+}
+
+func estimateStmtListCost(list []ast.Stmt) int {
+	total := 0
+	for _, stmt := range list {
+		total += estimateStmtCost(stmt)
+	}
+	return total
+}
+
+func estimateStmtCost(stmt ast.Stmt) int {
+	switch s := stmt.(type) {
+	case nil:
+		return 0
+	case *ast.BlockStmt:
+		return estimateStmtListCost(s.List)
+	case *ast.ForStmt:
+		spec, ok := parseConstForLoop(s)
+		if !ok || s.Body == nil {
+			return 1
+		}
+		tripCount := 0
+		for cur := spec.cur; constForCondHolds(cur, spec.end, spec.op); cur += spec.step {
+			tripCount++
+			if tripCount > staticLoopUnrollLimit {
+				return staticLoopUnrollBudget + 1
+			}
+		}
+		bodyCost := estimateStmtListCost(s.Body.List)
+		if bodyCost <= 0 {
+			bodyCost = 1
+		}
+		return tripCount * bodyCost
+	case *ast.IfStmt:
+		total := 1 + estimateStmtListCost(s.Body.List)
+		if s.Else != nil {
+			total += estimateStmtCost(s.Else)
+		}
+		return total
+	case *ast.SwitchStmt:
+		total := 1
+		for _, clause := range s.Body.List {
+			cc, ok := clause.(*ast.CaseClause)
+			if !ok {
+				continue
+			}
+			total += estimateStmtListCost(cc.Body)
+		}
+		return total
+	default:
+		return 1
 	}
 }
 
@@ -1027,31 +1921,33 @@ func addBoolHelpers(file *ast.File, state *preprocessState) {
 }
 
 func buildBoolHelperDecl(name string) ast.Decl {
+	params := []*ast.Field{{
+		Names: []*ast.Ident{ast.NewIdent("v")},
+		Type:  ast.NewIdent("bool"),
+	}}
+	body := []ast.Stmt{
+		&ast.IfStmt{
+			Cond: ast.NewIdent("v"),
+			Body: &ast.BlockStmt{List: []ast.Stmt{
+				&ast.ReturnStmt{Results: []ast.Expr{
+					&ast.BasicLit{Kind: token.INT, Value: "1"},
+				}},
+			}},
+		},
+		&ast.ReturnStmt{Results: []ast.Expr{
+			&ast.BasicLit{Kind: token.INT, Value: "0"},
+		}},
+	}
 	targetType := boolHelperTargetType(name)
 	return &ast.FuncDecl{
 		Name: ast.NewIdent(name),
 		Type: &ast.FuncType{
-			Params: &ast.FieldList{List: []*ast.Field{{
-				Names: []*ast.Ident{ast.NewIdent("v")},
-				Type:  ast.NewIdent("bool"),
-			}}},
+			Params: &ast.FieldList{List: params},
 			Results: &ast.FieldList{List: []*ast.Field{{
 				Type: ast.NewIdent(targetType),
 			}}},
 		},
-		Body: &ast.BlockStmt{List: []ast.Stmt{
-			&ast.IfStmt{
-				Cond: ast.NewIdent("v"),
-				Body: &ast.BlockStmt{List: []ast.Stmt{
-					&ast.ReturnStmt{Results: []ast.Expr{
-						&ast.BasicLit{Kind: token.INT, Value: "1"},
-					}},
-				}},
-			},
-			&ast.ReturnStmt{Results: []ast.Expr{
-				&ast.BasicLit{Kind: token.INT, Value: "0"},
-			}},
-		}},
+		Body: &ast.BlockStmt{List: body},
 	}
 }
 

@@ -1,0 +1,787 @@
+[
+  {
+    "case": "Prob051_gates4",
+    "status": "iverilog_compile_failed",
+    "iverilog_stdout": "",
+    "iverilog_stderr": "/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob051_gates4_test.sv:93: error: port ``out_and'' is not a port of top_module1.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob051_gates4_test.sv:93: error: port ``out_or'' is not a port of top_module1.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob051_gates4_test.sv:93: error: port ``out_xor'' is not a port of top_module1.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob051_gates4_test.sv:93: warning: Port 2 (in) of TopModule expects 8 bits, got 4.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob051_gates4_test.sv:93:        : Padding 4 high bits of the port.\n3 error(s) during elaboration.\n",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob051_gates4/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob051_gates4/Prob051_gates4.sv"
+  },
+  {
+    "case": "Prob052_gates100",
+    "status": "iverilog_compile_failed",
+    "iverilog_stdout": "",
+    "iverilog_stderr": "/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob052_gates100_test.sv:121: error: port ``out_and'' is not a port of top_module1.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob052_gates100_test.sv:121: error: port ``out_or'' is not a port of top_module1.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob052_gates100_test.sv:121: error: port ``out_xor'' is not a port of top_module1.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob052_gates100_test.sv:121: warning: Port 2 (in) of TopModule expects 32 bits, got 100.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob052_gates100_test.sv:121:        : Pruning 68 high bits of the expression.\n3 error(s) during elaboration.\n",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob052_gates100/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob052_gates100/Prob052_gates100.sv"
+  },
+  {
+    "case": "Prob053_m2014_q4d",
+    "status": "equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob053_m2014_q4d/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob053_m2014_q4d/Prob053_m2014_q4d.sv",
+    "mismatches": 0,
+    "samples": 100,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob053_m2014_q4d_test.sv:16: $finish called at 501 (1ps)\nHint: Output 'out' has no mismatches.\nHint: Total mismatched samples is 0 out of 100 samples\n\nSimulation finished at 501 ps\nMismatches: 0 in 100 samples\n\n"
+  },
+  {
+    "case": "Prob054_edgedetect",
+    "status": "not_equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob054_edgedetect/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob054_edgedetect/Prob054_edgedetect.sv",
+    "mismatches": 186,
+    "samples": 227,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob054_edgedetect_test.sv:45: $finish called at 1135 (1ps)\nHint: Output 'pedge' has 186 mismatches. First mismatch occurred at time 50.\nHint: Total mismatched samples is 186 out of 227 samples\n\nSimulation finished at 1135 ps\nMismatches: 186 in 227 samples\n\n"
+  },
+  {
+    "case": "Prob055_conditional",
+    "status": "not_equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob055_conditional/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob055_conditional/Prob055_conditional.sv",
+    "mismatches": 38,
+    "samples": 112,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob055_conditional_test.sv:38: $finish called at 560 (1ps)\nHint: Output 'min' has 38 mismatches. First mismatch occurred at time 70.\nHint: Total mismatched samples is 38 out of 112 samples\n\nSimulation finished at 560 ps\nMismatches: 38 in 112 samples\n\n"
+  },
+  {
+    "case": "Prob056_ece241_2013_q7",
+    "status": "go_compile_failed",
+    "compile_stdout": "",
+    "compile_stderr": "error: /home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob056_ece241_2013_q7/main.go:12:12: expected ';', found 'var'\nerror: /home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob056_ece241_2013_q7/main.go:12:5: undefined: static\npackage loading failed\nexit status 1\n",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob056_ece241_2013_q7/main.go"
+  },
+  {
+    "case": "Prob057_kmap2",
+    "status": "not_equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob057_kmap2/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob057_kmap2/Prob057_kmap2.sv",
+    "mismatches": 90,
+    "samples": 232,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob057_kmap2_test.sv:38: $finish called at 1161 (1ps)\nHint: Output 'out' has 90 mismatches. First mismatch occurred at time 40.\nHint: Total mismatched samples is 90 out of 232 samples\n\nSimulation finished at 1161 ps\nMismatches: 90 in 232 samples\n\n"
+  },
+  {
+    "case": "Prob058_alwaysblock2",
+    "status": "go_compile_failed",
+    "compile_stdout": "",
+    "compile_stderr": "error: /home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob058_alwaysblock2/main.go:61:6: TopModule redeclared in this block\nerror: /home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob058_alwaysblock2/main.go:7:6: \tother declaration of TopModule\npackage loading failed\nexit status 1\n",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob058_alwaysblock2/main.go"
+  },
+  {
+    "case": "Prob059_wire4",
+    "status": "equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob059_wire4/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob059_wire4/Prob059_wire4.sv",
+    "mismatches": 0,
+    "samples": 218,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob059_wire4_test.sv:35: $finish called at 1090 (1ps)\nHint: Output 'w' has no mismatches.\nHint: Output 'x' has no mismatches.\nHint: Output 'y' has no mismatches.\nHint: Output 'z' has no mismatches.\nHint: Total mismatched samples is 0 out of 218 samples\n\nSimulation finished at 1090 ps\nMismatches: 0 in 218 samples\n\n"
+  },
+  {
+    "case": "Prob060_m2014_q4k",
+    "status": "not_equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob060_m2014_q4k/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob060_m2014_q4k/Prob060_m2014_q4k.sv",
+    "mismatches": 84,
+    "samples": 299,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob060_m2014_q4k_test.sv:21: $finish called at 1496 (1ps)\nHint: Output 'out' has 84 mismatches. First mismatch occurred at time 60.\nHint: Total mismatched samples is 84 out of 299 samples\n\nSimulation finished at 1496 ps\nMismatches: 84 in 299 samples\n\n"
+  },
+  {
+    "case": "Prob061_2014_q4a",
+    "status": "equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob061_2014_q4a/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob061_2014_q4a/Prob061_2014_q4a.sv",
+    "mismatches": 0,
+    "samples": 200,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob061_2014_q4a_test.sv:16: $finish called at 1001 (1ps)\nHint: Output 'Q' has no mismatches.\nHint: Total mismatched samples is 0 out of 200 samples\n\nSimulation finished at 1001 ps\nMismatches: 0 in 200 samples\n\n"
+  },
+  {
+    "case": "Prob062_bugs_mux2",
+    "status": "equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob062_bugs_mux2/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob062_bugs_mux2/Prob062_bugs_mux2.sv",
+    "mismatches": 0,
+    "samples": 114,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob062_bugs_mux2_test.sv:47: $finish called at 570 (1ps)\nHint: Output 'out' has no mismatches.\nHint: Total mismatched samples is 0 out of 114 samples\n\nSimulation finished at 570 ps\nMismatches: 0 in 114 samples\n\n"
+  },
+  {
+    "case": "Prob063_review2015_shiftcount",
+    "status": "not_equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob063_review2015_shiftcount/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob063_review2015_shiftcount/Prob063_review2015_shiftcount.sv",
+    "mismatches": 1906,
+    "samples": 2071,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob063_review2015_shiftcount_test.sv:63: $finish called at 10356 (1ps)\nHint: Output 'q' has 1906 mismatches. First mismatch occurred at time 70.\nHint: Total mismatched samples is 1906 out of 2071 samples\n\nSimulation finished at 10356 ps\nMismatches: 1906 in 2071 samples\n\n"
+  },
+  {
+    "case": "Prob064_vector3",
+    "status": "equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob064_vector3/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob064_vector3/Prob064_vector3.sv",
+    "mismatches": 0,
+    "samples": 126,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob064_vector3_test.sv:44: $finish called at 630 (1ps)\nHint: Output 'w' has no mismatches.\nHint: Output 'x' has no mismatches.\nHint: Output 'y' has no mismatches.\nHint: Output 'z' has no mismatches.\nHint: Total mismatched samples is 0 out of 126 samples\n\nSimulation finished at 630 ps\nMismatches: 0 in 126 samples\n\n"
+  },
+  {
+    "case": "Prob065_7420",
+    "status": "equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob065_7420/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob065_7420/Prob065_7420.sv",
+    "mismatches": 0,
+    "samples": 239,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob065_7420_test.sv:44: $finish called at 1196 (1ps)\nHint: Output 'p1y' has no mismatches.\nHint: Output 'p2y' has no mismatches.\nHint: Total mismatched samples is 0 out of 239 samples\n\nSimulation finished at 1196 ps\nMismatches: 0 in 239 samples\n\n"
+  },
+  {
+    "case": "Prob066_edgecapture",
+    "status": "not_equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob066_edgecapture/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob066_edgecapture/Prob066_edgecapture.sv",
+    "mismatches": 227,
+    "samples": 266,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob066_edgecapture_test.sv:86: $finish called at 1330 (1ps)\nHint: Output 'out' has 227 mismatches. First mismatch occurred at time 100.\nHint: Total mismatched samples is 227 out of 266 samples\n\nSimulation finished at 1330 ps\nMismatches: 227 in 266 samples\n\n"
+  },
+  {
+    "case": "Prob067_countslow",
+    "status": "not_equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob067_countslow/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob067_countslow/Prob067_countslow.sv",
+    "mismatches": 431,
+    "samples": 499,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob067_countslow_test.sv:89: $finish called at 2496 (1ps)\nHint: Output 'q' has 431 mismatches. First mismatch occurred at time 20.\nHint: Total mismatched samples is 431 out of 499 samples\n\nSimulation finished at 2496 ps\nMismatches: 431 in 499 samples\n\n"
+  },
+  {
+    "case": "Prob068_countbcd",
+    "status": "not_equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob068_countbcd/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob068_countbcd/Prob068_countbcd.sv",
+    "mismatches": 39762,
+    "samples": 39805,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob068_countbcd_test.sv:68: $finish called at 199026 (1ps)\nHint: Output 'ena' has 3972 mismatches. First mismatch occurred at time 160.\nHint: Output 'q' has 39762 mismatches. First mismatch occurred at time 30.\nHint: Total mismatched samples is 39762 out of 39805 samples\n\nSimulation finished at 199026 ps\nMismatches: 39762 in 39805 samples\n\n"
+  },
+  {
+    "case": "Prob069_truthtable1",
+    "status": "not_equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob069_truthtable1/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob069_truthtable1/Prob069_truthtable1.sv",
+    "mismatches": 8,
+    "samples": 58,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob069_truthtable1_test.sv:34: $finish called at 290 (1ps)\nHint: Output 'f' has 8 mismatches. First mismatch occurred at time 20.\nHint: Total mismatched samples is 8 out of 58 samples\n\nSimulation finished at 290 ps\nMismatches: 8 in 58 samples\n\n"
+  },
+  {
+    "case": "Prob070_ece241_2013_q2",
+    "status": "go_compile_failed",
+    "compile_stdout": "",
+    "compile_stderr": "error: /home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob070_ece241_2013_q2/main.go:15:5: declared and not used: pos1\npackage loading failed\nexit status 1\n",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob070_ece241_2013_q2/main.go"
+  },
+  {
+    "case": "Prob071_always_casez",
+    "status": "equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob071_always_casez/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob071_always_casez/Prob071_always_casez.sv",
+    "mismatches": 0,
+    "samples": 346,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob071_always_casez_test.sv:41: $finish called at 1730 (1ps)\nHint: Output 'pos' has no mismatches.\nHint: Total mismatched samples is 0 out of 346 samples\n\nSimulation finished at 1730 ps\nMismatches: 0 in 346 samples\n\n"
+  },
+  {
+    "case": "Prob072_thermostat",
+    "status": "equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob072_thermostat/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob072_thermostat/Prob072_thermostat.sv",
+    "mismatches": 0,
+    "samples": 248,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob072_thermostat_test.sv:63: $finish called at 1241 (1ps)\nHint: Output 'heater' has no mismatches.\nHint: Output 'aircon' has no mismatches.\nHint: Output 'fan' has no mismatches.\nHint: Total mismatched samples is 0 out of 248 samples\n\nSimulation finished at 1241 ps\nMismatches: 0 in 248 samples\n\n"
+  },
+  {
+    "case": "Prob073_dff16e",
+    "status": "not_equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob073_dff16e/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob073_dff16e/Prob073_dff16e.sv",
+    "mismatches": 428,
+    "samples": 443,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\nHint: Your reset should be synchronous, but doesn't appear to be.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob073_dff16e_test.sv:80: $finish called at 2216 (1ps)\nHint: Output 'q' has 429 mismatches. First mismatch occurred at time 35.\nHint: Total mismatched samples is 428 out of 443 samples\n\nSimulation finished at 2216 ps\nMismatches: 428 in 443 samples\n\n"
+  },
+  {
+    "case": "Prob074_ece241_2014_q4",
+    "status": "not_equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob074_ece241_2014_q4/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob074_ece241_2014_q4/Prob074_ece241_2014_q4.sv",
+    "mismatches": 23,
+    "samples": 118,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob074_ece241_2014_q4_test.sv:42: $finish called at 590 (1ps)\nHint: Output 'z' has 23 mismatches. First mismatch occurred at time 5.\nHint: Total mismatched samples is 23 out of 118 samples\n\nSimulation finished at 590 ps\nMismatches: 23 in 118 samples\n\n"
+  },
+  {
+    "case": "Prob075_counter_2bc",
+    "status": "not_equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob075_counter_2bc/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob075_counter_2bc/Prob075_counter_2bc.sv",
+    "mismatches": 771,
+    "samples": 1051,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob075_counter_2bc_test.sv:96: $finish called at 5256 (1ps)\nHint: Output 'state' has 771 mismatches. First mismatch occurred at time 30.\nHint: Total mismatched samples is 771 out of 1051 samples\n\nSimulation finished at 5256 ps\nMismatches: 771 in 1051 samples\n\n"
+  },
+  {
+    "case": "Prob076_always_case",
+    "status": "equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob076_always_case/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob076_always_case/Prob076_always_case.sv",
+    "mismatches": 0,
+    "samples": 118,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob076_always_case_test.sv:49: $finish called at 590 (1ps)\nHint: Output 'out' has no mismatches.\nHint: Total mismatched samples is 0 out of 118 samples\n\nSimulation finished at 590 ps\nMismatches: 0 in 118 samples\n\n"
+  },
+  {
+    "case": "Prob077_wire_decl",
+    "status": "not_equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob077_wire_decl/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob077_wire_decl/Prob077_wire_decl.sv",
+    "mismatches": 68,
+    "samples": 122,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob077_wire_decl_test.sv:39: $finish called at 611 (1ps)\nHint: Output 'out' has 68 mismatches. First mismatch occurred at time 5.\nHint: Output 'out_n' has 68 mismatches. First mismatch occurred at time 5.\nHint: Total mismatched samples is 68 out of 122 samples\n\nSimulation finished at 611 ps\nMismatches: 68 in 122 samples\n\n"
+  },
+  {
+    "case": "Prob078_dualedge",
+    "status": "not_equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob078_dualedge/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob078_dualedge/Prob078_dualedge.sv",
+    "mismatches": 111,
+    "samples": 224,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob078_dualedge_test.sv:36: $finish called at 1121 (1ps)\nHint: Output 'q' has 111 mismatches. First mismatch occurred at time 10.\nHint: Total mismatched samples is 111 out of 224 samples\n\nSimulation finished at 1121 ps\nMismatches: 111 in 224 samples\n\n"
+  },
+  {
+    "case": "Prob079_fsm3onehot",
+    "status": "not_equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob079_fsm3onehot/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob079_fsm3onehot/Prob079_fsm3onehot.sv",
+    "mismatches": 106,
+    "samples": 200,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob079_fsm3onehot_test.sv:20: $finish called at 1001 (1ps)\nHint: Output 'next_state' has 106 mismatches. First mismatch occurred at time 10.\nHint: Output 'out' has no mismatches.\nHint: Total mismatched samples is 106 out of 200 samples\n\nSimulation finished at 1001 ps\nMismatches: 106 in 200 samples\n\n"
+  },
+  {
+    "case": "Prob080_timer",
+    "status": "not_equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob080_timer/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob080_timer/Prob080_timer.sv",
+    "mismatches": 5073,
+    "samples": 7127,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob080_timer_test.sv:55: $finish called at 35636 (1ps)\nHint: Output 'tc' has 5073 mismatches. First mismatch occurred at time 20.\nHint: Total mismatched samples is 5073 out of 7127 samples\n\nSimulation finished at 35636 ps\nMismatches: 5073 in 7127 samples\n\n"
+  },
+  {
+    "case": "Prob081_7458",
+    "status": "not_equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob081_7458/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob081_7458/Prob081_7458.sv",
+    "mismatches": 415,
+    "samples": 439,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob081_7458_test.sv:44: $finish called at 2196 (1ps)\nHint: Output 'p1y' has 390 mismatches. First mismatch occurred at time 5.\nHint: Output 'p2y' has 265 mismatches. First mismatch occurred at time 5.\nHint: Total mismatched samples is 415 out of 439 samples\n\nSimulation finished at 2196 ps\nMismatches: 415 in 439 samples\n\n"
+  },
+  {
+    "case": "Prob082_lfsr32",
+    "status": "not_equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob082_lfsr32/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob082_lfsr32/Prob082_lfsr32.sv",
+    "mismatches": 199953,
+    "samples": 200000,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\nTIMEOUT\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob082_lfsr32_test.sv:114: $finish called at 1000000 (1ps)\nHint: Output 'q' has 199953 mismatches. First mismatch occurred at time 190.\nHint: Total mismatched samples is 199953 out of 200000 samples\n\nSimulation finished at 1000000 ps\nMismatches: 199953 in 200000 samples\n\n"
+  },
+  {
+    "case": "Prob083_mt2015_q4b",
+    "status": "equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob083_mt2015_q4b/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob083_mt2015_q4b/Prob083_mt2015_q4b.sv",
+    "mismatches": 0,
+    "samples": 110,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob083_mt2015_q4b_test.sv:38: $finish called at 551 (1ps)\nHint: Output 'z' has no mismatches.\nHint: Total mismatched samples is 0 out of 110 samples\n\nSimulation finished at 551 ps\nMismatches: 0 in 110 samples\n\n"
+  },
+  {
+    "case": "Prob084_ece241_2013_q12",
+    "status": "not_equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob084_ece241_2013_q12/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob084_ece241_2013_q12/Prob084_ece241_2013_q12.sv",
+    "mismatches": 239,
+    "samples": 530,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob084_ece241_2013_q12_test.sv:55: $finish called at 2650 (1ps)\nHint: Output 'Z' has 235 mismatches. First mismatch occurred at time 40.\nHint: Total mismatched samples is 239 out of 530 samples\n\nSimulation finished at 2650 ps\nMismatches: 239 in 530 samples\n\n"
+  },
+  {
+    "case": "Prob085_shift4",
+    "status": "not_equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob085_shift4/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob085_shift4/Prob085_shift4.sv",
+    "mismatches": 96,
+    "samples": 427,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob085_shift4_test.sv:76: $finish called at 2136 (1ps)\nHint: Output 'q' has 96 mismatches. First mismatch occurred at time 10.\nHint: Total mismatched samples is 96 out of 427 samples\n\nSimulation finished at 2136 ps\nMismatches: 96 in 427 samples\n\n"
+  },
+  {
+    "case": "Prob086_lfsr5",
+    "status": "not_equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob086_lfsr5/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob086_lfsr5/Prob086_lfsr5.sv",
+    "mismatches": 4276,
+    "samples": 4443,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob086_lfsr5_test.sv:65: $finish called at 22216 (1ps)\nHint: Output 'q' has 4276 mismatches. First mismatch occurred at time 30.\nHint: Total mismatched samples is 4276 out of 4443 samples\n\nSimulation finished at 22216 ps\nMismatches: 4276 in 4443 samples\n\n"
+  },
+  {
+    "case": "Prob087_gates",
+    "status": "iverilog_compile_failed",
+    "iverilog_stdout": "",
+    "iverilog_stderr": "/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob087_gates_test.sv:119: error: port ``out_and'' is not a port of top_module1.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob087_gates_test.sv:119: error: port ``out_or'' is not a port of top_module1.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob087_gates_test.sv:119: error: port ``out_xor'' is not a port of top_module1.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob087_gates_test.sv:119: error: port ``out_nand'' is not a port of top_module1.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob087_gates_test.sv:119: error: port ``out_nor'' is not a port of top_module1.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob087_gates_test.sv:119: error: port ``out_xnor'' is not a port of top_module1.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob087_gates_test.sv:119: error: port ``out_anotb'' is not a port of top_module1.\n7 error(s) during elaboration.\n",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob087_gates/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob087_gates/Prob087_gates.sv"
+  },
+  {
+    "case": "Prob088_ece241_2014_q5b",
+    "status": "not_equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob088_ece241_2014_q5b/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob088_ece241_2014_q5b/Prob088_ece241_2014_q5b.sv",
+    "mismatches": 210,
+    "samples": 436,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\nHint: Your reset doesn't seem to be working.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob088_ece241_2014_q5b_test.sv:73: $finish called at 2180 (1ps)\nHint: Output 'z' has 210 mismatches. First mismatch occurred at time 5.\nHint: Total mismatched samples is 210 out of 436 samples\n\nSimulation finished at 2180 ps\nMismatches: 210 in 436 samples\n\n"
+  },
+  {
+    "case": "Prob089_ece241_2014_q5a",
+    "status": "not_equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob089_ece241_2014_q5a/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob089_ece241_2014_q5a/Prob089_ece241_2014_q5a.sv",
+    "mismatches": 216,
+    "samples": 436,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob089_ece241_2014_q5a_test.sv:73: $finish called at 2180 (1ps)\nHint: Output 'z' has 216 mismatches. First mismatch occurred at time 10.\nHint: Total mismatched samples is 216 out of 436 samples\n\nSimulation finished at 2180 ps\nMismatches: 216 in 436 samples\n\n"
+  },
+  {
+    "case": "Prob090_circuit1",
+    "status": "equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob090_circuit1/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob090_circuit1/Prob090_circuit1.sv",
+    "mismatches": 0,
+    "samples": 120,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob090_circuit1_test.sv:36: $finish called at 600 (1ps)\nHint: Output 'q' has no mismatches.\nHint: Total mismatched samples is 0 out of 120 samples\n\nSimulation finished at 600 ps\nMismatches: 0 in 120 samples\n\n"
+  },
+  {
+    "case": "Prob091_2012_q2b",
+    "status": "go_compile_failed",
+    "compile_stdout": "",
+    "compile_stderr": "error: /home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob091_2012_q2b/main.go:18:5: declared and not used: y3\npackage loading failed\nexit status 1\n",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob091_2012_q2b/main.go"
+  },
+  {
+    "case": "Prob092_gatesv100",
+    "status": "iverilog_compile_failed",
+    "iverilog_stdout": "",
+    "iverilog_stderr": "/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob092_gatesv100_test.sv:76: error: port ``out_both'' is not a port of top_module1.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob092_gatesv100_test.sv:76: error: port ``out_any'' is not a port of top_module1.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob092_gatesv100_test.sv:76: error: port ``out_different'' is not a port of top_module1.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob092_gatesv100_test.sv:76: warning: Port 2 (in) of TopModule expects 32 bits, got 100.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob092_gatesv100_test.sv:76:        : Pruning 68 high bits of the expression.\n3 error(s) during elaboration.\n",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob092_gatesv100/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob092_gatesv100/Prob092_gatesv100.sv"
+  },
+  {
+    "case": "Prob093_ece241_2014_q3",
+    "status": "not_equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob093_ece241_2014_q3/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob093_ece241_2014_q3/Prob093_ece241_2014_q3.sv",
+    "mismatches": 27,
+    "samples": 60,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob093_ece241_2014_q3_test.sv:38: $finish called at 300 (1ps)\nHint: Output 'mux_in' has 27 mismatches. First mismatch occurred at time 40.\nHint: Total mismatched samples is 27 out of 60 samples\n\nSimulation finished at 300 ps\nMismatches: 27 in 60 samples\n\n"
+  },
+  {
+    "case": "Prob094_gatesv",
+    "status": "iverilog_compile_failed",
+    "iverilog_stdout": "",
+    "iverilog_stderr": "/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob094_gatesv_test.sv:102: error: port ``out_both'' is not a port of top_module1.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob094_gatesv_test.sv:102: error: port ``out_any'' is not a port of top_module1.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob094_gatesv_test.sv:102: error: port ``out_different'' is not a port of top_module1.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob094_gatesv_test.sv:102: warning: Port 2 (in) of TopModule expects 8 bits, got 4.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob094_gatesv_test.sv:102:        : Padding 4 high bits of the port.\n3 error(s) during elaboration.\n",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob094_gatesv/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob094_gatesv/Prob094_gatesv.sv"
+  },
+  {
+    "case": "Prob095_review2015_fsmshift",
+    "status": "go_compile_failed",
+    "compile_stdout": "",
+    "compile_stderr": "error: /home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob095_review2015_fsmshift/main.go:49:6: TopModule redeclared in this block\nerror: /home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob095_review2015_fsmshift/main.go:5:6: \tother declaration of TopModule\nerror: /home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob095_review2015_fsmshift/main.go:9:9: declared and not used: next\nerror: /home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob095_review2015_fsmshift/main.go:32:9: declared and not used: prev_clk\npackage loading failed\nexit status 1\n",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob095_review2015_fsmshift/main.go"
+  },
+  {
+    "case": "Prob096_review2015_fsmseq",
+    "status": "not_equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob096_review2015_fsmseq/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob096_review2015_fsmseq/Prob096_review2015_fsmseq.sv",
+    "mismatches": 308,
+    "samples": 643,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob096_review2015_fsmseq_test.sv:74: $finish called at 3216 (1ps)\nHint: Output 'start_shifting' has 308 mismatches. First mismatch occurred at time 50.\nHint: Total mismatched samples is 308 out of 643 samples\n\nSimulation finished at 3216 ps\nMismatches: 308 in 643 samples\n\n"
+  },
+  {
+    "case": "Prob097_mux9to1v",
+    "status": "equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob097_mux9to1v/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob097_mux9to1v/Prob097_mux9to1v.sv",
+    "mismatches": 0,
+    "samples": 220,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob097_mux9to1v_test.sv:45: $finish called at 1100 (1ps)\nHint: Output 'out' has no mismatches.\nHint: Total mismatched samples is 0 out of 220 samples\n\nSimulation finished at 1100 ps\nMismatches: 0 in 220 samples\n\n"
+  },
+  {
+    "case": "Prob098_circuit7",
+    "status": "equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob098_circuit7/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob098_circuit7/Prob098_circuit7.sv",
+    "mismatches": 0,
+    "samples": 123,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob098_circuit7_test.sv:36: $finish called at 615 (1ps)\nHint: Output 'q' has no mismatches.\nHint: Total mismatched samples is 0 out of 123 samples\n\nSimulation finished at 615 ps\nMismatches: 0 in 123 samples\n\n"
+  },
+  {
+    "case": "Prob099_m2014_q6c",
+    "status": "go_compile_failed",
+    "compile_stdout": "",
+    "compile_stderr": "error: /home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob099_m2014_q6c/main.go:12:5: declared and not used: y3\npackage loading failed\nexit status 1\n",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob099_m2014_q6c/main.go"
+  },
+  {
+    "case": "Prob100_fsm3comb",
+    "status": "equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob100_fsm3comb/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob100_fsm3comb/Prob100_fsm3comb.sv",
+    "mismatches": 0,
+    "samples": 100,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob100_fsm3comb_test.sv:18: $finish called at 501 (1ps)\nHint: Output 'next_state' has no mismatches.\nHint: Output 'out' has no mismatches.\nHint: Total mismatched samples is 0 out of 100 samples\n\nSimulation finished at 501 ps\nMismatches: 0 in 100 samples\n\n"
+  },
+  {
+    "case": "Prob101_circuit4",
+    "status": "equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob101_circuit4/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob101_circuit4/Prob101_circuit4.sv",
+    "mismatches": 0,
+    "samples": 121,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob101_circuit4_test.sv:36: $finish called at 605 (1ps)\nHint: Output 'q' has no mismatches.\nHint: Total mismatched samples is 0 out of 121 samples\n\nSimulation finished at 605 ps\nMismatches: 0 in 121 samples\n\n"
+  },
+  {
+    "case": "Prob102_circuit3",
+    "status": "not_equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob102_circuit3/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob102_circuit3/Prob102_circuit3.sv",
+    "mismatches": 72,
+    "samples": 121,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob102_circuit3_test.sv:36: $finish called at 605 (1ps)\nHint: Output 'q' has 72 mismatches. First mismatch occurred at time 45.\nHint: Total mismatched samples is 72 out of 121 samples\n\nSimulation finished at 605 ps\nMismatches: 72 in 121 samples\n\n"
+  },
+  {
+    "case": "Prob103_circuit2",
+    "status": "not_equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob103_circuit2/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob103_circuit2/Prob103_circuit2.sv",
+    "mismatches": 121,
+    "samples": 121,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob103_circuit2_test.sv:36: $finish called at 605 (1ps)\nHint: Output 'q' has 121 mismatches. First mismatch occurred at time 5.\nHint: Total mismatched samples is 121 out of 121 samples\n\nSimulation finished at 605 ps\nMismatches: 121 in 121 samples\n\n"
+  },
+  {
+    "case": "Prob104_mt2015_muxdff",
+    "status": "equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob104_mt2015_muxdff/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob104_mt2015_muxdff/Prob104_mt2015_muxdff.sv",
+    "mismatches": 0,
+    "samples": 199,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob104_mt2015_muxdff_test.sv:21: $finish called at 996 (1ps)\nHint: Output 'Q' has no mismatches.\nHint: Total mismatched samples is 0 out of 199 samples\n\nSimulation finished at 996 ps\nMismatches: 0 in 199 samples\n\n"
+  },
+  {
+    "case": "Prob105_rotate100",
+    "status": "not_equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob105_rotate100/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob105_rotate100/Prob105_rotate100.sv",
+    "mismatches": 4002,
+    "samples": 4005,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob105_rotate100_test.sv:25: $finish called at 20026 (1ps)\nHint: Output 'q' has 4002 mismatches. First mismatch occurred at time 20.\nHint: Total mismatched samples is 4002 out of 4005 samples\n\nSimulation finished at 20026 ps\nMismatches: 4002 in 4005 samples\n\n"
+  },
+  {
+    "case": "Prob106_always_nolatches",
+    "status": "equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob106_always_nolatches/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob106_always_nolatches/Prob106_always_nolatches.sv",
+    "mismatches": 0,
+    "samples": 30020,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob106_always_nolatches_test.sv:43: $finish called at 150100 (1ps)\nHint: Output 'left' has no mismatches.\nHint: Output 'down' has no mismatches.\nHint: Output 'right' has no mismatches.\nHint: Output 'up' has no mismatches.\nHint: Total mismatched samples is 0 out of 30020 samples\n\nSimulation finished at 150100 ps\nMismatches: 0 in 30020 samples\n\n"
+  },
+  {
+    "case": "Prob107_fsm1s",
+    "status": "not_equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob107_fsm1s/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob107_fsm1s/Prob107_fsm1s.sv",
+    "mismatches": 125,
+    "samples": 230,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob107_fsm1s_test.sv:70: $finish called at 1151 (1ps)\nHint: Output 'out' has 147 mismatches. First mismatch occurred at time 25.\nHint: Total mismatched samples is 125 out of 230 samples\n\nSimulation finished at 1151 ps\nMismatches: 125 in 230 samples\n\n"
+  },
+  {
+    "case": "Prob108_rule90",
+    "status": "not_equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob108_rule90/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob108_rule90/Prob108_rule90.sv",
+    "mismatches": 7078,
+    "samples": 7121,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob108_rule90_test.sv:75: $finish called at 35606 (1ps)\nHint: Output 'q' has 7078 mismatches. First mismatch occurred at time 10.\nHint: Total mismatched samples is 7078 out of 7121 samples\n\nSimulation finished at 35606 ps\nMismatches: 7078 in 7121 samples\n\n"
+  },
+  {
+    "case": "Prob109_fsm1",
+    "status": "not_equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob109_fsm1/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob109_fsm1/Prob109_fsm1.sv",
+    "mismatches": 103,
+    "samples": 228,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob109_fsm1_test.sv:71: $finish called at 1141 (1ps)\nHint: Output 'out' has 103 mismatches. First mismatch occurred at time 10.\nHint: Total mismatched samples is 103 out of 228 samples\n\nSimulation finished at 1141 ps\nMismatches: 103 in 228 samples\n\n"
+  },
+  {
+    "case": "Prob110_fsm2",
+    "status": "not_equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob110_fsm2/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob110_fsm2/Prob110_fsm2.sv",
+    "mismatches": 95,
+    "samples": 241,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob110_fsm2_test.sv:74: $finish called at 1206 (1ps)\nHint: Output 'out' has 95 mismatches. First mismatch occurred at time 20.\nHint: Total mismatched samples is 95 out of 241 samples\n\nSimulation finished at 1206 ps\nMismatches: 95 in 241 samples\n\n"
+  },
+  {
+    "case": "Prob111_fsm2s",
+    "status": "not_equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob111_fsm2s/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob111_fsm2s/Prob111_fsm2s.sv",
+    "mismatches": 112,
+    "samples": 241,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob111_fsm2s_test.sv:72: $finish called at 1206 (1ps)\nHint: Output 'out' has 112 mismatches. First mismatch occurred at time 20.\nHint: Total mismatched samples is 112 out of 241 samples\n\nSimulation finished at 1206 ps\nMismatches: 112 in 241 samples\n\n"
+  },
+  {
+    "case": "Prob112_always_case2",
+    "status": "equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob112_always_case2/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob112_always_case2/Prob112_always_case2.sv",
+    "mismatches": 0,
+    "samples": 94,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob112_always_case2_test.sv:38: $finish called at 470 (1ps)\nHint: Output 'pos' has no mismatches.\nHint: Total mismatched samples is 0 out of 94 samples\n\nSimulation finished at 470 ps\nMismatches: 0 in 94 samples\n\n"
+  },
+  {
+    "case": "Prob113_2012_q1g",
+    "status": "equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob113_2012_q1g/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob113_2012_q1g/Prob113_2012_q1g.sv",
+    "mismatches": 0,
+    "samples": 100,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob113_2012_q1g_test.sv:16: $finish called at 501 (1ps)\nHint: Output 'f' has no mismatches.\nHint: Total mismatched samples is 0 out of 100 samples\n\nSimulation finished at 501 ps\nMismatches: 0 in 100 samples\n\n"
+  },
+  {
+    "case": "Prob114_bugs_case",
+    "status": "equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob114_bugs_case/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob114_bugs_case/Prob114_bugs_case.sv",
+    "mismatches": 0,
+    "samples": 1041,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob114_bugs_case_test.sv:58: $finish called at 5205 (1ps)\nHint: Output 'out' has no mismatches.\nHint: Output 'valid' has no mismatches.\nHint: Total mismatched samples is 0 out of 1041 samples\n\nSimulation finished at 5205 ps\nMismatches: 0 in 1041 samples\n\n"
+  },
+  {
+    "case": "Prob115_shift18",
+    "status": "not_equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob115_shift18/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob115_shift18/Prob115_shift18.sv",
+    "mismatches": 3184,
+    "samples": 4041,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob115_shift18_test.sv:75: $finish called at 20206 (1ps)\nHint: Output 'q' has 3184 mismatches. First mismatch occurred at time 30.\nHint: Total mismatched samples is 3184 out of 4041 samples\n\nSimulation finished at 20206 ps\nMismatches: 3184 in 4041 samples\n\n"
+  },
+  {
+    "case": "Prob116_m2014_q3",
+    "status": "go_compile_failed",
+    "compile_stdout": "",
+    "compile_stderr": "error: /home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob116_m2014_q3/main.go:13:5: declared and not used: x3\nerror: /home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob116_m2014_q3/main.go:14:5: declared and not used: x2\nerror: /home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob116_m2014_q3/main.go:15:5: declared and not used: x1\nerror: /home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob116_m2014_q3/main.go:16:5: declared and not used: x0\npackage loading failed\nexit status 1\n",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob116_m2014_q3/main.go"
+  },
+  {
+    "case": "Prob117_circuit9",
+    "status": "not_equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob117_circuit9/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob117_circuit9/Prob117_circuit9.sv",
+    "mismatches": 206,
+    "samples": 245,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob117_circuit9_test.sv:42: $finish called at 1225 (1ps)\nHint: Output 'q' has 206 mismatches. First mismatch occurred at time 15.\nHint: Total mismatched samples is 206 out of 245 samples\n\nSimulation finished at 1225 ps\nMismatches: 206 in 245 samples\n\n"
+  },
+  {
+    "case": "Prob118_history_shift",
+    "status": "go_compile_failed",
+    "compile_stdout": "",
+    "compile_stderr": "error: /home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob118_history_shift/main.go:25:53: invalid operation: train_taken & 0x1 (mismatched types bool and untyped int)\nerror: /home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob118_history_shift/main.go:28:47: invalid operation: predict_taken & 0x1 (mismatched types bool and untyped int)\npackage loading failed\nexit status 1\n",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob118_history_shift/main.go"
+  },
+  {
+    "case": "Prob119_fsm3",
+    "status": "not_equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob119_fsm3/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob119_fsm3/Prob119_fsm3.sv",
+    "mismatches": 29,
+    "samples": 230,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob119_fsm3_test.sv:79: $finish called at 1151 (1ps)\nHint: Output 'out' has 29 mismatches. First mismatch occurred at time 40.\nHint: Total mismatched samples is 29 out of 230 samples\n\nSimulation finished at 1151 ps\nMismatches: 29 in 230 samples\n\n"
+  },
+  {
+    "case": "Prob120_fsm3s",
+    "status": "not_equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob120_fsm3s/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob120_fsm3s/Prob120_fsm3s.sv",
+    "mismatches": 32,
+    "samples": 230,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob120_fsm3s_test.sv:77: $finish called at 1151 (1ps)\nHint: Output 'out' has 32 mismatches. First mismatch occurred at time 40.\nHint: Total mismatched samples is 32 out of 230 samples\n\nSimulation finished at 1151 ps\nMismatches: 32 in 230 samples\n\n"
+  },
+  {
+    "case": "Prob121_2014_q3bfsm",
+    "status": "not_equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob121_2014_q3bfsm/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob121_2014_q3bfsm/Prob121_2014_q3bfsm.sv",
+    "mismatches": 511,
+    "samples": 1006,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob121_2014_q3bfsm_test.sv:26: $finish called at 5031 (1ps)\nHint: Output 'z' has 511 mismatches. First mismatch occurred at time 10.\nHint: Total mismatched samples is 511 out of 1006 samples\n\nSimulation finished at 5031 ps\nMismatches: 511 in 1006 samples\n\n"
+  },
+  {
+    "case": "Prob122_kmap4",
+    "status": "equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob122_kmap4/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob122_kmap4/Prob122_kmap4.sv",
+    "mismatches": 0,
+    "samples": 232,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob122_kmap4_test.sv:38: $finish called at 1161 (1ps)\nHint: Output 'out' has no mismatches.\nHint: Total mismatched samples is 0 out of 232 samples\n\nSimulation finished at 1161 ps\nMismatches: 0 in 232 samples\n\n"
+  },
+  {
+    "case": "Prob123_bugs_addsubz",
+    "status": "equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob123_bugs_addsubz/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob123_bugs_addsubz/Prob123_bugs_addsubz.sv",
+    "mismatches": 0,
+    "samples": 118,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob123_bugs_addsubz_test.sv:57: $finish called at 590 (1ps)\nHint: Output 'out' has no mismatches.\nHint: Output 'result_is_zero' has no mismatches.\nHint: Total mismatched samples is 0 out of 118 samples\n\nSimulation finished at 590 ps\nMismatches: 0 in 118 samples\n\n"
+  },
+  {
+    "case": "Prob124_rule110",
+    "status": "not_equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob124_rule110/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob124_rule110/Prob124_rule110.sv",
+    "mismatches": 6240,
+    "samples": 6283,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob124_rule110_test.sv:73: $finish called at 31416 (1ps)\nHint: Output 'q' has 6240 mismatches. First mismatch occurred at time 10.\nHint: Total mismatched samples is 6240 out of 6283 samples\n\nSimulation finished at 31416 ps\nMismatches: 6240 in 6283 samples\n\n"
+  },
+  {
+    "case": "Prob125_kmap3",
+    "status": "equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob125_kmap3/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob125_kmap3/Prob125_kmap3.sv",
+    "mismatches": 0,
+    "samples": 232,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob125_kmap3_test.sv:38: $finish called at 1161 (1ps)\nHint: Output 'out' has no mismatches.\nHint: Total mismatched samples is 0 out of 232 samples\n\nSimulation finished at 1161 ps\nMismatches: 0 in 232 samples\n\n"
+  },
+  {
+    "case": "Prob126_circuit6",
+    "status": "equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob126_circuit6/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob126_circuit6/Prob126_circuit6.sv",
+    "mismatches": 0,
+    "samples": 113,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob126_circuit6_test.sv:35: $finish called at 565 (1ps)\nHint: Output 'q' has no mismatches.\nHint: Total mismatched samples is 0 out of 113 samples\n\nSimulation finished at 565 ps\nMismatches: 0 in 113 samples\n\n"
+  },
+  {
+    "case": "Prob127_lemmings1",
+    "status": "not_equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob127_lemmings1/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob127_lemmings1/Prob127_lemmings1.sv",
+    "mismatches": 120,
+    "samples": 229,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob127_lemmings1_test.sv:73: $finish called at 1146 (1ps)\nHint: Output 'walk_left' has 120 mismatches. First mismatch occurred at time 30.\nHint: Output 'walk_right' has 120 mismatches. First mismatch occurred at time 30.\nHint: Total mismatched samples is 120 out of 229 samples\n\nSimulation finished at 1146 ps\nMismatches: 120 in 229 samples\n\n"
+  },
+  {
+    "case": "Prob128_fsm_ps2",
+    "status": "not_equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob128_fsm_ps2/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob128_fsm_ps2/Prob128_fsm_ps2.sv",
+    "mismatches": 90,
+    "samples": 400,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob128_fsm_ps2_test.sv:18: $finish called at 2001 (1ps)\nHint: Output 'done' has 90 mismatches. First mismatch occurred at time 210.\nHint: Total mismatched samples is 90 out of 400 samples\n\nSimulation finished at 2001 ps\nMismatches: 90 in 400 samples\n\n"
+  },
+  {
+    "case": "Prob129_ece241_2013_q8",
+    "status": "not_equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob129_ece241_2013_q8/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob129_ece241_2013_q8/Prob129_ece241_2013_q8.sv",
+    "mismatches": 46,
+    "samples": 440,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob129_ece241_2013_q8_test.sv:86: $finish called at 2200 (1ps)\nHint: Output 'z' has 46 mismatches. First mismatch occurred at time 60.\nHint: Total mismatched samples is 46 out of 440 samples\n\nSimulation finished at 2200 ps\nMismatches: 46 in 440 samples\n\n"
+  },
+  {
+    "case": "Prob130_circuit5",
+    "status": "equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob130_circuit5/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob130_circuit5/Prob130_circuit5.sv",
+    "mismatches": 0,
+    "samples": 141,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob130_circuit5_test.sv:42: $finish called at 705 (1ps)\nHint: Output 'q' has no mismatches.\nHint: Total mismatched samples is 0 out of 141 samples\n\nSimulation finished at 705 ps\nMismatches: 0 in 141 samples\n\n"
+  },
+  {
+    "case": "Prob131_mt2015_q4",
+    "status": "not_equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob131_mt2015_q4/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob131_mt2015_q4/Prob131_mt2015_q4.sv",
+    "mismatches": 60,
+    "samples": 200,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob131_mt2015_q4_test.sv:17: $finish called at 1001 (1ps)\nHint: Output 'z' has 60 mismatches. First mismatch occurred at time 45.\nHint: Total mismatched samples is 60 out of 200 samples\n\nSimulation finished at 1001 ps\nMismatches: 60 in 200 samples\n\n"
+  },
+  {
+    "case": "Prob132_always_if2",
+    "status": "equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob132_always_if2/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob132_always_if2/Prob132_always_if2.sv",
+    "mismatches": 0,
+    "samples": 121,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob132_always_if2_test.sv:45: $finish called at 605 (1ps)\nHint: Output 'shut_off_computer' has no mismatches.\nHint: Output 'keep_driving' has no mismatches.\nHint: Total mismatched samples is 0 out of 121 samples\n\nSimulation finished at 605 ps\nMismatches: 0 in 121 samples\n\n"
+  },
+  {
+    "case": "Prob133_2014_q3fsm",
+    "status": "not_equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob133_2014_q3fsm/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob133_2014_q3fsm/Prob133_2014_q3fsm.sv",
+    "mismatches": 174,
+    "samples": 1414,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob133_2014_q3fsm_test.sv:59: $finish called at 7071 (1ps)\nHint: Output 'z' has 174 mismatches. First mismatch occurred at time 110.\nHint: Total mismatched samples is 174 out of 1414 samples\n\nSimulation finished at 7071 ps\nMismatches: 174 in 1414 samples\n\n"
+  },
+  {
+    "case": "Prob134_2014_q3c",
+    "status": "go_compile_failed",
+    "compile_stdout": "",
+    "compile_stderr": "error: /home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob134_2014_q3c/main.go:8:5: declared and not used: y0\nerror: /home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob134_2014_q3c/main.go:9:5: declared and not used: y1\nerror: /home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob134_2014_q3c/main.go:10:5: declared and not used: y2\npackage loading failed\nexit status 1\n",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob134_2014_q3c/main.go"
+  },
+  {
+    "case": "Prob135_m2014_q6b",
+    "status": "go_compile_failed",
+    "compile_stdout": "",
+    "compile_stderr": "error: /home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob135_m2014_q6b/main.go:17:5: declared and not used: next_y1\npackage loading failed\nexit status 1\n",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob135_m2014_q6b/main.go"
+  },
+  {
+    "case": "Prob136_m2014_q6",
+    "status": "not_equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob136_m2014_q6/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob136_m2014_q6/Prob136_m2014_q6.sv",
+    "mismatches": 136,
+    "samples": 200,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob136_m2014_q6_test.sv:18: $finish called at 1001 (1ps)\nHint: Output 'z' has 136 mismatches. First mismatch occurred at time 220.\nHint: Total mismatched samples is 136 out of 200 samples\n\nSimulation finished at 1001 ps\nMismatches: 136 in 200 samples\n\n"
+  },
+  {
+    "case": "Prob137_fsm_serial",
+    "status": "not_equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob137_fsm_serial/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob137_fsm_serial/Prob137_fsm_serial.sv",
+    "mismatches": 38,
+    "samples": 905,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob137_fsm_serial_test.sv:45: $finish called at 4526 (1ps)\nHint: Output 'done' has 38 mismatches. First mismatch occurred at time 110.\nHint: Total mismatched samples is 38 out of 905 samples\n\nSimulation finished at 4526 ps\nMismatches: 38 in 905 samples\n\n"
+  },
+  {
+    "case": "Prob138_2012_q2fsm",
+    "status": "not_equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob138_2012_q2fsm/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob138_2012_q2fsm/Prob138_2012_q2fsm.sv",
+    "mismatches": 279,
+    "samples": 400,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob138_2012_q2fsm_test.sv:18: $finish called at 2001 (1ps)\nHint: Output 'z' has 279 mismatches. First mismatch occurred at time 180.\nHint: Total mismatched samples is 279 out of 400 samples\n\nSimulation finished at 2001 ps\nMismatches: 279 in 400 samples\n\n"
+  },
+  {
+    "case": "Prob139_2013_q2bfsm",
+    "status": "not_equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob139_2013_q2bfsm/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob139_2013_q2bfsm/Prob139_2013_q2bfsm.sv",
+    "mismatches": 487,
+    "samples": 1002,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob139_2013_q2bfsm_test.sv:24: $finish called at 5011 (1ps)\nHint: Output 'f' has 18 mismatches. First mismatch occurred at time 20.\nHint: Output 'g' has 487 mismatches. First mismatch occurred at time 10.\nHint: Total mismatched samples is 487 out of 1002 samples\n\nSimulation finished at 5011 ps\nMismatches: 487 in 1002 samples\n\n"
+  },
+  {
+    "case": "Prob140_fsm_hdlc",
+    "status": "not_equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob140_fsm_hdlc/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_remaining_106/Prob140_fsm_hdlc/Prob140_fsm_hdlc.sv",
+    "mismatches": 224,
+    "samples": 801,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob140_fsm_hdlc_test.sv:20: $finish called at 4006 (1ps)\nHint: Output 'disc' has 8 mismatches. First mismatch occurred at time 480.\nHint: Output 'flag' has 8 mismatches. First mismatch occurred at time 1550.\nHint: Output 'err' has 208 mismatches. First mismatch occurred at time 80.\nHint: Total mismatched samples is 224 out of 801 samples\n\nSimulation finished at 4006 ps\nMismatches: 224 in 801 samples\n\n"
+  }
+]

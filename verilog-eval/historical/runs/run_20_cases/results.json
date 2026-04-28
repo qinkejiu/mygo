@@ -1,0 +1,177 @@
+[
+  {
+    "case": "Prob001_zero",
+    "status": "equivalent",
+    "go_file": "/home/qinkejiu/mygo/work/deepseek_spec_to_rtl_eval_20/Prob001_zero/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/work/deepseek_spec_to_rtl_eval_20/Prob001_zero/Prob001_zero.sv",
+    "mismatches": 0,
+    "samples": 20,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/dataset_spec-to-rtl/tests/Prob001_zero_test.sv:30: $finish called at 102 (1ps)\nHint: Output 'zero' has no mismatches.\nHint: Total mismatched samples is 0 out of 20 samples\n\nSimulation finished at 102 ps\nMismatches: 0 in 20 samples\n\n"
+  },
+  {
+    "case": "Prob002_m2014_q4i",
+    "status": "equivalent",
+    "go_file": "/home/qinkejiu/mygo/work/deepseek_spec_to_rtl_eval_20/Prob002_m2014_q4i/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/work/deepseek_spec_to_rtl_eval_20/Prob002_m2014_q4i/Prob002_m2014_q4i.sv",
+    "mismatches": 0,
+    "samples": 100,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/dataset_spec-to-rtl/tests/Prob002_m2014_q4i_test.sv:14: $finish called at 501 (1ps)\nHint: Output 'out' has no mismatches.\nHint: Total mismatched samples is 0 out of 100 samples\n\nSimulation finished at 501 ps\nMismatches: 0 in 100 samples\n\n"
+  },
+  {
+    "case": "Prob003_step_one",
+    "status": "equivalent",
+    "go_file": "/home/qinkejiu/mygo/work/deepseek_spec_to_rtl_eval_20/Prob003_step_one/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/work/deepseek_spec_to_rtl_eval_20/Prob003_step_one/Prob003_step_one.sv",
+    "mismatches": 0,
+    "samples": 20,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/dataset_spec-to-rtl/tests/Prob003_step_one_test.sv:30: $finish called at 102 (1ps)\nHint: Output 'one' has no mismatches.\nHint: Total mismatched samples is 0 out of 20 samples\n\nSimulation finished at 102 ps\nMismatches: 0 in 20 samples\n\n"
+  },
+  {
+    "case": "Prob004_vector2",
+    "status": "not_equivalent",
+    "go_file": "/home/qinkejiu/mygo/work/deepseek_spec_to_rtl_eval_20/Prob004_vector2/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/work/deepseek_spec_to_rtl_eval_20/Prob004_vector2/Prob004_vector2.sv",
+    "mismatches": 109,
+    "samples": 110,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/dataset_spec-to-rtl/tests/Prob004_vector2_test.sv:33: $finish called at 550 (1ps)\nHint: Output 'out' has 109 mismatches. First mismatch occurred at time 10.\nHint: Total mismatched samples is 109 out of 110 samples\n\nSimulation finished at 550 ps\nMismatches: 109 in 110 samples\n\n"
+  },
+  {
+    "case": "Prob005_notgate",
+    "status": "equivalent",
+    "go_file": "/home/qinkejiu/mygo/work/deepseek_spec_to_rtl_eval_20/Prob005_notgate/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/work/deepseek_spec_to_rtl_eval_20/Prob005_notgate/Prob005_notgate.sv",
+    "mismatches": 0,
+    "samples": 239,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/dataset_spec-to-rtl/tests/Prob005_notgate_test.sv:37: $finish called at 1196 (1ps)\nHint: Output 'out' has no mismatches.\nHint: Total mismatched samples is 0 out of 239 samples\n\nSimulation finished at 1196 ps\nMismatches: 0 in 239 samples\n\n"
+  },
+  {
+    "case": "Prob006_vectorr",
+    "status": "go_compile_failed",
+    "compile_stdout": "",
+    "compile_stderr": "/home/qinkejiu/mygo/work/deepseek_spec_to_rtl_eval_20/Prob006_vectorr/.mygo-tmp/.mygo-circt-1594264232/design.mlir:54:15: error: use of value '%packed_out' expects different type than prior uses: 'i32' vs 'i8'\n    hw.output %packed_out : i32\n              ^\n/home/qinkejiu/mygo/work/deepseek_spec_to_rtl_eval_20/Prob006_vectorr/.mygo-tmp/.mygo-circt-1594264232/design.mlir:53:5: note: prior use here\n    %packed_out = comb.concat %c7, %c6, %c5, %c4, %c3, %c2, %c1, %c0 : i1, i1, i1, i1, i1, i1, i1, i1\n    ^\nbackend: circt-opt --pass-pipeline failed: exit status 1\nexit status 1\n",
+    "go_file": "/home/qinkejiu/mygo/work/deepseek_spec_to_rtl_eval_20/Prob006_vectorr/main.go"
+  },
+  {
+    "case": "Prob007_wire",
+    "status": "equivalent",
+    "go_file": "/home/qinkejiu/mygo/work/deepseek_spec_to_rtl_eval_20/Prob007_wire/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/work/deepseek_spec_to_rtl_eval_20/Prob007_wire/Prob007_wire.sv",
+    "mismatches": 0,
+    "samples": 120,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/dataset_spec-to-rtl/tests/Prob007_wire_test.sv:36: $finish called at 601 (1ps)\nHint: Output 'out' has no mismatches.\nHint: Total mismatched samples is 0 out of 120 samples\n\nSimulation finished at 601 ps\nMismatches: 0 in 120 samples\n\n"
+  },
+  {
+    "case": "Prob008_m2014_q4h",
+    "status": "equivalent",
+    "go_file": "/home/qinkejiu/mygo/work/deepseek_spec_to_rtl_eval_20/Prob008_m2014_q4h/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/work/deepseek_spec_to_rtl_eval_20/Prob008_m2014_q4h/Prob008_m2014_q4h.sv",
+    "mismatches": 0,
+    "samples": 100,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/dataset_spec-to-rtl/tests/Prob008_m2014_q4h_test.sv:16: $finish called at 501 (1ps)\nHint: Output 'out' has no mismatches.\nHint: Total mismatched samples is 0 out of 100 samples\n\nSimulation finished at 501 ps\nMismatches: 0 in 100 samples\n\n"
+  },
+  {
+    "case": "Prob009_popcount3",
+    "status": "go_compile_failed",
+    "compile_stdout": "",
+    "compile_stderr": "/home/qinkejiu/mygo/work/deepseek_spec_to_rtl_eval_20/Prob009_popcount3/.mygo-tmp/.mygo-circt-2421852223/design.mlir:58:15: error: use of value '%packed_out' expects different type than prior uses: 'i32' vs 'i2'\n    hw.output %packed_out : i32\n              ^\n/home/qinkejiu/mygo/work/deepseek_spec_to_rtl_eval_20/Prob009_popcount3/.mygo-tmp/.mygo-circt-2421852223/design.mlir:57:5: note: prior use here\n    %packed_out = comb.concat %v20, %v18 : i1, i1\n    ^\nbackend: circt-opt --pass-pipeline failed: exit status 1\nexit status 1\n",
+    "go_file": "/home/qinkejiu/mygo/work/deepseek_spec_to_rtl_eval_20/Prob009_popcount3/main.go"
+  },
+  {
+    "case": "Prob010_mt2015_q4a",
+    "status": "equivalent",
+    "go_file": "/home/qinkejiu/mygo/work/deepseek_spec_to_rtl_eval_20/Prob010_mt2015_q4a/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/work/deepseek_spec_to_rtl_eval_20/Prob010_mt2015_q4a/Prob010_mt2015_q4a.sv",
+    "mismatches": 0,
+    "samples": 202,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/dataset_spec-to-rtl/tests/Prob010_mt2015_q4a_test.sv:17: $finish called at 1011 (1ps)\nHint: Output 'z' has no mismatches.\nHint: Total mismatched samples is 0 out of 202 samples\n\nSimulation finished at 1011 ps\nMismatches: 0 in 202 samples\n\n"
+  },
+  {
+    "case": "Prob011_norgate",
+    "status": "equivalent",
+    "go_file": "/home/qinkejiu/mygo/work/deepseek_spec_to_rtl_eval_20/Prob011_norgate/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/work/deepseek_spec_to_rtl_eval_20/Prob011_norgate/Prob011_norgate.sv",
+    "mismatches": 0,
+    "samples": 219,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/dataset_spec-to-rtl/tests/Prob011_norgate_test.sv:38: $finish called at 1096 (1ps)\nHint: Output 'out' has no mismatches.\nHint: Total mismatched samples is 0 out of 219 samples\n\nSimulation finished at 1096 ps\nMismatches: 0 in 219 samples\n\n"
+  },
+  {
+    "case": "Prob012_xnorgate",
+    "status": "equivalent",
+    "go_file": "/home/qinkejiu/mygo/work/deepseek_spec_to_rtl_eval_20/Prob012_xnorgate/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/work/deepseek_spec_to_rtl_eval_20/Prob012_xnorgate/Prob012_xnorgate.sv",
+    "mismatches": 0,
+    "samples": 219,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/dataset_spec-to-rtl/tests/Prob012_xnorgate_test.sv:38: $finish called at 1096 (1ps)\nHint: Output 'out' has no mismatches.\nHint: Total mismatched samples is 0 out of 219 samples\n\nSimulation finished at 1096 ps\nMismatches: 0 in 219 samples\n\n"
+  },
+  {
+    "case": "Prob013_m2014_q4e",
+    "status": "equivalent",
+    "go_file": "/home/qinkejiu/mygo/work/deepseek_spec_to_rtl_eval_20/Prob013_m2014_q4e/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/work/deepseek_spec_to_rtl_eval_20/Prob013_m2014_q4e/Prob013_m2014_q4e.sv",
+    "mismatches": 0,
+    "samples": 100,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/dataset_spec-to-rtl/tests/Prob013_m2014_q4e_test.sv:16: $finish called at 501 (1ps)\nHint: Output 'out' has no mismatches.\nHint: Total mismatched samples is 0 out of 100 samples\n\nSimulation finished at 501 ps\nMismatches: 0 in 100 samples\n\n"
+  },
+  {
+    "case": "Prob014_andgate",
+    "status": "equivalent",
+    "go_file": "/home/qinkejiu/mygo/work/deepseek_spec_to_rtl_eval_20/Prob014_andgate/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/work/deepseek_spec_to_rtl_eval_20/Prob014_andgate/Prob014_andgate.sv",
+    "mismatches": 0,
+    "samples": 219,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/dataset_spec-to-rtl/tests/Prob014_andgate_test.sv:38: $finish called at 1096 (1ps)\nHint: Output 'out' has no mismatches.\nHint: Total mismatched samples is 0 out of 219 samples\n\nSimulation finished at 1096 ps\nMismatches: 0 in 219 samples\n\n"
+  },
+  {
+    "case": "Prob015_vector1",
+    "status": "iverilog_compile_failed",
+    "iverilog_stdout": "",
+    "iverilog_stderr": "/home/qinkejiu/mygo/dataset_spec-to-rtl/tests/Prob015_vector1_test.sv:88: error: port ``out_hi'' is not a port of top_module1.\n/home/qinkejiu/mygo/dataset_spec-to-rtl/tests/Prob015_vector1_test.sv:88: error: port ``out_lo'' is not a port of top_module1.\n2 error(s) during elaboration.\n",
+    "go_file": "/home/qinkejiu/mygo/work/deepseek_spec_to_rtl_eval_20/Prob015_vector1/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/work/deepseek_spec_to_rtl_eval_20/Prob015_vector1/Prob015_vector1.sv"
+  },
+  {
+    "case": "Prob016_m2014_q4j",
+    "status": "not_equivalent",
+    "go_file": "/home/qinkejiu/mygo/work/deepseek_spec_to_rtl_eval_20/Prob016_m2014_q4j/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/work/deepseek_spec_to_rtl_eval_20/Prob016_m2014_q4j/Prob016_m2014_q4j.sv",
+    "mismatches": 99,
+    "samples": 100,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/dataset_spec-to-rtl/tests/Prob016_m2014_q4j_test.sv:16: $finish called at 501 (1ps)\nHint: Output 'sum' has 99 mismatches. First mismatch occurred at time 10.\nHint: Total mismatched samples is 99 out of 100 samples\n\nSimulation finished at 501 ps\nMismatches: 99 in 100 samples\n\n"
+  },
+  {
+    "case": "Prob017_mux2to1v",
+    "status": "not_equivalent",
+    "go_file": "/home/qinkejiu/mygo/work/deepseek_spec_to_rtl_eval_20/Prob017_mux2to1v/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/work/deepseek_spec_to_rtl_eval_20/Prob017_mux2to1v/Prob017_mux2to1v.sv",
+    "mismatches": 108,
+    "samples": 114,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/dataset_spec-to-rtl/tests/Prob017_mux2to1v_test.sv:39: $finish called at 570 (1ps)\nHint: Output 'out' has 108 mismatches. First mismatch occurred at time 5.\nHint: Total mismatched samples is 108 out of 114 samples\n\nSimulation finished at 570 ps\nMismatches: 108 in 114 samples\n\n"
+  },
+  {
+    "case": "Prob018_mux256to1",
+    "status": "not_equivalent",
+    "go_file": "/home/qinkejiu/mygo/work/deepseek_spec_to_rtl_eval_20/Prob018_mux256to1/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/work/deepseek_spec_to_rtl_eval_20/Prob018_mux256to1/Prob018_mux256to1.sv",
+    "mismatches": 983,
+    "samples": 2000,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/dataset_spec-to-rtl/tests/Prob018_mux256to1_test.sv:20: $finish called at 10000 (1ps)\nHint: Output 'out' has 983 mismatches. First mismatch occurred at time 35.\nHint: Total mismatched samples is 983 out of 2000 samples\n\nSimulation finished at 10000 ps\nMismatches: 983 in 2000 samples\n\n"
+  },
+  {
+    "case": "Prob019_m2014_q4f",
+    "status": "equivalent",
+    "go_file": "/home/qinkejiu/mygo/work/deepseek_spec_to_rtl_eval_20/Prob019_m2014_q4f/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/work/deepseek_spec_to_rtl_eval_20/Prob019_m2014_q4f/Prob019_m2014_q4f.sv",
+    "mismatches": 0,
+    "samples": 100,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/dataset_spec-to-rtl/tests/Prob019_m2014_q4f_test.sv:16: $finish called at 501 (1ps)\nHint: Output 'out' has no mismatches.\nHint: Total mismatched samples is 0 out of 100 samples\n\nSimulation finished at 501 ps\nMismatches: 0 in 100 samples\n\n"
+  },
+  {
+    "case": "Prob020_mt2015_eq2",
+    "status": "not_equivalent",
+    "go_file": "/home/qinkejiu/mygo/work/deepseek_spec_to_rtl_eval_20/Prob020_mt2015_eq2/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/work/deepseek_spec_to_rtl_eval_20/Prob020_mt2015_eq2/Prob020_mt2015_eq2.sv",
+    "mismatches": 1501,
+    "samples": 2000,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/dataset_spec-to-rtl/tests/Prob020_mt2015_eq2_test.sv:20: $finish called at 10001 (1ps)\nHint: Output 'z' has 1501 mismatches. First mismatch occurred at time 10.\nHint: Total mismatched samples is 1501 out of 2000 samples\n\nSimulation finished at 10001 ps\nMismatches: 1501 in 2000 samples\n\n"
+  }
+]

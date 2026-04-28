@@ -1,0 +1,20 @@
+[
+  {
+    "case": "Prob079_fsm3onehot",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob079_fsm3onehot/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_prob079_prob092_after_comboutputfix/Prob079_fsm3onehot/Prob079_fsm3onehot.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob079_fsm3onehot_test.sv:20: $finish called at 1001 (1ps)\nHint: Output 'next_state' has 141 mismatches. First mismatch occurred at time 10.\nHint: Output 'out' has no mismatches.\nHint: Total mismatched samples is 141 out of 200 samples\n\nSimulation finished at 1001 ps\nMismatches: 141 in 200 samples\n\n",
+    "mismatches": 141,
+    "samples": 200,
+    "status": "not_equivalent"
+  },
+  {
+    "case": "Prob092_gatesv100",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob092_gatesv100/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_prob079_prob092_after_comboutputfix/Prob092_gatesv100/Prob092_gatesv100.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob092_gatesv100_test.sv:18: $finish called at 1006 (1ps)\nHint: Output 'out_both' has 201 mismatches. First mismatch occurred at time 5.\nHint: Output 'out_any' has 201 mismatches. First mismatch occurred at time 5.\nHint: Output 'out_different' has 201 mismatches. First mismatch occurred at time 5.\nHint: Total mismatched samples is 201 out of 201 samples\n\nSimulation finished at 1006 ps\nMismatches: 201 in 201 samples\n\n",
+    "mismatches": 201,
+    "samples": 201,
+    "status": "not_equivalent"
+  }
+]

@@ -1,0 +1,11 @@
+[
+  {
+    "case": "Prob142_lemmings2",
+    "status": "not_equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_141_to_156_cases/Prob142_lemmings2/Prob142_lemmings2/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_141_to_156_cases/Prob142_lemmings2/Prob142_lemmings2/Prob142_lemmings2.sv",
+    "mismatches": 441,
+    "samples": 441,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\nHint: Your reset doesn't seem to be working.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob142_lemmings2_test.sv:80: $finish called at 2206 (1ps)\nHint: Output 'walk_left' has 204 mismatches. First mismatch occurred at time 110.\nHint: Output 'walk_right' has 170 mismatches. First mismatch occurred at time 150.\nHint: Output 'aaah' has 407 mismatches. First mismatch occurred at time 5.\nHint: Total mismatched samples is 441 out of 441 samples\n\nSimulation finished at 2206 ps\nMismatches: 441 in 441 samples\n\n"
+  }
+]

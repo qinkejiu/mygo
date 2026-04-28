@@ -1,0 +1,11 @@
+[
+  {
+    "case": "Prob141_count_clock",
+    "status": "not_equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_141_to_156_cases/Prob141_count_clock/Prob141_count_clock/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_141_to_156_cases/Prob141_count_clock/Prob141_count_clock/Prob141_count_clock.sv",
+    "mismatches": 199984,
+    "samples": 200000,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\nTIMEOUT\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob141_count_clock_test.sv:261: $finish called at 1000000 (1ps)\nHint: Output 'pm' has 86400 mismatches. First mismatch occurred at time 434270.\nHint: Output 'hh' has 178376 mismatches. First mismatch occurred at time 20.\nHint: Output 'mm' has 196187 mismatches. First mismatch occurred at time 2870.\nHint: Output 'ss' has 196613 mismatches. First mismatch occurred at time 30.\nHint: Total mismatched samples is 199984 out of 200000 samples\n\nSimulation finished at 1000000 ps\nMismatches: 199984 in 200000 samples\n\n"
+  }
+]

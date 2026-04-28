@@ -1,0 +1,11 @@
+[
+  {
+    "case": "Prob075_counter_2bc",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob075_counter_2bc/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_prob075_after_frontend/Prob075_counter_2bc/Prob075_counter_2bc.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob075_counter_2bc_test.sv:96: $finish called at 5256 (1ps)\nHint: Output 'state' has 761 mismatches. First mismatch occurred at time 40.\nHint: Total mismatched samples is 761 out of 1051 samples\n\nSimulation finished at 5256 ps\nMismatches: 761 in 1051 samples\n\n",
+    "mismatches": 761,
+    "samples": 1051,
+    "status": "not_equivalent"
+  }
+]

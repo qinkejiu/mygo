@@ -1,0 +1,9 @@
+{
+  "total_cases": 16,
+  "status_counts": {
+    "go_compile_timeout": 1,
+    "equivalent": 8,
+    "not_equivalent": 7
+  },
+  "generated_at_epoch": 1777350513.3005223
+}

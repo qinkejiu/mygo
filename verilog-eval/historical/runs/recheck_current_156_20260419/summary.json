@@ -1,0 +1,9 @@
+{
+  "total_cases": 156,
+  "status_counts": {
+    "equivalent": 66,
+    "not_equivalent": 88,
+    "iverilog_compile_failed": 2
+  },
+  "generated_at_epoch": 1776588671.7441266
+}

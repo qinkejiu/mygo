@@ -1,0 +1,56 @@
+[
+  {
+    "case": "Prob028_m2014_q4a",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob028_m2014_q4a/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_unified_phase3_smoke_after_phase2fixes/Prob028_m2014_q4a/Prob028_m2014_q4a.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob028_m2014_q4a_test.sv:16: $finish called at 501 (1ps)\nHint: Output 'q' has no mismatches.\nHint: Total mismatched samples is 0 out of 100 samples\n\nSimulation finished at 501 ps\nMismatches: 0 in 100 samples\n\n",
+    "mismatches": 0,
+    "samples": 100,
+    "status": "equivalent"
+  },
+  {
+    "case": "Prob066_edgecapture",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob066_edgecapture/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_unified_phase3_smoke_after_phase2fixes/Prob066_edgecapture/Prob066_edgecapture.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob066_edgecapture_test.sv:86: $finish called at 1330 (1ps)\nHint: Output 'out' has no mismatches.\nHint: Total mismatched samples is 0 out of 266 samples\n\nSimulation finished at 1330 ps\nMismatches: 0 in 266 samples\n\n",
+    "mismatches": 0,
+    "samples": 266,
+    "status": "equivalent"
+  },
+  {
+    "case": "Prob079_fsm3onehot",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob079_fsm3onehot/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_unified_phase3_smoke_after_phase2fixes/Prob079_fsm3onehot/Prob079_fsm3onehot.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob079_fsm3onehot_test.sv:20: $finish called at 1001 (1ps)\nHint: Output 'next_state' has 141 mismatches. First mismatch occurred at time 10.\nHint: Output 'out' has no mismatches.\nHint: Total mismatched samples is 141 out of 200 samples\n\nSimulation finished at 1001 ps\nMismatches: 141 in 200 samples\n\n",
+    "mismatches": 141,
+    "samples": 200,
+    "status": "not_equivalent"
+  },
+  {
+    "case": "Prob092_gatesv100",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob092_gatesv100/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_unified_phase3_smoke_after_phase2fixes/Prob092_gatesv100/Prob092_gatesv100.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob092_gatesv100_test.sv:18: $finish called at 1006 (1ps)\nHint: Output 'out_both' has 201 mismatches. First mismatch occurred at time 5.\nHint: Output 'out_any' has 201 mismatches. First mismatch occurred at time 5.\nHint: Output 'out_different' has 201 mismatches. First mismatch occurred at time 5.\nHint: Total mismatched samples is 201 out of 201 samples\n\nSimulation finished at 1006 ps\nMismatches: 201 in 201 samples\n\n",
+    "mismatches": 201,
+    "samples": 201,
+    "status": "not_equivalent"
+  },
+  {
+    "case": "Prob107_fsm1s",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob107_fsm1s/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_unified_phase3_smoke_after_phase2fixes/Prob107_fsm1s/Prob107_fsm1s.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob107_fsm1s_test.sv:70: $finish called at 1151 (1ps)\nHint: Output 'out' has 118 mismatches. First mismatch occurred at time 40.\nHint: Total mismatched samples is 118 out of 230 samples\n\nSimulation finished at 1151 ps\nMismatches: 118 in 230 samples\n\n",
+    "mismatches": 118,
+    "samples": 230,
+    "status": "not_equivalent"
+  },
+  {
+    "case": "Prob145_circuit8",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob145_circuit8/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_unified_phase3_smoke_after_phase2fixes/Prob145_circuit8/Prob145_circuit8.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob145_circuit8_test.sv:45: $finish called at 1200 (1ps)\nHint: Output 'p' has 124 mismatches. First mismatch occurred at time 90.\nHint: Output 'q' has no mismatches.\nHint: Total mismatched samples is 124 out of 240 samples\n\nSimulation finished at 1200 ps\nMismatches: 124 in 240 samples\n\n",
+    "mismatches": 124,
+    "samples": 240,
+    "status": "not_equivalent"
+  }
+]

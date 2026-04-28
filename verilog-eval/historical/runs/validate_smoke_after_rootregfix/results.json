@@ -1,0 +1,56 @@
+[
+  {
+    "case": "Prob028_m2014_q4a",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob028_m2014_q4a/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_smoke_after_rootregfix/Prob028_m2014_q4a/Prob028_m2014_q4a.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob028_m2014_q4a_test.sv:16: $finish called at 501 (1ps)\nHint: Output 'q' has no mismatches.\nHint: Total mismatched samples is 0 out of 100 samples\n\nSimulation finished at 501 ps\nMismatches: 0 in 100 samples\n\n",
+    "mismatches": 0,
+    "samples": 100,
+    "status": "equivalent"
+  },
+  {
+    "case": "Prob031_dff",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob031_dff/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_smoke_after_rootregfix/Prob031_dff/Prob031_dff.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob031_dff_test.sv:37: $finish called at 605 (1ps)\nHint: Output 'q' has no mismatches.\nHint: Total mismatched samples is 0 out of 121 samples\n\nSimulation finished at 605 ps\nMismatches: 0 in 121 samples\n\n",
+    "mismatches": 0,
+    "samples": 121,
+    "status": "equivalent"
+  },
+  {
+    "case": "Prob034_dff8",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob034_dff8/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_smoke_after_rootregfix/Prob034_dff8/Prob034_dff8.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob034_dff8_test.sv:36: $finish called at 206 (1ps)\nHint: Output 'q' has no mismatches.\nHint: Total mismatched samples is 0 out of 41 samples\n\nSimulation finished at 206 ps\nMismatches: 0 in 41 samples\n\n",
+    "mismatches": 0,
+    "samples": 41,
+    "status": "equivalent"
+  },
+  {
+    "case": "Prob045_edgedetect2",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob045_edgedetect2/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_smoke_after_rootregfix/Prob045_edgedetect2/Prob045_edgedetect2.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob045_edgedetect2_test.sv:45: $finish called at 1140 (1ps)\nHint: Output 'anyedge' has no mismatches.\nHint: Total mismatched samples is 0 out of 228 samples\n\nSimulation finished at 1140 ps\nMismatches: 0 in 228 samples\n\n",
+    "mismatches": 0,
+    "samples": 228,
+    "status": "equivalent"
+  },
+  {
+    "case": "Prob046_dff8p",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob046_dff8p/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_smoke_after_rootregfix/Prob046_dff8p/Prob046_dff8p.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob046_dff8p_test.sv:68: $finish called at 2181 (1ps)\nHint: Output 'q' has no mismatches.\nHint: Total mismatched samples is 0 out of 436 samples\n\nSimulation finished at 2181 ps\nMismatches: 0 in 436 samples\n\n",
+    "mismatches": 0,
+    "samples": 436,
+    "status": "equivalent"
+  },
+  {
+    "case": "Prob078_dualedge",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob078_dualedge/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_smoke_after_rootregfix/Prob078_dualedge/Prob078_dualedge.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob078_dualedge_test.sv:36: $finish called at 1121 (1ps)\nHint: Output 'q' has 52 mismatches. First mismatch occurred at time 25.\nHint: Total mismatched samples is 52 out of 224 samples\n\nSimulation finished at 1121 ps\nMismatches: 52 in 224 samples\n\n",
+    "mismatches": 52,
+    "samples": 224,
+    "status": "not_equivalent"
+  }
+]

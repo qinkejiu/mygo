@@ -1,0 +1,11 @@
+[
+  {
+    "case": "Prob078_dualedge",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob078_dualedge/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_dualedge_current10/Prob078_dualedge/Prob078_dualedge.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob078_dualedge_test.sv:36: $finish called at 1121 (1ps)\nHint: Output 'q' has 40 mismatches. First mismatch occurred at time 30.\nHint: Total mismatched samples is 40 out of 224 samples\n\nSimulation finished at 1121 ps\nMismatches: 40 in 224 samples\n\n",
+    "mismatches": 40,
+    "samples": 224,
+    "status": "not_equivalent"
+  }
+]

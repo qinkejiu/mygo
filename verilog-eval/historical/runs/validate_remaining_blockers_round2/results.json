@@ -1,0 +1,36 @@
+[
+  {
+    "case": "Prob023_vector100r",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob023_vector100r/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_remaining_blockers_round2/Prob023_vector100r/Prob023_vector100r.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob023_vector100r_test.sv:16: $finish called at 1000 (1ps)\nHint: Output 'out' has no mismatches.\nHint: Total mismatched samples is 0 out of 200 samples\n\nSimulation finished at 1000 ps\nMismatches: 0 in 200 samples\n\n",
+    "mismatches": 0,
+    "samples": 200,
+    "status": "equivalent"
+  },
+  {
+    "case": "Prob043_vector5",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob043_vector5/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_remaining_blockers_round2/Prob043_vector5/Prob043_vector5.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob043_vector5_test.sv:14: $finish called at 500 (1ps)\nHint: Output 'out' has no mismatches.\nHint: Total mismatched samples is 0 out of 100 samples\n\nSimulation finished at 500 ps\nMismatches: 0 in 100 samples\n\n",
+    "mismatches": 0,
+    "samples": 100,
+    "status": "equivalent"
+  },
+  {
+    "case": "Prob055_conditional",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob055_conditional/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_remaining_blockers_round2/Prob055_conditional/Prob055_conditional.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob055_conditional_test.sv:38: $finish called at 560 (1ps)\nHint: Output 'min' has no mismatches.\nHint: Total mismatched samples is 0 out of 112 samples\n\nSimulation finished at 560 ps\nMismatches: 0 in 112 samples\n\n",
+    "mismatches": 0,
+    "samples": 112,
+    "status": "equivalent"
+  },
+  {
+    "case": "Prob105_rotate100",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob105_rotate100/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob105_rotate100/.mygo-tmp/.mygo-circt-643175174/design.mlir:2974:5: error: 'hw.output' op output types must match module. In operand 0, expected 'i100', but got 'i1'.\n    hw.output %read_q, %read_q : i1, i1\n    ^\n/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob105_rotate100/.mygo-tmp/.mygo-circt-643175174/design.mlir:2974:5: note: see current operation: \"hw.output\"(%2262, %2262) : (i1, i1) -> ()\nbackend: circt-opt --pass-pipeline failed: exit status 1\nexit status 1\n"
+  }
+]

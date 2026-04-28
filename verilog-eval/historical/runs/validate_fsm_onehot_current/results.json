@@ -1,0 +1,29 @@
+[
+  {
+    "case": "Prob079_fsm3onehot",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob079_fsm3onehot/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_fsm_onehot_current/Prob079_fsm3onehot/Prob079_fsm3onehot.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob079_fsm3onehot_test.sv:20: $finish called at 1001 (1ps)\nHint: Output 'next_state' has 199 mismatches. First mismatch occurred at time 10.\nHint: Output 'out' has no mismatches.\nHint: Total mismatched samples is 199 out of 200 samples\n\nSimulation finished at 1001 ps\nMismatches: 199 in 200 samples\n\n",
+    "mismatches": 199,
+    "samples": 200,
+    "status": "not_equivalent"
+  },
+  {
+    "case": "Prob143_fsm_onehot",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob143_fsm_onehot/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_fsm_onehot_current/Prob143_fsm_onehot/Prob143_fsm_onehot.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\nHint: next_state[0] is   correct.\nHint: next_state[1] is   correct.\nHint: next_state[2] is   correct.\nHint: next_state[3] is   correct.\nHint: next_state[4] is   correct.\nHint: next_state[5] is   correct.\nHint: next_state[6] is   correct.\nHint: next_state[7] is   correct.\nHint: next_state[8] is   correct.\nHint: next_state[9] is   correct.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob143_fsm_onehot_test.sv:62: $finish called at 1121 (1ps)\nHint: Output 'next_state' has 3 mismatches. First mismatch occurred at time 5.\nHint: Output 'out1' has no mismatches.\nHint: Output 'out2' has no mismatches.\nHint: Total mismatched samples is 3 out of 224 samples\n\nSimulation finished at 1121 ps\nMismatches: 3 in 224 samples\n\n",
+    "mismatches": 3,
+    "samples": 224,
+    "status": "not_equivalent"
+  },
+  {
+    "case": "Prob150_review2015_fsmonehot",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob150_review2015_fsmonehot/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_fsm_onehot_current/Prob150_review2015_fsmonehot/Prob150_review2015_fsmonehot.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob150_review2015_fsmonehot_test.sv:22: $finish called at 1501 (1ps)\nHint: Output 'B3_next' has no mismatches.\nHint: Output 'S_next' has no mismatches.\nHint: Output 'S1_next' has no mismatches.\nHint: Output 'Count_next' has no mismatches.\nHint: Output 'Wait_next' has no mismatches.\nHint: Output 'done' has no mismatches.\nHint: Output 'counting' has no mismatches.\nHint: Output 'shift_ena' has no mismatches.\nHint: Total mismatched samples is 0 out of 300 samples\n\nSimulation finished at 1501 ps\nMismatches: 0 in 300 samples\n\n",
+    "mismatches": 0,
+    "samples": 300,
+    "status": "equivalent"
+  }
+]

@@ -1,0 +1,37 @@
+[
+  {
+    "case": "Prob001_zero",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob001_zero/main.go",
+    "compile_stdout": "DEBUG emitter: useInoutRegs=false for module TopModule\n",
+    "compile_stderr": "backend: build benchmark interface wrapper: no implementation binding found for expected output zero\nexit status 1\n"
+  },
+  {
+    "case": "Prob002_m2014_q4i",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob002_m2014_q4i/main.go",
+    "compile_stdout": "DEBUG emitter: useInoutRegs=false for module TopModule\n",
+    "compile_stderr": "backend: build benchmark interface wrapper: no implementation binding found for expected output out\nexit status 1\n"
+  },
+  {
+    "case": "Prob010_mt2015_q4a",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob010_mt2015_q4a/main.go",
+    "compile_stdout": "DEBUG emitter: useInoutRegs=false for module TopModule\n",
+    "compile_stderr": "backend: build benchmark interface wrapper: no implementation binding found for expected output z\nexit status 1\n"
+  },
+  {
+    "case": "Prob014_andgate",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob014_andgate/main.go",
+    "compile_stdout": "DEBUG emitter: useInoutRegs=false for module TopModule\n",
+    "compile_stderr": "backend: build benchmark interface wrapper: no implementation binding found for expected output out\nexit status 1\n"
+  },
+  {
+    "case": "Prob019_m2014_q4f",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob019_m2014_q4f/main.go",
+    "compile_stdout": "DEBUG emitter: useInoutRegs=false for module TopModule\n",
+    "compile_stderr": "backend: build benchmark interface wrapper: no implementation binding found for expected output out\nexit status 1\n"
+  }
+]

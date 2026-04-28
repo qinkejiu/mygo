@@ -1,0 +1,11 @@
+[
+  {
+    "case": "Prob052_gates100",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob052_gates100/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_combinational_datapaths_after_loopphi_fix/Prob052_gates100/Prob052_gates100.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob052_gates100_test.sv:63: $finish called at 2166 (1ps)\nHint: Output 'out_and' has no mismatches.\nHint: Output 'out_or' has no mismatches.\nHint: Output 'out_xor' has no mismatches.\nHint: Total mismatched samples is 0 out of 433 samples\n\nSimulation finished at 2166 ps\nMismatches: 0 in 433 samples\n\n",
+    "mismatches": 0,
+    "samples": 433,
+    "status": "equivalent"
+  }
+]

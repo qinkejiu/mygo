@@ -1,0 +1,10 @@
+[
+  {
+    "case": "Prob148_2013_q2afsm",
+    "status": "iverilog_compile_failed",
+    "iverilog_stdout": "",
+    "iverilog_stderr": "/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob148_2013_q2afsm_test.sv:145: error: port ``g'' is not a port of top_module1.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob148_2013_q2afsm_test.sv:145: warning: Port 3 (r) of TopModule expects 8 bits, got 3.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob148_2013_q2afsm_test.sv:145:        : Padding 5 high bits of the port.\n1 error(s) during elaboration.\n",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_141_to_156_cases/Prob148_2013_q2afsm/Prob148_2013_q2afsm/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_141_to_156_cases/Prob148_2013_q2afsm/Prob148_2013_q2afsm/Prob148_2013_q2afsm.sv"
+  }
+]

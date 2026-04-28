@@ -1,0 +1,20 @@
+[
+  {
+    "case": "Prob103_circuit2",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob103_circuit2/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_prob103_147_round4/Prob103_circuit2/Prob103_circuit2.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob103_circuit2_test.sv:36: $finish called at 605 (1ps)\nHint: Output 'q' has no mismatches.\nHint: Total mismatched samples is 0 out of 121 samples\n\nSimulation finished at 605 ps\nMismatches: 0 in 121 samples\n\n",
+    "mismatches": 0,
+    "samples": 121,
+    "status": "equivalent"
+  },
+  {
+    "case": "Prob147_circuit10",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob147_circuit10/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_prob103_147_round4/Prob147_circuit10/Prob147_circuit10.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob147_circuit10_test.sv:50: $finish called at 1160 (1ps)\nHint: Output 'q' has 229 mismatches. First mismatch occurred at time 20.\nHint: Output 'state' has 229 mismatches. First mismatch occurred at time 20.\nHint: Total mismatched samples is 229 out of 232 samples\n\nSimulation finished at 1160 ps\nMismatches: 229 in 232 samples\n\n",
+    "mismatches": 229,
+    "samples": 232,
+    "status": "not_equivalent"
+  }
+]

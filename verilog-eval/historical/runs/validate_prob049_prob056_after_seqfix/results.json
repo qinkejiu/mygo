@@ -1,0 +1,16 @@
+[
+  {
+    "case": "Prob049_m2014_q4b",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob049_m2014_q4b/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "# mygo/internal/ir\ninternal/ir/builder_sensitivity.go:63:3: declared and not used: clockedBlocks\n"
+  },
+  {
+    "case": "Prob056_ece241_2013_q7",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob056_ece241_2013_q7/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "# mygo/internal/ir\ninternal/ir/builder_sensitivity.go:63:3: declared and not used: clockedBlocks\n"
+  }
+]

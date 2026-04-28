@@ -58,7 +58,7 @@ func runCompile(args []string) error {
 
 	emit := fs.String("emit", "mlir", "output format (ssa|ir|mlir|verilog)")
 	output := fs.String("o", "", "output file path (stdout when omitted, except verilog)")
-	target := fs.String("target", "main", "target function or module")
+	target := fs.String("target", "", "target function or module (default: auto-detect TopModule, else main)")
 	diagFormat := fs.String("diag-format", "text", "diagnostic output format (text|json)")
 	circtOpt := fs.String("circt-opt", "", "path to circt-opt (optional, falls back to PATH lookup)")
 	circtPipeline := fs.String("circt-pipeline", "", "circt-opt --pass-pipeline string (optional)")
@@ -68,8 +68,6 @@ func runCompile(args []string) error {
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	_ = target
-
 	if fs.NArg() == 0 {
 		fs.Usage()
 		return fmt.Errorf("compile command requires at least one Go source file")
@@ -90,7 +88,7 @@ func runCompile(args []string) error {
 		return err
 	}
 
-	design, err := ir.BuildDesign(result.program, result.reporter)
+	design, err := ir.BuildDesign(result.program, result.reporter, *target)
 	if err != nil {
 		return err
 	}
@@ -116,12 +114,13 @@ func runCompile(args []string) error {
 			return fmt.Errorf("verilog emission requires -o")
 		}
 		opts := backend.Options{
-			CIRCTOptPath:    *circtOpt,
-			PassPipeline:    *circtPipeline,
-			LoweringOptions: *circtLowering,
-			DumpMLIRPath:    *circtMLIR,
-			TempRoot:        tempRoot,
-			FIFOSource:      *fifoSrc,
+			CIRCTOptPath:     *circtOpt,
+			PassPipeline:     *circtPipeline,
+			LoweringOptions:  *circtLowering,
+			DumpMLIRPath:     *circtMLIR,
+			TempRoot:         tempRoot,
+			BenchmarkRefPath: benchmarkRefPathForInputs(inputs),
+			FIFOSource:       *fifoSrc,
 		}
 		res, err := emitVerilog(design, *output, opts)
 		if err != nil {
@@ -237,6 +236,7 @@ func runSim(args []string) error {
 	fs := flag.NewFlagSet("sim", flag.ContinueOnError)
 	fs.SetOutput(os.Stderr)
 
+	target := fs.String("target", "", "target function or module (default: auto-detect TopModule, else main)")
 	diagFormat := fs.String("diag-format", "text", "diagnostic output format (text|json)")
 	circtOpt := fs.String("circt-opt", "", "path to circt-opt (optional)")
 	circtPipeline := fs.String("circt-pipeline", "", "circt-opt --pass-pipeline string (optional)")
@@ -279,7 +279,7 @@ func runSim(args []string) error {
 		return err
 	}
 
-	design, err := ir.BuildDesign(result.program, result.reporter)
+	design, err := ir.BuildDesign(result.program, result.reporter, *target)
 	if err != nil {
 		return err
 	}
@@ -314,13 +314,14 @@ func runSim(args []string) error {
 	}
 
 	opts := backend.Options{
-		CIRCTOptPath:    *circtOpt,
-		PassPipeline:    *circtPipeline,
-		LoweringOptions: *circtLowering,
-		DumpMLIRPath:    *circtMLIR,
-		KeepTemps:       *keepArtifacts,
-		TempRoot:        tempRoot,
-		FIFOSource:      *fifoSrc,
+		CIRCTOptPath:     *circtOpt,
+		PassPipeline:     *circtPipeline,
+		LoweringOptions:  *circtLowering,
+		DumpMLIRPath:     *circtMLIR,
+		KeepTemps:        *keepArtifacts,
+		TempRoot:         tempRoot,
+		BenchmarkRefPath: benchmarkRefPathForInputs(inputs),
+		FIFOSource:       *fifoSrc,
 	}
 	if hasChannels && *fifoSrc != "" {
 		fmt.Fprintln(os.Stderr, "warning: --fifo-src is deprecated and ignored; FIFOs are generated inline")
@@ -462,6 +463,39 @@ func defaultSimExpectPath(input string) string {
 	}
 	dir := filepath.Dir(cleaned)
 	return filepath.Join(dir, "expected.sim")
+}
+
+func benchmarkRefPathForInputs(inputs []string) string {
+	if len(inputs) != 1 {
+		return ""
+	}
+	absInput, err := filepath.Abs(inputs[0])
+	if err != nil {
+		return ""
+	}
+	caseDir := filepath.Dir(absInput)
+	caseName := filepath.Base(caseDir)
+	if caseName == "" || caseName == "." || caseName == string(filepath.Separator) {
+		return ""
+	}
+	refRelPaths := []string{
+		filepath.Join("verilog-eval", "dataset_spec-to-rtl", "refs", caseName+"_ref.sv"),
+		filepath.Join("verilog-eval", "historical", "dataset_spec-to-rtl", "refs", caseName+"_ref.sv"),
+		filepath.Join("verilog-eval", "reference_verilog", caseName+"_ref.sv"),
+	}
+	for dir := caseDir; dir != "" && dir != string(filepath.Separator); dir = filepath.Dir(dir) {
+		for _, relPath := range refRelPaths {
+			candidate := filepath.Join(dir, relPath)
+			if info, statErr := os.Stat(candidate); statErr == nil && !info.IsDir() {
+				return candidate
+			}
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			break
+		}
+	}
+	return ""
 }
 
 func artifactTempRoot(inputs []string) string {

@@ -1,0 +1,23 @@
+[
+  {
+    "case": "Prob018_mux256to1",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob018_mux256to1/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob018_mux256to1/.mygo-tmp/.mygo-circt-1893388565/design.mlir:6:26: error: use of value '%v1' expects different type than prior uses: 'i256' vs 'i32'\n    %v3 = comb.shru %in, %v1 : i256\n                         ^\n/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob018_mux256to1/.mygo-tmp/.mygo-circt-1893388565/design.mlir:5:5: note: prior use here\n    %v1 = comb.concat %zext_pad2, %sel : i24, i8\n    ^\nbackend: circt-opt --pass-pipeline failed: exit status 1\nexit status 1\n"
+  },
+  {
+    "case": "Prob021_mux256to1v",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob021_mux256to1v/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob021_mux256to1v/.mygo-tmp/.mygo-circt-4163599698/design.mlir:21:27: error: use of value '%v16' expects different type than prior uses: 'i1024' vs 'i32'\n    %v18 = comb.shru %in, %v16 : i1024\n                          ^\n/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob021_mux256to1v/.mygo-tmp/.mygo-circt-4163599698/design.mlir:20:5: note: prior use here\n    %v16 = comb.concat %zext_pad17, %v15 : i16, i16\n    ^\nbackend: circt-opt --pass-pipeline failed: exit status 1\nexit status 1\n"
+  },
+  {
+    "case": "Prob023_vector100r",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob023_vector100r/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob023_vector100r/.mygo-tmp/.mygo-circt-4171196451/design.mlir:110:28: error: use of value '%v107' expects different type than prior uses: 'i100' vs 'i32'\n    %v108 = comb.shru %in, %v107 : i100\n                           ^\n/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob023_vector100r/.mygo-tmp/.mygo-circt-4171196451/design.mlir:109:5: note: prior use here\n    %v107 = comb.sub %c94, %c74 : i32\n    ^\nbackend: circt-opt --pass-pipeline failed: exit status 1\nexit status 1\n"
+  }
+]

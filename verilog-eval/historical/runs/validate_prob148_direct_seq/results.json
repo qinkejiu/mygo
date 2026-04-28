@@ -1,0 +1,11 @@
+[
+  {
+    "case": "Prob148_2013_q2afsm",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob148_2013_q2afsm/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_prob148_direct_seq/Prob148_2013_q2afsm/Prob148_2013_q2afsm.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob148_2013_q2afsm_test.sv:93: $finish called at 5271 (1ps)\nHint: Output 'g' has no mismatches.\nHint: Total mismatched samples is 0 out of 1054 samples\n\nSimulation finished at 5271 ps\nMismatches: 0 in 1054 samples\n\n",
+    "mismatches": 0,
+    "samples": 1054,
+    "status": "equivalent"
+  }
+]

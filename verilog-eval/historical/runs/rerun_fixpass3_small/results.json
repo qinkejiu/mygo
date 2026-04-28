@@ -1,0 +1,27 @@
+[
+  {
+    "case": "Prob145_circuit8",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/current_go_156/Prob145_circuit8/main.go",
+    "compile_stdout": "DEBUG emitter: useInoutRegs=true for module TopModule\n",
+    "compile_stderr": "/home/qinkejiu/mygo/verilog-eval/current_go_156/Prob145_circuit8/.mygo-tmp/.mygo-circt-595793238/design.mlir:13:25: error: use of undeclared SSA value name\n    %v0 = sv.read_inout %out_p : !hw.inout<i1>\n                        ^\nbackend: circt-opt --pass-pipeline failed: exit status 1\nexit status 1\n"
+  },
+  {
+    "case": "Prob146_fsm_serialdata",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/current_go_156/Prob146_fsm_serialdata/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/historical/runs/rerun_fixpass3_small/Prob146_fsm_serialdata/Prob146_fsm_serialdata.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/historical/dataset_spec-to-rtl/tests/Prob146_fsm_serialdata_test.sv:45: $finish called at 4526 (1ps)\nHint: Output 'out_byte' has 32 mismatches. First mismatch occurred at time 850.\nHint: Output 'done' has no mismatches.\nHint: Total mismatched samples is 32 out of 905 samples\n\nSimulation finished at 4526 ps\nMismatches: 32 in 905 samples\n\n",
+    "mismatches": 32,
+    "samples": 905,
+    "status": "not_equivalent"
+  },
+  {
+    "case": "Prob156_review2015_fancytimer",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/current_go_156/Prob156_review2015_fancytimer/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/historical/runs/rerun_fixpass3_small/Prob156_review2015_fancytimer/Prob156_review2015_fancytimer.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\nHint: The second test case should count for 15000 cycles. Your circuit counted 1000\nHint: Your FSM didn't pass the sample timing diagram posted with the problem statement. Perhaps try debugging that?\nTIMEOUT\n/home/qinkejiu/mygo/verilog-eval/historical/dataset_spec-to-rtl/tests/Prob156_review2015_fancytimer_test.sv:216: $finish called at 1000000 (1ps)\nHint: Output 'count' has 114827 mismatches. First mismatch occurred at time 20250.\nHint: Output 'counting' has 53058 mismatches. First mismatch occurred at time 30250.\nHint: Output 'done' has 52272 mismatches. First mismatch occurred at time 30250.\nHint: Total mismatched samples is 115467 out of 200000 samples\n\nSimulation finished at 1000000 ps\nMismatches: 115467 in 200000 samples\n\n",
+    "mismatches": 115467,
+    "samples": 200000,
+    "status": "not_equivalent"
+  }
+]

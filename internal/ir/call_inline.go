@@ -625,23 +625,30 @@ func (b *builder) signalForGlobal(g *ssa.Global) *Signal {
 		return nil
 	}
 	if b != nil && b.currentBlock != nil {
-		if values := b.blockGlobalValues[b.currentBlock]; values != nil {
-			if sig, ok := values[g]; ok && sig != nil {
-				return sig
-			}
+		if sig := b.currentGlobalValue(b.currentBlock, g, make(map[*BasicBlock]bool)); sig != nil {
+			return sig
 		}
+	}
+
+	if sig, ok := b.globalStorage[g]; ok && sig != nil {
+		return sig
+	}
+
+	ptrType, ok := g.Type().(*types.Pointer)
+	if !ok {
+		return nil
+	}
+	if _, isArray := ptrType.Elem().(*types.Array); !isArray {
+		sig := b.signalForGlobalStorage(g)
+		if sig != nil {
+			b.globalValues[g] = sig
+		}
+		return sig
 	}
 
 	// Check if we already have a signal for this global
 	if sig, ok := b.globalValues[g]; ok && sig != nil {
 		return sig
-	}
-
-	// For global arrays, we need to create individual signals for each element
-	// that can be accessed via IndexAddr operations
-	ptrType, ok := g.Type().(*types.Pointer)
-	if !ok {
-		return nil
 	}
 
 	// Check if it's an array type
@@ -708,6 +715,95 @@ func (b *builder) signalForGlobal(g *ssa.Global) *Signal {
 	}
 	b.globalValues[g] = sig
 	return sig
+}
+
+func (b *builder) currentGlobalValue(block *BasicBlock, g *ssa.Global, seen map[*BasicBlock]bool) *Signal {
+	if b == nil || block == nil || g == nil {
+		return nil
+	}
+	if values := b.blockGlobalValues[block]; values != nil {
+		if sig := values[g]; sig != nil {
+			return sig
+		}
+	}
+	if seen[block] {
+		return b.signalForGlobalStorage(g)
+	}
+	seen[block] = true
+	defer delete(seen, block)
+	preds := b.currentBlockPredecessors(block)
+	switch len(preds) {
+	case 0:
+		return b.signalForGlobalStorage(g)
+	case 1:
+		if sig := b.currentGlobalValue(preds[0], g, seen); sig != nil {
+			return sig
+		}
+		return b.signalForGlobalStorage(g)
+	case 2:
+		if merged := b.mergeGlobalPredecessorValues(block, g, seen); merged != nil {
+			b.setBlockGlobalValue(block, g, merged)
+			return merged
+		}
+	}
+	return b.signalForGlobalStorage(g)
+}
+
+func (b *builder) mergeGlobalPredecessorValues(block *BasicBlock, g *ssa.Global, seen map[*BasicBlock]bool) *Signal {
+	preds := b.currentBlockPredecessors(block)
+	if b == nil || block == nil || g == nil || len(preds) != 2 {
+		return nil
+	}
+	predA := preds[0]
+	predB := preds[1]
+	if predA == nil || predB == nil {
+		return nil
+	}
+	valA := b.currentGlobalValue(predA, g, seen)
+	valB := b.currentGlobalValue(predB, g, seen)
+	if valA == nil {
+		valA = b.signalForGlobalStorage(g)
+	}
+	if valB == nil {
+		valB = b.signalForGlobalStorage(g)
+	}
+	if sameSignal(valA, valB) {
+		return valA
+	}
+	if merged := b.mergeGlobalDiamondValue(block, predA, predB, valA, valB, g); merged != nil {
+		return merged
+	}
+	if merged := b.mergeGlobalDiamondValue(block, predB, predA, valB, valA, g); merged != nil {
+		return merged
+	}
+	return nil
+}
+
+func (b *builder) mergeGlobalDiamondValue(join, branchBlock, otherPred *BasicBlock, branchVal, otherVal *Signal, g *ssa.Global) *Signal {
+	if b == nil || join == nil || branchBlock == nil || otherPred == nil || branchVal == nil || otherVal == nil || g == nil {
+		return nil
+	}
+	preds := b.currentBlockPredecessors(branchBlock)
+	if len(preds) != 1 {
+		return nil
+	}
+	header := preds[0]
+	term, ok := header.Terminator.(*BranchTerminator)
+	if !ok || term == nil || term.Cond == nil {
+		return nil
+	}
+	storage := b.signalForGlobalStorage(g)
+	if storage == nil {
+		return nil
+	}
+	switch {
+	case term.True == branchBlock && term.False == join && otherPred == header:
+		return b.synthesizeMux(join, "globalphi", term.Cond, branchVal, otherVal, storage.Type, g.Pos())
+	case term.False == branchBlock && term.True == join && otherPred == header:
+		return b.synthesizeMux(join, "globalphi", term.Cond, otherVal, branchVal, storage.Type, g.Pos())
+	default:
+		return nil
+	}
 }
 
 func (b *builder) setBlockGlobalValue(block *BasicBlock, g *ssa.Global, value *Signal) {
@@ -1527,6 +1623,7 @@ func (b *builder) buildProcessInternal(fn *ssa.Function) *Process {
 	b.repairPhiPredecessors(proc)
 	b.orderBlocks(proc, entryBB)
 	b.buildLoopFSMs(fn)
+	b.inferProcessSensitivity(proc)
 
 	// Collect return signal
 	if fn.Signature != nil && fn.Signature.Results() != nil && fn.Signature.Results().Len() > 0 {

@@ -1,0 +1,29 @@
+[
+  {
+    "case": "Prob030_popcount255",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob030_popcount255/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_combinational_datapaths_final/Prob030_popcount255/Prob030_popcount255.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob030_popcount255_test.sv:49: $finish called at 1076 (1ps)\nHint: Output 'out' has no mismatches.\nHint: Total mismatched samples is 0 out of 215 samples\n\nSimulation finished at 1076 ps\nMismatches: 0 in 215 samples\n\n",
+    "mismatches": 0,
+    "samples": 215,
+    "status": "equivalent"
+  },
+  {
+    "case": "Prob052_gates100",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob052_gates100/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_combinational_datapaths_final/Prob052_gates100/Prob052_gates100.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob052_gates100_test.sv:63: $finish called at 2166 (1ps)\nHint: Output 'out_and' has no mismatches.\nHint: Output 'out_or' has no mismatches.\nHint: Output 'out_xor' has no mismatches.\nHint: Total mismatched samples is 0 out of 433 samples\n\nSimulation finished at 2166 ps\nMismatches: 0 in 433 samples\n\n",
+    "mismatches": 0,
+    "samples": 433,
+    "status": "equivalent"
+  },
+  {
+    "case": "Prob145_circuit8",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob145_circuit8/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_combinational_datapaths_final/Prob145_circuit8/Prob145_circuit8.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob145_circuit8_test.sv:45: $finish called at 1200 (1ps)\nHint: Output 'p' has no mismatches.\nHint: Output 'q' has no mismatches.\nHint: Total mismatched samples is 0 out of 240 samples\n\nSimulation finished at 1200 ps\nMismatches: 0 in 240 samples\n\n",
+    "mismatches": 0,
+    "samples": 240,
+    "status": "equivalent"
+  }
+]

@@ -1,0 +1,56 @@
+[
+  {
+    "case": "Prob107_fsm1s",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob107_fsm1s/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_fsm_smoke_current19/Prob107_fsm1s/Prob107_fsm1s.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob107_fsm1s_test.sv:70: $finish called at 1151 (1ps)\nHint: Output 'out' has 118 mismatches. First mismatch occurred at time 40.\nHint: Total mismatched samples is 118 out of 230 samples\n\nSimulation finished at 1151 ps\nMismatches: 118 in 230 samples\n\n",
+    "mismatches": 118,
+    "samples": 230,
+    "status": "not_equivalent"
+  },
+  {
+    "case": "Prob109_fsm1",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob109_fsm1/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_fsm_smoke_current19/Prob109_fsm1/Prob109_fsm1.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob109_fsm1_test.sv:71: $finish called at 1141 (1ps)\nHint: Output 'out' has no mismatches.\nHint: Total mismatched samples is 0 out of 228 samples\n\nSimulation finished at 1141 ps\nMismatches: 0 in 228 samples\n\n",
+    "mismatches": 0,
+    "samples": 228,
+    "status": "equivalent"
+  },
+  {
+    "case": "Prob110_fsm2",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob110_fsm2/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_fsm_smoke_current19/Prob110_fsm2/Prob110_fsm2.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob110_fsm2_test.sv:74: $finish called at 1206 (1ps)\nHint: Output 'out' has no mismatches.\nHint: Total mismatched samples is 0 out of 241 samples\n\nSimulation finished at 1206 ps\nMismatches: 0 in 241 samples\n\n",
+    "mismatches": 0,
+    "samples": 241,
+    "status": "equivalent"
+  },
+  {
+    "case": "Prob111_fsm2s",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob111_fsm2s/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_fsm_smoke_current19/Prob111_fsm2s/Prob111_fsm2s.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob111_fsm2s_test.sv:72: $finish called at 1206 (1ps)\nHint: Output 'out' has no mismatches.\nHint: Total mismatched samples is 0 out of 241 samples\n\nSimulation finished at 1206 ps\nMismatches: 0 in 241 samples\n\n",
+    "mismatches": 0,
+    "samples": 241,
+    "status": "equivalent"
+  },
+  {
+    "case": "Prob119_fsm3",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob119_fsm3/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_fsm_smoke_current19/Prob119_fsm3/Prob119_fsm3.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob119_fsm3_test.sv:79: $finish called at 1151 (1ps)\nHint: Output 'out' has no mismatches.\nHint: Total mismatched samples is 0 out of 230 samples\n\nSimulation finished at 1151 ps\nMismatches: 0 in 230 samples\n\n",
+    "mismatches": 0,
+    "samples": 230,
+    "status": "equivalent"
+  },
+  {
+    "case": "Prob120_fsm3s",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob120_fsm3s/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_fsm_smoke_current19/Prob120_fsm3s/Prob120_fsm3s.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob120_fsm3s_test.sv:77: $finish called at 1151 (1ps)\nHint: Output 'out' has no mismatches.\nHint: Total mismatched samples is 0 out of 230 samples\n\nSimulation finished at 1151 ps\nMismatches: 0 in 230 samples\n\n",
+    "mismatches": 0,
+    "samples": 230,
+    "status": "equivalent"
+  }
+]

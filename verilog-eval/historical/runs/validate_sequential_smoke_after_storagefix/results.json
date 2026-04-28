@@ -1,0 +1,54 @@
+[
+  {
+    "case": "Prob028_m2014_q4a",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob028_m2014_q4a/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_sequential_smoke_after_storagefix/Prob028_m2014_q4a/Prob028_m2014_q4a.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob028_m2014_q4a_test.sv:16: $finish called at 501 (1ps)\nHint: Output 'q' has no mismatches.\nHint: Total mismatched samples is 0 out of 100 samples\n\nSimulation finished at 501 ps\nMismatches: 0 in 100 samples\n\n",
+    "mismatches": 0,
+    "samples": 100,
+    "status": "equivalent"
+  },
+  {
+    "case": "Prob034_dff8",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob034_dff8/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_sequential_smoke_after_storagefix/Prob034_dff8/Prob034_dff8.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob034_dff8_test.sv:36: $finish called at 206 (1ps)\nHint: Output 'q' has no mismatches.\nHint: Total mismatched samples is 0 out of 41 samples\n\nSimulation finished at 206 ps\nMismatches: 0 in 41 samples\n\n",
+    "mismatches": 0,
+    "samples": 41,
+    "status": "equivalent"
+  },
+  {
+    "case": "Prob066_edgecapture",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob066_edgecapture/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_sequential_smoke_after_storagefix/Prob066_edgecapture/Prob066_edgecapture.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob066_edgecapture_test.sv:86: $finish called at 1330 (1ps)\nHint: Output 'out' has 8 mismatches. First mismatch occurred at time 90.\nHint: Total mismatched samples is 8 out of 266 samples\n\nSimulation finished at 1330 ps\nMismatches: 8 in 266 samples\n\n",
+    "mismatches": 8,
+    "samples": 266,
+    "status": "not_equivalent"
+  },
+  {
+    "case": "Prob068_countbcd",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob068_countbcd/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob068_countbcd/.mygo-tmp/.mygo-circt-480827481/design.mlir:197:40: error: use of value '%c_bool_0' expects different type than prior uses: 'i8' vs 'i1'\n                  sv.passign %out_ena, %c_bool_0 : i8\n                                       ^\n/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob068_countbcd/.mygo-tmp/.mygo-circt-480827481/design.mlir:81:5: note: prior use here\n    %c_bool_0 = hw.constant 1 : i1\n    ^\nbackend: circt-opt --pass-pipeline failed: exit status 1\nexit status 1\n"
+  },
+  {
+    "case": "Prob074_ece241_2014_q4",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob074_ece241_2014_q4/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_sequential_smoke_after_storagefix/Prob074_ece241_2014_q4/Prob074_ece241_2014_q4.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob074_ece241_2014_q4_test.sv:42: $finish called at 590 (1ps)\nHint: Output 'z' has no mismatches.\nHint: Total mismatched samples is 0 out of 118 samples\n\nSimulation finished at 590 ps\nMismatches: 0 in 118 samples\n\n",
+    "mismatches": 0,
+    "samples": 118,
+    "status": "equivalent"
+  },
+  {
+    "case": "Prob075_counter_2bc",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob075_counter_2bc/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_sequential_smoke_after_storagefix/Prob075_counter_2bc/Prob075_counter_2bc.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob075_counter_2bc_test.sv:96: $finish called at 5256 (1ps)\nHint: Output 'state' has 761 mismatches. First mismatch occurred at time 40.\nHint: Total mismatched samples is 761 out of 1051 samples\n\nSimulation finished at 5256 ps\nMismatches: 761 in 1051 samples\n\n",
+    "mismatches": 761,
+    "samples": 1051,
+    "status": "not_equivalent"
+  }
+]

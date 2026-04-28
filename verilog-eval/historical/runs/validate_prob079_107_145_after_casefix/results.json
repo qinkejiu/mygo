@@ -1,0 +1,29 @@
+[
+  {
+    "case": "Prob079_fsm3onehot",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob079_fsm3onehot/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_prob079_107_145_after_casefix/Prob079_fsm3onehot/Prob079_fsm3onehot.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob079_fsm3onehot_test.sv:20: $finish called at 1001 (1ps)\nHint: Output 'next_state' has 141 mismatches. First mismatch occurred at time 10.\nHint: Output 'out' has no mismatches.\nHint: Total mismatched samples is 141 out of 200 samples\n\nSimulation finished at 1001 ps\nMismatches: 141 in 200 samples\n\n",
+    "mismatches": 141,
+    "samples": 200,
+    "status": "not_equivalent"
+  },
+  {
+    "case": "Prob107_fsm1s",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob107_fsm1s/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_prob079_107_145_after_casefix/Prob107_fsm1s/Prob107_fsm1s.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob107_fsm1s_test.sv:70: $finish called at 1151 (1ps)\nHint: Output 'out' has no mismatches.\nHint: Total mismatched samples is 0 out of 230 samples\n\nSimulation finished at 1151 ps\nMismatches: 0 in 230 samples\n\n",
+    "mismatches": 0,
+    "samples": 230,
+    "status": "equivalent"
+  },
+  {
+    "case": "Prob145_circuit8",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob145_circuit8/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_prob079_107_145_after_casefix/Prob145_circuit8/Prob145_circuit8.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob145_circuit8_test.sv:45: $finish called at 1200 (1ps)\nHint: Output 'p' has 112 mismatches. First mismatch occurred at time 90.\nHint: Output 'q' has no mismatches.\nHint: Total mismatched samples is 112 out of 240 samples\n\nSimulation finished at 1200 ps\nMismatches: 112 in 240 samples\n\n",
+    "mismatches": 112,
+    "samples": 240,
+    "status": "not_equivalent"
+  }
+]

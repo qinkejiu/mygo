@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 
 	"mygo/internal/ir"
@@ -40,6 +41,9 @@ type Options struct {
 	// TempRoot, when non-empty, scopes backend temp dirs under the provided
 	// path instead of the system temp location.
 	TempRoot string
+	// BenchmarkRefPath, when non-empty, points at a benchmark reference module
+	// whose top-level interface should be mirrored by the emitted TopModule.
+	BenchmarkRefPath string
 	// FIFOSource is deprecated. FIFO implementations are now generated inline.
 	FIFOSource string
 }
@@ -87,6 +91,16 @@ func EmitVerilog(design *ir.Design, outputPath string, opts Options) (Result, er
 		return Result{}, fmt.Errorf("backend: emit mlir: %w", err)
 	}
 
+	// Dump initial MLIR before processing if requested
+	if opts.DumpMLIRPath != "" {
+		if err := os.MkdirAll(filepath.Dir(opts.DumpMLIRPath), 0o755); err != nil {
+			return Result{}, fmt.Errorf("backend: create circt-mlir dir: %w", err)
+		}
+		if err := copyFile(mlirPath, opts.DumpMLIRPath); err != nil {
+			return Result{}, fmt.Errorf("backend: dump initial mlir: %w", err)
+		}
+	}
+
 	passPipeline := strings.TrimSpace(opts.PassPipeline)
 	if passPipeline == "" {
 		// Default lowering is required because the emitter produces seq ops
@@ -109,15 +123,6 @@ func EmitVerilog(design *ir.Design, outputPath string, opts Options) (Result, er
 	}
 	currentInput = exportOutput
 
-	if opts.DumpMLIRPath != "" {
-		if err := os.MkdirAll(filepath.Dir(opts.DumpMLIRPath), 0o755); err != nil {
-			return Result{}, fmt.Errorf("backend: create circt-mlir dir: %w", err)
-		}
-		if err := copyFile(currentInput, opts.DumpMLIRPath); err != nil {
-			return Result{}, fmt.Errorf("backend: dump mlir: %w", err)
-		}
-	}
-
 	if err := inlineGeneratedFifos(outputPath, loweredChannels.FIFODecls); err != nil {
 		return Result{}, err
 	}
@@ -127,10 +132,20 @@ func EmitVerilog(design *ir.Design, outputPath string, opts Options) (Result, er
 	if err := applyLoopFSMVerilog(design, outputPath); err != nil {
 		return Result{}, err
 	}
+	if err := stripUnsupportedAutomaticLifetime(outputPath); err != nil {
+		return Result{}, err
+	}
+	if err := applyBenchmarkInterfaceWrapper(outputPath, opts.BenchmarkRefPath); err != nil {
+		return Result{}, err
+	}
 	if err := stripLongVerilogComments(outputPath, 1024); err != nil {
 		return Result{}, err
 	}
 	return Result{MainPath: outputPath}, nil
+}
+
+func emitMixedClockTopModuleVerilog(module *ir.Module, outputPath string) error {
+	return fmt.Errorf("backend: mixed clock verilog emission is unavailable in the current workspace state")
 }
 
 func runCirctExportVerilog(binary, pipeline, loweringOptions, inputPath, mlirOutputPath, verilogOutputPath string) error {
@@ -205,6 +220,119 @@ func stripLongVerilogComments(path string, maxCommentLen int) error {
 	}
 	if err := os.WriteFile(path, []byte(strings.Join(lines, "")), 0o644); err != nil {
 		return fmt.Errorf("backend: write verilog after comment stripping: %w", err)
+	}
+	return nil
+}
+
+func stripUnsupportedAutomaticLifetime(path string) error {
+	if strings.TrimSpace(path) == "" {
+		return nil
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("backend: read verilog for automatic-lifetime stripping: %w", err)
+	}
+	lines := strings.Split(string(data), "\n")
+	var out []string
+	var moduleHeader []string
+	var moduleBody []string
+	var moduleDecls []string
+	moduleDeclSeen := make(map[string]struct{})
+	inModule := false
+	headerDone := false
+	changed := false
+	singleDeclRE := regexp.MustCompile(`^(\s*)automatic\s+(logic|reg)(\s+\[[^]]+\])?\s+([A-Za-z_][A-Za-z0-9_$]*)\s*=\s*(.*);\s*(//.*)?$`)
+	multiDeclRE := regexp.MustCompile(`^(\s*)automatic\s+(logic|reg)(\s+\[[^]]+\])?\s+([A-Za-z_][A-Za-z0-9_$]*)\s*=\s*(//.*)?$`)
+	plainDeclRE := regexp.MustCompile(`^(\s*)automatic\s+(logic|reg)(\s+\[[^]]+\])?\s+([A-Za-z_][A-Za-z0-9_$]*)\s*;\s*(//.*)?$`)
+	flushModule := func(endLine string) {
+		out = append(out, moduleHeader...)
+		out = append(out, moduleDecls...)
+		out = append(out, moduleBody...)
+		out = append(out, endLine)
+		moduleHeader = nil
+		moduleBody = nil
+		moduleDecls = nil
+		moduleDeclSeen = make(map[string]struct{})
+		inModule = false
+		headerDone = false
+	}
+	addModuleDecl := func(indent, kind, width, name, comment string) {
+		key := kind + "|" + width + "|" + name
+		if _, ok := moduleDeclSeen[key]; ok {
+			return
+		}
+		decl := fmt.Sprintf("%s%s%s %s;", indent, kind, width, name)
+		if strings.TrimSpace(comment) != "" {
+			decl += " " + strings.TrimSpace(comment)
+		}
+		moduleDecls = append(moduleDecls, decl)
+		moduleDeclSeen[key] = struct{}{}
+	}
+	for i := 0; i < len(lines); i++ {
+		line := lines[i]
+		if !inModule {
+			if strings.HasPrefix(strings.TrimSpace(line), "module ") {
+				inModule = true
+				moduleHeader = append(moduleHeader, line)
+				if strings.Contains(line, ");") {
+					headerDone = true
+				}
+				continue
+			}
+			out = append(out, line)
+			continue
+		}
+		if !headerDone {
+			moduleHeader = append(moduleHeader, line)
+			if strings.Contains(line, ");") {
+				headerDone = true
+			}
+			continue
+		}
+		if strings.HasPrefix(strings.TrimSpace(line), "endmodule") {
+			flushModule(line)
+			continue
+		}
+		if m := singleDeclRE.FindStringSubmatch(line); m != nil {
+			indent, kind, width, name, expr, comment := m[1], m[2], m[3], m[4], m[5], m[6]
+			addModuleDecl(indent, kind, width, name, comment)
+			moduleBody = append(moduleBody, fmt.Sprintf("%s%s = %s;", indent, name, expr))
+			changed = true
+			continue
+		}
+		if m := multiDeclRE.FindStringSubmatch(line); m != nil {
+			indent, kind, width, name, comment := m[1], m[2], m[3], m[4], m[5]
+			addModuleDecl(indent, kind, width, name, comment)
+			moduleBody = append(moduleBody, fmt.Sprintf("%s%s =", indent, name))
+			changed = true
+			for i+1 < len(lines) {
+				i++
+				moduleBody = append(moduleBody, lines[i])
+				if strings.Contains(lines[i], ";") {
+					break
+				}
+			}
+			continue
+		}
+		if m := plainDeclRE.FindStringSubmatch(line); m != nil {
+			indent, kind, width, name, comment := m[1], m[2], m[3], m[4], m[5]
+			addModuleDecl(indent, kind, width, name, comment)
+			changed = true
+			continue
+		}
+		moduleBody = append(moduleBody, line)
+	}
+	if inModule {
+		out = append(out, moduleHeader...)
+		out = append(out, moduleDecls...)
+		out = append(out, moduleBody...)
+	}
+	if !changed {
+		return nil
+	}
+	updated := strings.Join(out, "\n")
+	if err := os.WriteFile(path, []byte(updated), 0o644); err != nil {
+		return fmt.Errorf("backend: write verilog after automatic-lifetime stripping: %w", err)
 	}
 	return nil
 }
@@ -320,6 +448,449 @@ func removeModuleBlock(content, moduleName string) (string, bool) {
 		end++
 	}
 	return content[:start] + content[end:], true
+}
+
+type verilogPort struct {
+	Name      string
+	Direction string
+	Width     int
+}
+
+func applyBenchmarkInterfaceWrapper(verilogPath, benchmarkRefPath string) error {
+	benchmarkRefPath = strings.TrimSpace(benchmarkRefPath)
+	if benchmarkRefPath == "" {
+		return nil
+	}
+	expectedPorts, err := parseVerilogModulePortsFromFile(benchmarkRefPath, "RefModule")
+	if err != nil {
+		return fmt.Errorf("backend: parse benchmark reference interface: %w", err)
+	}
+	if len(expectedPorts) == 0 {
+		return nil
+	}
+	data, err := os.ReadFile(verilogPath)
+	if err != nil {
+		return fmt.Errorf("backend: read verilog for interface wrapping: %w", err)
+	}
+	content := string(data)
+	actualPorts, err := parseVerilogModulePorts(content, "TopModule")
+	if err != nil {
+		return fmt.Errorf("backend: parse emitted top interface: %w", err)
+	}
+	if sameVerilogPortSignature(actualPorts, expectedPorts) {
+		return nil
+	}
+	updated, renamed := renameModuleDeclaration(content, "TopModule", "TopModule__impl")
+	if !renamed {
+		return fmt.Errorf("backend: top module declaration not found for interface wrapping")
+	}
+	wrapper, err := buildBenchmarkWrapper("TopModule", "TopModule__impl", expectedPorts, actualPorts)
+	if err != nil {
+		return fmt.Errorf("backend: build benchmark interface wrapper: %w", err)
+	}
+	if !strings.HasSuffix(updated, "\n") {
+		updated += "\n"
+	}
+	updated += "\n" + wrapper + "\n"
+	if err := os.WriteFile(verilogPath, []byte(updated), 0o644); err != nil {
+		return fmt.Errorf("backend: write wrapped verilog: %w", err)
+	}
+	return nil
+}
+
+func parseVerilogModulePortsFromFile(path, moduleName string) ([]verilogPort, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	return parseVerilogModulePorts(string(data), moduleName)
+}
+
+func parseVerilogModulePorts(content, moduleName string) ([]verilogPort, error) {
+	re := regexp.MustCompile(`(?s)module\s+` + regexp.QuoteMeta(moduleName) + `\s*\((.*?)\)\s*;`)
+	matches := re.FindStringSubmatch(content)
+	if len(matches) < 2 {
+		return nil, fmt.Errorf("module %s interface not found", moduleName)
+	}
+	header := stripLineComments(matches[1])
+	segments := strings.Split(header, ",")
+	ports := make([]verilogPort, 0, len(segments))
+	currentDir := ""
+	currentWidth := 1
+	for _, raw := range segments {
+		segment := strings.TrimSpace(raw)
+		if segment == "" {
+			continue
+		}
+		port, nextDir, nextWidth, ok, err := parseVerilogPortSegment(segment, currentDir, currentWidth)
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
+			continue
+		}
+		currentDir = nextDir
+		currentWidth = nextWidth
+		ports = append(ports, port)
+	}
+	return ports, nil
+}
+
+func stripLineComments(content string) string {
+	lines := strings.Split(content, "\n")
+	for i, line := range lines {
+		if idx := strings.Index(line, "//"); idx >= 0 {
+			lines[i] = line[:idx]
+		}
+	}
+	return strings.Join(lines, "\n")
+}
+
+func parseVerilogPortSegment(segment, currentDir string, currentWidth int) (verilogPort, string, int, bool, error) {
+	segment = strings.TrimSpace(segment)
+	if segment == "" {
+		return verilogPort{}, currentDir, currentWidth, false, nil
+	}
+	nextDir := currentDir
+	nextWidth := currentWidth
+	for _, dir := range []string{"input", "output", "inout"} {
+		if strings.HasPrefix(segment, dir) {
+			nextDir = dir
+			nextWidth = 1
+			segment = strings.TrimSpace(segment[len(dir):])
+			break
+		}
+	}
+	if nextDir == "" {
+		return verilogPort{}, currentDir, currentWidth, false, nil
+	}
+	rangeRe := regexp.MustCompile(`\[\s*(\d+)\s*:\s*(\d+)\s*\]`)
+	if match := rangeRe.FindStringSubmatch(segment); len(match) == 3 {
+		msb, err := strconv.Atoi(match[1])
+		if err != nil {
+			return verilogPort{}, currentDir, currentWidth, false, err
+		}
+		lsb, err := strconv.Atoi(match[2])
+		if err != nil {
+			return verilogPort{}, currentDir, currentWidth, false, err
+		}
+		if msb >= lsb {
+			nextWidth = msb - lsb + 1
+		} else {
+			nextWidth = lsb - msb + 1
+		}
+		segment = strings.TrimSpace(rangeRe.ReplaceAllString(segment, " "))
+	}
+	fields := strings.Fields(segment)
+	filtered := fields[:0]
+	for _, field := range fields {
+		switch field {
+		case "wire", "reg", "logic", "signed", "unsigned":
+			continue
+		default:
+			filtered = append(filtered, field)
+		}
+	}
+	if len(filtered) == 0 {
+		return verilogPort{}, nextDir, nextWidth, false, nil
+	}
+	name := strings.Trim(filtered[len(filtered)-1], " \t\r\n")
+	name = strings.TrimSuffix(name, ")")
+	if name == "" {
+		return verilogPort{}, nextDir, nextWidth, false, nil
+	}
+	return verilogPort{Name: name, Direction: nextDir, Width: nextWidth}, nextDir, nextWidth, true, nil
+}
+
+func sameVerilogPortSignature(actual, expected []verilogPort) bool {
+	if len(actual) != len(expected) {
+		return false
+	}
+	for i := range actual {
+		if actual[i].Name != expected[i].Name || actual[i].Direction != expected[i].Direction || actual[i].Width != expected[i].Width {
+			return false
+		}
+	}
+	return true
+}
+
+func renameModuleDeclaration(content, fromName, toName string) (string, bool) {
+	re := regexp.MustCompile(`(?m)^module\s+` + regexp.QuoteMeta(fromName) + `(\s*\()`)
+	updated := re.ReplaceAllString(content, "module "+toName+`${1}`)
+	return updated, updated != content
+}
+
+func buildBenchmarkWrapper(wrapperName, implName string, expectedPorts, actualPorts []verilogPort) (string, error) {
+	actualByName := make(map[string]verilogPort, len(actualPorts))
+	for _, port := range actualPorts {
+		actualByName[port.Name] = port
+	}
+	expectedByName := make(map[string]verilogPort, len(expectedPorts))
+	for _, port := range expectedPorts {
+		expectedByName[port.Name] = port
+	}
+
+	connectionLines := make([]string, 0, len(actualPorts))
+	wireDecls := make([]string, 0)
+	assignLines := make([]string, 0)
+
+	for _, actual := range actualPorts {
+		switch actual.Direction {
+		case "input":
+			expr := zeroLiteral(actual.Width)
+			if expected, ok := expectedByName[actual.Name]; ok {
+				expr = adaptInputExpr(expected, actual)
+			} else if isClockOrResetPortName(actual.Name) {
+				expr = zeroLiteral(actual.Width)
+			}
+			connectionLines = append(connectionLines, fmt.Sprintf("    .%s(%s)", actual.Name, expr))
+		case "output", "inout":
+			if expected, ok := directOutputBinding(actual, expectedByName); ok {
+				if expected.Width == actual.Width {
+					connectionLines = append(connectionLines, fmt.Sprintf("    .%s(%s)", actual.Name, expected.Name))
+					continue
+				}
+				tempName := wrapperTempName(actual.Name)
+				wireDecls = append(wireDecls, fmt.Sprintf("  wire %s%s;", formatWidth(actual.Width), tempName))
+				assignLines = append(assignLines, fmt.Sprintf("  assign %s = %s;", expected.Name, adaptOutputExpr(tempName, actual.Width, expected.Width)))
+				connectionLines = append(connectionLines, fmt.Sprintf("    .%s(%s)", actual.Name, tempName))
+				continue
+			}
+			if expected, idx, ok := findPackedOutputBinding(actual.Name, expectedPorts); ok {
+				tempName := wrapperTempName(actual.Name)
+				wireDecls = append(wireDecls, fmt.Sprintf("  wire %s%s;", formatWidth(actual.Width), tempName))
+				assignLines = append(assignLines, fmt.Sprintf("  assign %s[%d] = %s;", expected.Name, idx, tempName))
+				connectionLines = append(connectionLines, fmt.Sprintf("    .%s(%s)", actual.Name, tempName))
+				continue
+			}
+			tempName := wrapperTempName(actual.Name)
+			wireDecls = append(wireDecls, fmt.Sprintf("  wire %s%s;", formatWidth(actual.Width), tempName))
+			connectionLines = append(connectionLines, fmt.Sprintf("    .%s(%s)", actual.Name, tempName))
+		default:
+			return "", fmt.Errorf("unsupported actual port direction %q", actual.Direction)
+		}
+	}
+
+	for _, expected := range expectedPorts {
+		if expected.Direction != "output" && expected.Direction != "inout" {
+			continue
+		}
+		if hasDirectOutputBinding(expected, actualByName) {
+			continue
+		}
+		if hasPackedOutputBinding(expected.Name, expected.Width, actualPorts) {
+			continue
+		}
+		return "", fmt.Errorf("no implementation binding found for expected output %s", expected.Name)
+	}
+
+	var builder strings.Builder
+	builder.WriteString("module ")
+	builder.WriteString(wrapperName)
+	builder.WriteString("(\n")
+	for i, port := range expectedPorts {
+		builder.WriteString("  ")
+		builder.WriteString(port.Direction)
+		builder.WriteString(" ")
+		builder.WriteString(formatWidth(port.Width))
+		builder.WriteString(port.Name)
+		if i < len(expectedPorts)-1 {
+			builder.WriteString(",\n")
+		} else {
+			builder.WriteString("\n")
+		}
+	}
+	builder.WriteString(");\n")
+	if len(wireDecls) > 0 {
+		for _, decl := range uniqueSortedStrings(wireDecls) {
+			builder.WriteString(decl)
+			builder.WriteString("\n")
+		}
+	}
+	builder.WriteString("  ")
+	builder.WriteString(implName)
+	builder.WriteString(" dut (\n")
+	for i, line := range connectionLines {
+		builder.WriteString(line)
+		if i < len(connectionLines)-1 {
+			builder.WriteString(",\n")
+		} else {
+			builder.WriteString("\n")
+		}
+	}
+	builder.WriteString("  );\n")
+	if len(assignLines) > 0 {
+		for _, line := range uniqueSortedStrings(assignLines) {
+			builder.WriteString(line)
+			builder.WriteString("\n")
+		}
+	}
+	builder.WriteString("endmodule")
+	return builder.String(), nil
+}
+
+func directOutputBinding(actual verilogPort, expectedByName map[string]verilogPort) (verilogPort, bool) {
+	if expected, ok := expectedByName[actual.Name]; ok {
+		return expected, true
+	}
+	if strings.HasPrefix(actual.Name, "out_") {
+		alias := strings.TrimPrefix(actual.Name, "out_")
+		if expected, ok := expectedByName[alias]; ok {
+			return expected, true
+		}
+	}
+	return verilogPort{}, false
+}
+
+func hasDirectOutputBinding(expected verilogPort, actualByName map[string]verilogPort) bool {
+	if _, ok := actualByName[expected.Name]; ok {
+		return true
+	}
+	if _, ok := actualByName["out_"+expected.Name]; ok {
+		return true
+	}
+	return false
+}
+
+func formatWidth(width int) string {
+	if width <= 1 {
+		return ""
+	}
+	return fmt.Sprintf("[%d:0] ", width-1)
+}
+
+func zeroLiteral(width int) string {
+	if width <= 1 {
+		return "1'b0"
+	}
+	return fmt.Sprintf("%d'b0", width)
+}
+
+func adaptInputExpr(expected, actual verilogPort) string {
+	if expected.Width == actual.Width {
+		return expected.Name
+	}
+	if actual.Width <= 1 {
+		if expected.Width <= 1 {
+			return expected.Name
+		}
+		return fmt.Sprintf("%s[0]", expected.Name)
+	}
+	if expected.Width > actual.Width {
+		return fmt.Sprintf("%s[%d:0]", expected.Name, actual.Width-1)
+	}
+	pad := actual.Width - expected.Width
+	if pad <= 0 {
+		return expected.Name
+	}
+	return fmt.Sprintf("{{%d{1'b0}}, %s}", pad, expected.Name)
+}
+
+func adaptOutputExpr(signalName string, actualWidth, expectedWidth int) string {
+	if actualWidth == expectedWidth {
+		return signalName
+	}
+	if expectedWidth <= 1 {
+		if actualWidth <= 1 {
+			return signalName
+		}
+		return fmt.Sprintf("%s[0]", signalName)
+	}
+	if actualWidth > expectedWidth {
+		return fmt.Sprintf("%s[%d:0]", signalName, expectedWidth-1)
+	}
+	pad := expectedWidth - actualWidth
+	if pad <= 0 {
+		return signalName
+	}
+	return fmt.Sprintf("{{%d{1'b0}}, %s}", pad, signalName)
+}
+
+func findPackedOutputBinding(actualName string, expectedPorts []verilogPort) (verilogPort, int, bool) {
+	for _, expected := range expectedPorts {
+		if expected.Direction != "output" && expected.Direction != "inout" {
+			continue
+		}
+		if expected.Width <= 1 {
+			continue
+		}
+		if idx, ok := matchIndexedPortWithOutputAlias(actualName, expected.Name); ok && idx >= 0 && idx < expected.Width {
+			return expected, idx, true
+		}
+	}
+	return verilogPort{}, 0, false
+}
+
+func hasPackedOutputBinding(expectedName string, expectedWidth int, actualPorts []verilogPort) bool {
+	if expectedWidth <= 1 {
+		return false
+	}
+	for _, actual := range actualPorts {
+		if actual.Direction != "output" && actual.Direction != "inout" {
+			continue
+		}
+		if idx, ok := matchIndexedPortWithOutputAlias(actual.Name, expectedName); ok && idx >= 0 && idx < expectedWidth {
+			return true
+		}
+	}
+	return false
+}
+
+func matchIndexedPortWithOutputAlias(actualName, expectedBase string) (int, bool) {
+	if idx, ok := matchIndexedPort(actualName, expectedBase); ok {
+		return idx, true
+	}
+	if strings.HasPrefix(actualName, "out_") {
+		return matchIndexedPort(strings.TrimPrefix(actualName, "out_"), expectedBase)
+	}
+	return 0, false
+}
+
+func matchIndexedPort(actualName, expectedBase string) (int, bool) {
+	if strings.HasPrefix(actualName, expectedBase+"_") {
+		idxText := strings.TrimPrefix(actualName, expectedBase+"_")
+		idx, err := strconv.Atoi(idxText)
+		return idx, err == nil
+	}
+	if strings.HasPrefix(actualName, expectedBase) {
+		idxText := strings.TrimPrefix(actualName, expectedBase)
+		if idxText != "" {
+			idx, err := strconv.Atoi(idxText)
+			return idx, err == nil
+		}
+	}
+	return 0, false
+}
+
+func wrapperTempName(name string) string {
+	replacer := strings.NewReplacer("$", "_", ".", "_")
+	return "__mygo_" + replacer.Replace(name)
+}
+
+func isClockOrResetPortName(name string) bool {
+	switch strings.ToLower(strings.TrimSpace(name)) {
+	case "clk", "clock", "rst", "reset", "areset", "resetn", "aresetn":
+		return true
+	default:
+		return false
+	}
+}
+
+func uniqueSortedStrings(values []string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	seen := make(map[string]struct{}, len(values))
+	unique := make([]string, 0, len(values))
+	for _, value := range values {
+		if _, ok := seen[value]; ok {
+			continue
+		}
+		seen[value] = struct{}{}
+		unique = append(unique, value)
+	}
+	sort.Strings(unique)
+	return unique
 }
 
 func copyFile(src, dest string) error {

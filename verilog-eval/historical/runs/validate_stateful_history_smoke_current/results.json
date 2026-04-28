@@ -1,0 +1,43 @@
+[
+  {
+    "case": "Prob108_rule90",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob108_rule90/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob108_rule90/.mygo-tmp/.mygo-circt-2685127018/design.mlir:11011:26: error: 'comb.extract' op from bit too large for input\n        %edge_conv8406 = comb.extract %c1406 from 0 : (i32) -> i512\n                         ^\n/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob108_rule90/.mygo-tmp/.mygo-circt-2685127018/design.mlir:11011:26: note: see current operation: %34105 = \"comb.extract\"(%2446) <{lowBit = 0 : i32}> : (i32) -> i512\nbackend: circt-opt --pass-pipeline failed: exit status 1\nexit status 1\n"
+  },
+  {
+    "case": "Prob124_rule110",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob124_rule110/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob124_rule110/.mygo-tmp/.mygo-circt-2758622483/design.mlir:11110:26: error: 'comb.extract' op from bit too large for input\n        %edge_conv8505 = comb.extract %c1389 from 0 : (i32) -> i512\n                         ^\n/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob124_rule110/.mygo-tmp/.mygo-circt-2758622483/design.mlir:11110:26: note: see current operation: %44578 = \"comb.extract\"(%2429) <{lowBit = 0 : i32}> : (i32) -> i512\nbackend: circt-opt --pass-pipeline failed: exit status 1\nexit status 1\n"
+  },
+  {
+    "case": "Prob141_count_clock",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob141_count_clock/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_stateful_history_smoke_current/Prob141_count_clock/Prob141_count_clock.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\nHint: Your reset should be synchronous, but doesn't appear to be.\nTIMEOUT\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob141_count_clock_test.sv:261: $finish called at 1000000 (1ps)\nHint: Output 'pm' has 14640 mismatches. First mismatch occurred at time 397670.\nHint: Output 'hh' has 3294 mismatches. First mismatch occurred at time 37660.\nHint: Output 'mm' has 3324 mismatches. First mismatch occurred at time 2860.\nHint: Output 'ss' has 12 mismatches. First mismatch occurred at time 55.\nHint: Total mismatched samples is 20446 out of 200000 samples\n\nSimulation finished at 1000000 ps\nMismatches: 20446 in 200000 samples\n\n",
+    "mismatches": 20446,
+    "samples": 200000,
+    "status": "not_equivalent"
+  },
+  {
+    "case": "Prob153_gshare",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob153_gshare/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_stateful_history_smoke_current/Prob153_gshare/Prob153_gshare.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob153_gshare_test.sv:161: $finish called at 5416 (1ps)\nHint: Output 'predict_taken' has 109 mismatches. First mismatch occurred at time 30.\nHint: Output 'predict_history' has 432 mismatches. First mismatch occurred at time 30.\nHint: Total mismatched samples is 461 out of 1083 samples\n\nSimulation finished at 5416 ps\nMismatches: 461 in 1083 samples\n\n",
+    "mismatches": 461,
+    "samples": 1083,
+    "status": "not_equivalent"
+  },
+  {
+    "case": "Prob156_review2015_fancytimer",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob156_review2015_fancytimer/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_stateful_history_smoke_current/Prob156_review2015_fancytimer/Prob156_review2015_fancytimer.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\nHint: The first test case should count for 2000 cycles. Your circuit counted 2003\nHint: The second test case should count for 15000 cycles. Your circuit counted 6996\nHint: Your FSM didn't pass the sample timing diagram posted with the problem statement. Perhaps try debugging that?\nTIMEOUT\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob156_review2015_fancytimer_test.sv:216: $finish called at 1000000 (1ps)\nHint: Output 'count' has 187737 mismatches. First mismatch occurred at time 130.\nHint: Output 'counting' has 40742 mismatches. First mismatch occurred at time 20130.\nHint: Output 'done' has 40058 mismatches. First mismatch occurred at time 20130.\nHint: Total mismatched samples is 192525 out of 200000 samples\n\nSimulation finished at 1000000 ps\nMismatches: 192525 in 200000 samples\n\n",
+    "mismatches": 192525,
+    "samples": 200000,
+    "status": "not_equivalent"
+  }
+]

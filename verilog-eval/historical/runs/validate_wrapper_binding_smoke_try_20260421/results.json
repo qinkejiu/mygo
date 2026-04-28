@@ -1,0 +1,47 @@
+[
+  {
+    "case": "Prob001_zero",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob001_zero/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_wrapper_binding_smoke_try_20260421/Prob001_zero/Prob001_zero.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob001_zero_test.sv:30: $finish called at 102 (1ps)\nHint: Output 'zero' has no mismatches.\nHint: Total mismatched samples is 0 out of 20 samples\n\nSimulation finished at 102 ps\nMismatches: 0 in 20 samples\n\n",
+    "mismatches": 0,
+    "samples": 20,
+    "status": "equivalent"
+  },
+  {
+    "case": "Prob002_m2014_q4i",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob002_m2014_q4i/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_wrapper_binding_smoke_try_20260421/Prob002_m2014_q4i/Prob002_m2014_q4i.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob002_m2014_q4i_test.sv:14: $finish called at 501 (1ps)\nHint: Output 'out' has no mismatches.\nHint: Total mismatched samples is 0 out of 100 samples\n\nSimulation finished at 501 ps\nMismatches: 0 in 100 samples\n\n",
+    "mismatches": 0,
+    "samples": 100,
+    "status": "equivalent"
+  },
+  {
+    "case": "Prob010_mt2015_q4a",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob010_mt2015_q4a/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_wrapper_binding_smoke_try_20260421/Prob010_mt2015_q4a/Prob010_mt2015_q4a.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob010_mt2015_q4a_test.sv:17: $finish called at 1011 (1ps)\nHint: Output 'z' has no mismatches.\nHint: Total mismatched samples is 0 out of 202 samples\n\nSimulation finished at 1011 ps\nMismatches: 0 in 202 samples\n\n",
+    "mismatches": 0,
+    "samples": 202,
+    "status": "equivalent"
+  },
+  {
+    "case": "Prob014_andgate",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob014_andgate/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_wrapper_binding_smoke_try_20260421/Prob014_andgate/Prob014_andgate.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob014_andgate_test.sv:38: $finish called at 1096 (1ps)\nHint: Output 'out' has no mismatches.\nHint: Total mismatched samples is 0 out of 219 samples\n\nSimulation finished at 1096 ps\nMismatches: 0 in 219 samples\n\n",
+    "mismatches": 0,
+    "samples": 219,
+    "status": "equivalent"
+  },
+  {
+    "case": "Prob019_m2014_q4f",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob019_m2014_q4f/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_wrapper_binding_smoke_try_20260421/Prob019_m2014_q4f/Prob019_m2014_q4f.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob019_m2014_q4f_test.sv:16: $finish called at 501 (1ps)\nHint: Output 'out' has no mismatches.\nHint: Total mismatched samples is 0 out of 100 samples\n\nSimulation finished at 501 ps\nMismatches: 0 in 100 samples\n\n",
+    "mismatches": 0,
+    "samples": 100,
+    "status": "equivalent"
+  }
+]

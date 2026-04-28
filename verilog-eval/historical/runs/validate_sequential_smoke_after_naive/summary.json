@@ -1,0 +1,8 @@
+{
+  "total_cases": 6,
+  "status_counts": {
+    "go_compile_failed": 2,
+    "not_equivalent": 4
+  },
+  "generated_at_epoch": 1776595577.2248642
+}

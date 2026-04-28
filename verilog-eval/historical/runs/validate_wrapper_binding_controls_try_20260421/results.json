@@ -1,0 +1,29 @@
+[
+  {
+    "case": "Prob015_vector1",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob015_vector1/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_wrapper_binding_controls_try_20260421/Prob015_vector1/Prob015_vector1.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob015_vector1_test.sv:35: $finish called at 1090 (1ps)\nHint: Output 'out_hi' has no mismatches.\nHint: Output 'out_lo' has no mismatches.\nHint: Total mismatched samples is 0 out of 218 samples\n\nSimulation finished at 1090 ps\nMismatches: 0 in 218 samples\n\n",
+    "mismatches": 0,
+    "samples": 218,
+    "status": "equivalent"
+  },
+  {
+    "case": "Prob026_alwaysblock1",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob026_alwaysblock1/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_wrapper_binding_controls_try_20260421/Prob026_alwaysblock1/Prob026_alwaysblock1.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob026_alwaysblock1_test.sv:38: $finish called at 1096 (1ps)\nHint: Output 'out_assign' has no mismatches.\nHint: Output 'out_alwaysblock' has no mismatches.\nHint: Total mismatched samples is 0 out of 219 samples\n\nSimulation finished at 1096 ps\nMismatches: 0 in 219 samples\n\n",
+    "mismatches": 0,
+    "samples": 219,
+    "status": "equivalent"
+  },
+  {
+    "case": "Prob044_vectorgates",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob044_vectorgates/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_wrapper_binding_controls_try_20260421/Prob044_vectorgates/Prob044_vectorgates.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob044_vectorgates_test.sv:39: $finish called at 1306 (1ps)\nHint: Output 'out_or_bitwise' has no mismatches.\nHint: Output 'out_or_logical' has no mismatches.\nHint: Output 'out_not' has no mismatches.\nHint: Total mismatched samples is 0 out of 261 samples\n\nSimulation finished at 1306 ps\nMismatches: 0 in 261 samples\n\n",
+    "mismatches": 0,
+    "samples": 261,
+    "status": "equivalent"
+  }
+]

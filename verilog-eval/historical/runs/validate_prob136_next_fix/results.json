@@ -1,0 +1,25 @@
+[
+  {
+    "case": "Prob121_2014_q3bfsm",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob121_2014_q3bfsm/main.go",
+    "compile_stdout": "DEBUG emitter: useInoutRegs=true for module TopModule\n",
+    "compile_stderr": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob121_2014_q3bfsm/.mygo-tmp/.mygo-circt-792630157/design.mlir:274:15: error: use of undeclared SSA value name\n    hw.output %t11_32 : i1\n              ^\nbackend: circt-opt --pass-pipeline failed: exit status 1\nexit status 1\n"
+  },
+  {
+    "case": "Prob133_2014_q3fsm",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob133_2014_q3fsm/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_prob136_next_fix/Prob133_2014_q3fsm/Prob133_2014_q3fsm.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob133_2014_q3fsm_test.sv:59: $finish called at 7071 (1ps)\nHint: Output 'z' has 322 mismatches. First mismatch occurred at time 170.\nHint: Total mismatched samples is 322 out of 1414 samples\n\nSimulation finished at 7071 ps\nMismatches: 322 in 1414 samples\n\n",
+    "mismatches": 322,
+    "samples": 1414,
+    "status": "not_equivalent"
+  },
+  {
+    "case": "Prob136_m2014_q6",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob136_m2014_q6/main.go",
+    "compile_stdout": "DEBUG emitter: useInoutRegs=true for module TopModule\n",
+    "compile_stderr": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob136_m2014_q6/.mygo-tmp/.mygo-circt-186495443/design.mlir:320:15: error: use of undeclared SSA value name\n    hw.output %t12_34 : i1\n              ^\nbackend: circt-opt --pass-pipeline failed: exit status 1\nexit status 1\n"
+  }
+]

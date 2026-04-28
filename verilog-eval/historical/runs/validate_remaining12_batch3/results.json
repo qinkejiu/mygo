@@ -1,0 +1,18 @@
+[
+  {
+    "case": "Prob141_count_clock",
+    "status": "go_compile_timeout",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/current_go_156/Prob141_count_clock/main.go",
+    "compile_stdout": "DEBUG emitter: useInoutRegs=true for module TopModule\n",
+    "compile_stderr": ""
+  },
+  {
+    "case": "Prob156_review2015_fancytimer",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/current_go_156/Prob156_review2015_fancytimer/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/historical/runs/validate_remaining12_batch3/Prob156_review2015_fancytimer/Prob156_review2015_fancytimer.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\nHint: The second test case should count for 15000 cycles. Your circuit counted 11000\nHint: Your FSM didn't pass the sample timing diagram posted with the problem statement. Perhaps try debugging that?\nTIMEOUT\n/home/qinkejiu/mygo/verilog-eval/historical/dataset_spec-to-rtl/tests/Prob156_review2015_fancytimer_test.sv:216: $finish called at 1000000 (1ps)\nHint: Output 'count' has 175203 mismatches. First mismatch occurred at time 20250.\nHint: Output 'counting' has 32306 mismatches. First mismatch occurred at time 130250.\nHint: Output 'done' has 31886 mismatches. First mismatch occurred at time 130250.\nHint: Total mismatched samples is 175893 out of 200000 samples\n\nSimulation finished at 1000000 ps\nMismatches: 175893 in 200000 samples\n\n",
+    "mismatches": 175893,
+    "samples": 200000,
+    "status": "not_equivalent"
+  }
+]

@@ -1,0 +1,16 @@
+[
+  {
+    "case": "Prob079_fsm3onehot",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob079_fsm3onehot/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "error: /home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob079_fsm3onehot/main.go:40:9: invalid operation: operator | not defined on a (variable of type bool)\nerror: /home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob079_fsm3onehot/main.go:43:9: invalid operation: operator & not defined on a (variable of type bool)\npackage loading failed\nexit status 1\n"
+  },
+  {
+    "case": "Prob143_fsm_onehot",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob143_fsm_onehot/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "error: /home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob143_fsm_onehot/main.go:73:9: invalid operation: operator | not defined on a (variable of type bool)\nerror: /home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob143_fsm_onehot/main.go:76:9: invalid operation: operator & not defined on a (variable of type bool)\npackage loading failed\nexit status 1\n"
+  }
+]

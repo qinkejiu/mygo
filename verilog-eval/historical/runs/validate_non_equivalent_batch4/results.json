@@ -1,0 +1,16 @@
+[
+  {
+    "case": "Prob092_gatesv100",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/current_go_156/Prob092_gatesv100/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "stat /home/qinkejiu/mygo/verilog-eval/cmd/mygo: directory not found\n"
+  },
+  {
+    "case": "Prob135_m2014_q6b",
+    "status": "go_compile_failed",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/current_go_156/Prob135_m2014_q6b/main.go",
+    "compile_stdout": "",
+    "compile_stderr": "stat /home/qinkejiu/mygo/verilog-eval/cmd/mygo: directory not found\n"
+  }
+]

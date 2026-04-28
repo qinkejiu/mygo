@@ -1,0 +1,29 @@
+[
+  {
+    "case": "Prob001_zero",
+    "status": "equivalent",
+    "go_file": "/home/qinkejiu/mygo/work/deepseek_spec_to_rtl_eval_pilot/Prob001_zero/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/work/deepseek_spec_to_rtl_eval_pilot/Prob001_zero/Prob001_zero.sv",
+    "mismatches": 0,
+    "samples": 20,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/dataset_spec-to-rtl/tests/Prob001_zero_test.sv:30: $finish called at 102 (1ps)\nHint: Output 'zero' has no mismatches.\nHint: Total mismatched samples is 0 out of 20 samples\n\nSimulation finished at 102 ps\nMismatches: 0 in 20 samples\n\n"
+  },
+  {
+    "case": "Prob002_m2014_q4i",
+    "status": "equivalent",
+    "go_file": "/home/qinkejiu/mygo/work/deepseek_spec_to_rtl_eval_pilot/Prob002_m2014_q4i/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/work/deepseek_spec_to_rtl_eval_pilot/Prob002_m2014_q4i/Prob002_m2014_q4i.sv",
+    "mismatches": 0,
+    "samples": 100,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/dataset_spec-to-rtl/tests/Prob002_m2014_q4i_test.sv:14: $finish called at 501 (1ps)\nHint: Output 'out' has no mismatches.\nHint: Total mismatched samples is 0 out of 100 samples\n\nSimulation finished at 501 ps\nMismatches: 0 in 100 samples\n\n"
+  },
+  {
+    "case": "Prob003_step_one",
+    "status": "equivalent",
+    "go_file": "/home/qinkejiu/mygo/work/deepseek_spec_to_rtl_eval_pilot/Prob003_step_one/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/work/deepseek_spec_to_rtl_eval_pilot/Prob003_step_one/Prob003_step_one.sv",
+    "mismatches": 0,
+    "samples": 20,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/dataset_spec-to-rtl/tests/Prob003_step_one_test.sv:30: $finish called at 102 (1ps)\nHint: Output 'one' has no mismatches.\nHint: Total mismatched samples is 0 out of 20 samples\n\nSimulation finished at 102 ps\nMismatches: 0 in 20 samples\n\n"
+  }
+]

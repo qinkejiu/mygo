@@ -1,0 +1,11 @@
+[
+  {
+    "case": "Prob145_circuit8",
+    "status": "not_equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_141_to_156_cases/Prob145_circuit8/Prob145_circuit8/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/run_141_to_156_cases/Prob145_circuit8/Prob145_circuit8/Prob145_circuit8.sv",
+    "mismatches": 172,
+    "samples": 240,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob145_circuit8_test.sv:45: $finish called at 1200 (1ps)\nHint: Output 'p' has 112 mismatches. First mismatch occurred at time 90.\nHint: Output 'q' has 123 mismatches. First mismatch occurred at time 75.\nHint: Total mismatched samples is 172 out of 240 samples\n\nSimulation finished at 1200 ps\nMismatches: 172 in 240 samples\n\n"
+  }
+]

@@ -15,20 +15,24 @@ type Design struct {
 
 // Module models a hardware module with ports, signals and processes.
 type Module struct {
-	Name      string
-	Ports     []Port
-	Signals   map[string]*Signal
-	Channels  map[string]*Channel
-	Processes []*Process
-	Source    token.Pos
+	Name       string
+	Ports      []Port
+	Signals    map[string]*Signal
+	Channels   map[string]*Channel
+	Processes  []*Process
+	MixedClock *MixedClockModuleSpec
+	Source     token.Pos
 }
 
 // Port represents a module IO port.
 type Port struct {
 	Name      string
+	Binding   string
 	Direction PortDirection
 	Type      *SignalType
 }
+
+type MixedClockModuleSpec struct{}
 
 // PortDirection enumerates supported port directions.
 type PortDirection int

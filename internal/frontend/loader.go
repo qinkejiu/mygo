@@ -60,6 +60,14 @@ func LoadPackages(cfg LoadConfig, reporter *diag.Reporter) ([]*gopackages.Packag
 		loadCfg.BuildFlags = buildFlags
 	}
 
+	overlay, err := preprocessSourcesForOverlay(cfg.Sources)
+	if err != nil {
+		return nil, nil, err
+	}
+	if len(overlay) > 0 {
+		loadCfg.Overlay = overlay
+	}
+
 	pkgs, err := gopackages.Load(loadCfg, ".")
 	if err != nil {
 		return nil, nil, err

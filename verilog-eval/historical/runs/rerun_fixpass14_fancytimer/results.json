@@ -1,0 +1,11 @@
+[
+  {
+    "case": "Prob156_review2015_fancytimer",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/current_go_156/Prob156_review2015_fancytimer/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/historical/runs/rerun_fixpass14_fancytimer/Prob156_review2015_fancytimer/Prob156_review2015_fancytimer.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\nTIMEOUT\n/home/qinkejiu/mygo/verilog-eval/historical/dataset_spec-to-rtl/tests/Prob156_review2015_fancytimer_test.sv:216: $finish called at 1000000 (1ps)\nHint: Output 'count' has no mismatches.\nHint: Output 'counting' has no mismatches.\nHint: Output 'done' has no mismatches.\nHint: Total mismatched samples is 0 out of 200000 samples\n\nSimulation finished at 1000000 ps\nMismatches: 0 in 200000 samples\n\n",
+    "mismatches": 0,
+    "samples": 200000,
+    "status": "equivalent"
+  }
+]

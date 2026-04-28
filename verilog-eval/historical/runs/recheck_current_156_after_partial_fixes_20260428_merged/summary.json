@@ -1,0 +1,13 @@
+{
+  "total_cases": 156,
+  "status_counts": {
+    "equivalent": 144,
+    "go_compile_timeout": 2,
+    "not_equivalent": 10
+  },
+  "generated_at_epoch": 1777350531.0108404,
+  "source_runs": [
+    "verilog-eval/historical/runs/recheck_current_156_after_partial_fixes_20260428_rerun",
+    "verilog-eval/historical/runs/recheck_current_156_after_partial_fixes_20260428_tail"
+  ]
+}

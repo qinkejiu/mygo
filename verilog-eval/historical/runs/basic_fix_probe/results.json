@@ -1,0 +1,38 @@
+[
+  {
+    "case": "Prob015_vector1",
+    "status": "equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/basic_fix_probe/Prob015_vector1/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/basic_fix_probe/Prob015_vector1/Prob015_vector1.sv",
+    "mismatches": 0,
+    "samples": 218,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/runs/basic_fix_probe_input/tests/Prob015_vector1_test.sv:35: $finish called at 1090 (1ps)\nHint: Output 'out_hi' has no mismatches.\nHint: Output 'out_lo' has no mismatches.\nHint: Total mismatched samples is 0 out of 218 samples\n\nSimulation finished at 1090 ps\nMismatches: 0 in 218 samples\n\n"
+  },
+  {
+    "case": "Prob026_alwaysblock1",
+    "status": "equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/basic_fix_probe/Prob026_alwaysblock1/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/basic_fix_probe/Prob026_alwaysblock1/Prob026_alwaysblock1.sv",
+    "mismatches": 0,
+    "samples": 219,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/runs/basic_fix_probe_input/tests/Prob026_alwaysblock1_test.sv:38: $finish called at 1096 (1ps)\nHint: Output 'out_assign' has no mismatches.\nHint: Output 'out_alwaysblock' has no mismatches.\nHint: Total mismatched samples is 0 out of 219 samples\n\nSimulation finished at 1096 ps\nMismatches: 0 in 219 samples\n\n"
+  },
+  {
+    "case": "Prob039_always_if",
+    "status": "equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/basic_fix_probe/Prob039_always_if/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/basic_fix_probe/Prob039_always_if/Prob039_always_if.sv",
+    "mismatches": 0,
+    "samples": 114,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/runs/basic_fix_probe_input/tests/Prob039_always_if_test.sv:45: $finish called at 570 (1ps)\nHint: Output 'out_assign' has no mismatches.\nHint: Output 'out_always' has no mismatches.\nHint: Total mismatched samples is 0 out of 114 samples\n\nSimulation finished at 570 ps\nMismatches: 0 in 114 samples\n\n"
+  },
+  {
+    "case": "Prob058_alwaysblock2",
+    "status": "not_equivalent",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/runs/basic_fix_probe/Prob058_alwaysblock2/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/basic_fix_probe/Prob058_alwaysblock2/Prob058_alwaysblock2.sv",
+    "mismatches": 124,
+    "samples": 219,
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/runs/basic_fix_probe_input/tests/Prob058_alwaysblock2_test.sv:38: $finish called at 1096 (1ps)\nHint: Output 'out_assign' has no mismatches.\nHint: Output 'out_always_comb' has no mismatches.\nHint: Output 'out_always_ff' has 124 mismatches. First mismatch occurred at time 30.\nHint: Total mismatched samples is 124 out of 219 samples\n\nSimulation finished at 1096 ps\nMismatches: 124 in 219 samples\n\n"
+  }
+]

@@ -1,0 +1,29 @@
+[
+  {
+    "case": "Prob030_popcount255",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob030_popcount255/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_combinational_datapaths/Prob030_popcount255/Prob030_popcount255.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob030_popcount255_test.sv:49: $finish called at 1076 (1ps)\nHint: Output 'out' has 209 mismatches. First mismatch occurred at time 20.\nHint: Total mismatched samples is 209 out of 215 samples\n\nSimulation finished at 1076 ps\nMismatches: 209 in 215 samples\n\n",
+    "mismatches": 209,
+    "samples": 215,
+    "status": "not_equivalent"
+  },
+  {
+    "case": "Prob052_gates100",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob052_gates100/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_combinational_datapaths/Prob052_gates100/Prob052_gates100.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob052_gates100_test.sv:63: $finish called at 2166 (1ps)\nHint: Output 'out_and' has 430 mismatches. First mismatch occurred at time 5.\nHint: Output 'out_or' has 423 mismatches. First mismatch occurred at time 25.\nHint: Output 'out_xor' has 310 mismatches. First mismatch occurred at time 40.\nHint: Total mismatched samples is 433 out of 433 samples\n\nSimulation finished at 2166 ps\nMismatches: 433 in 433 samples\n\n",
+    "mismatches": 433,
+    "samples": 433,
+    "status": "not_equivalent"
+  },
+  {
+    "case": "Prob145_circuit8",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob145_circuit8/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_combinational_datapaths/Prob145_circuit8/Prob145_circuit8.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob145_circuit8_test.sv:45: $finish called at 1200 (1ps)\nHint: Output 'p' has 130 mismatches. First mismatch occurred at time 95.\nHint: Output 'q' has 123 mismatches. First mismatch occurred at time 75.\nHint: Total mismatched samples is 184 out of 240 samples\n\nSimulation finished at 1200 ps\nMismatches: 184 in 240 samples\n\n",
+    "mismatches": 184,
+    "samples": 240,
+    "status": "not_equivalent"
+  }
+]

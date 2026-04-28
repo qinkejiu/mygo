@@ -1,0 +1,38 @@
+[
+  {
+    "case": "Prob131_mt2015_q4",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob131_mt2015_q4/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_four_casepatch_round3/Prob131_mt2015_q4/Prob131_mt2015_q4.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob131_mt2015_q4_test.sv:17: $finish called at 1001 (1ps)\nHint: Output 'z' has no mismatches.\nHint: Total mismatched samples is 0 out of 200 samples\n\nSimulation finished at 1001 ps\nMismatches: 0 in 200 samples\n\n",
+    "mismatches": 0,
+    "samples": 200,
+    "status": "equivalent"
+  },
+  {
+    "case": "Prob145_circuit8",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob145_circuit8/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_four_casepatch_round3/Prob145_circuit8/Prob145_circuit8.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob145_circuit8_test.sv:45: $finish called at 1200 (1ps)\nHint: Output 'p' has 130 mismatches. First mismatch occurred at time 95.\nHint: Output 'q' has 123 mismatches. First mismatch occurred at time 75.\nHint: Total mismatched samples is 184 out of 240 samples\n\nSimulation finished at 1200 ps\nMismatches: 184 in 240 samples\n\n",
+    "mismatches": 184,
+    "samples": 240,
+    "status": "not_equivalent"
+  },
+  {
+    "case": "Prob147_circuit10",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob147_circuit10/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_four_casepatch_round3/Prob147_circuit10/Prob147_circuit10.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob147_circuit10_test.sv:50: $finish called at 1160 (1ps)\nHint: Output 'q' has 6 mismatches. First mismatch occurred at time 60.\nHint: Output 'state' has 6 mismatches. First mismatch occurred at time 60.\nHint: Total mismatched samples is 6 out of 232 samples\n\nSimulation finished at 1160 ps\nMismatches: 6 in 232 samples\n\n",
+    "mismatches": 6,
+    "samples": 232,
+    "status": "not_equivalent"
+  },
+  {
+    "case": "Prob149_ece241_2013_q4",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob149_ece241_2013_q4/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_four_casepatch_round3/Prob149_ece241_2013_q4/Prob149_ece241_2013_q4.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob149_ece241_2013_q4_test.sv:84: $finish called at 10200 (1ps)\nHint: Output 'fr2' has no mismatches.\nHint: Output 'fr1' has 801 mismatches. First mismatch occurred at time 130.\nHint: Output 'fr0' has 232 mismatches. First mismatch occurred at time 140.\nHint: Output 'dfr' has 604 mismatches. First mismatch occurred at time 160.\nHint: Total mismatched samples is 1119 out of 2040 samples\n\nSimulation finished at 10200 ps\nMismatches: 1119 in 2040 samples\n\n",
+    "mismatches": 1119,
+    "samples": 2040,
+    "status": "not_equivalent"
+  }
+]

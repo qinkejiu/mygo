@@ -1,0 +1,8 @@
+{
+  "total_cases": 5,
+  "status_counts": {
+    "not_equivalent": 3,
+    "equivalent": 2
+  },
+  "generated_at_epoch": 1776594748.6077137
+}

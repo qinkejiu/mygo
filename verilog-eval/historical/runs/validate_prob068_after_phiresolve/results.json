@@ -1,0 +1,11 @@
+[
+  {
+    "case": "Prob068_countbcd",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob068_countbcd/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_prob068_after_phiresolve/Prob068_countbcd/Prob068_countbcd.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob068_countbcd_test.sv:68: $finish called at 199026 (1ps)\nHint: Output 'ena' has 3479 mismatches. First mismatch occurred at time 975.\nHint: Output 'q' has no mismatches.\nHint: Total mismatched samples is 3479 out of 39805 samples\n\nSimulation finished at 199026 ps\nMismatches: 3479 in 39805 samples\n\n",
+    "mismatches": 3479,
+    "samples": 39805,
+    "status": "not_equivalent"
+  }
+]

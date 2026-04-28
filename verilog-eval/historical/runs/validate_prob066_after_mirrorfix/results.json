@@ -1,0 +1,11 @@
+[
+  {
+    "case": "Prob066_edgecapture",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob066_edgecapture/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_prob066_after_mirrorfix/Prob066_edgecapture/Prob066_edgecapture.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob066_edgecapture_test.sv:86: $finish called at 1330 (1ps)\nHint: Output 'out' has 8 mismatches. First mismatch occurred at time 90.\nHint: Total mismatched samples is 8 out of 266 samples\n\nSimulation finished at 1330 ps\nMismatches: 8 in 266 samples\n\n",
+    "mismatches": 8,
+    "samples": 266,
+    "status": "not_equivalent"
+  }
+]

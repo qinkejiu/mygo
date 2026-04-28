@@ -1,0 +1,9 @@
+{
+  "total_cases": 5,
+  "status_counts": {
+    "simulation_timeout": 1,
+    "not_equivalent": 3,
+    "go_compile_failed": 1
+  },
+  "generated_at_epoch": 1776593426.2110043
+}

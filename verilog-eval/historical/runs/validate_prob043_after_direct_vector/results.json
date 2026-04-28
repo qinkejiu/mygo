@@ -1,0 +1,11 @@
+[
+  {
+    "case": "Prob043_vector5",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob043_vector5/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_prob043_after_direct_vector/Prob043_vector5/Prob043_vector5.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob043_vector5_test.sv:14: $finish called at 500 (1ps)\nHint: Output 'out' has 76 mismatches. First mismatch occurred at time 15.\nHint: Total mismatched samples is 76 out of 100 samples\n\nSimulation finished at 500 ps\nMismatches: 76 in 100 samples\n\n",
+    "mismatches": 76,
+    "samples": 100,
+    "status": "not_equivalent"
+  }
+]

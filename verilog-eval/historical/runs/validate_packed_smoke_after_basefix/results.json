@@ -1,0 +1,29 @@
+[
+  {
+    "case": "Prob018_mux256to1",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob018_mux256to1/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_packed_smoke_after_basefix/Prob018_mux256to1/Prob018_mux256to1.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob018_mux256to1_test.sv:20: $finish called at 10000 (1ps)\nHint: Output 'out' has 983 mismatches. First mismatch occurred at time 35.\nHint: Total mismatched samples is 983 out of 2000 samples\n\nSimulation finished at 10000 ps\nMismatches: 983 in 2000 samples\n\n",
+    "mismatches": 983,
+    "samples": 2000,
+    "status": "not_equivalent"
+  },
+  {
+    "case": "Prob021_mux256to1v",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob021_mux256to1v/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_packed_smoke_after_basefix/Prob021_mux256to1v/Prob021_mux256to1v.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob021_mux256to1v_test.sv:20: $finish called at 10000 (1ps)\nHint: Output 'out' has 1889 mismatches. First mismatch occurred at time 10.\nHint: Total mismatched samples is 1889 out of 2000 samples\n\nSimulation finished at 10000 ps\nMismatches: 1889 in 2000 samples\n\n",
+    "mismatches": 1889,
+    "samples": 2000,
+    "status": "not_equivalent"
+  },
+  {
+    "case": "Prob023_vector100r",
+    "go_file": "/home/qinkejiu/mygo/verilog-eval/handoff_156_current/go_files/Prob023_vector100r/main.go",
+    "verilog_file": "/home/qinkejiu/mygo/verilog-eval/runs/validate_packed_smoke_after_basefix/Prob023_vector100r/Prob023_vector100r.sv",
+    "simulation_output": "VCD info: dumpfile wave.vcd opened for output.\n/home/qinkejiu/mygo/verilog-eval/dataset_spec-to-rtl/tests/Prob023_vector100r_test.sv:16: $finish called at 1000 (1ps)\nHint: Output 'out' has 199 mismatches. First mismatch occurred at time 10.\nHint: Total mismatched samples is 199 out of 200 samples\n\nSimulation finished at 1000 ps\nMismatches: 199 in 200 samples\n\n",
+    "mismatches": 199,
+    "samples": 200,
+    "status": "not_equivalent"
+  }
+]
