@@ -1,312 +1,327 @@
 package main
 
+const mask36_092 uint64 = (uint64(1) << 36) - 1
+const clearBit0_092 uint64 = ^uint64(1)
+
 var out_both [100]bool
 var out_any [100]bool
 var out_different [100]bool
 
-func TopModule(in [100]bool) {
-	out_both[0] = false
-	out_both[1] = in[1] && in[0]
-	out_both[2] = in[2] && in[1]
-	out_both[3] = in[3] && in[2]
-	out_both[4] = in[4] && in[3]
-	out_both[5] = in[5] && in[4]
-	out_both[6] = in[6] && in[5]
-	out_both[7] = in[7] && in[6]
-	out_both[8] = in[8] && in[7]
-	out_both[9] = in[9] && in[8]
-	out_both[10] = in[10] && in[9]
-	out_both[11] = in[11] && in[10]
-	out_both[12] = in[12] && in[11]
-	out_both[13] = in[13] && in[12]
-	out_both[14] = in[14] && in[13]
-	out_both[15] = in[15] && in[14]
-	out_both[16] = in[16] && in[15]
-	out_both[17] = in[17] && in[16]
-	out_both[18] = in[18] && in[17]
-	out_both[19] = in[19] && in[18]
-	out_both[20] = in[20] && in[19]
-	out_both[21] = in[21] && in[20]
-	out_both[22] = in[22] && in[21]
-	out_both[23] = in[23] && in[22]
-	out_both[24] = in[24] && in[23]
-	out_both[25] = in[25] && in[24]
-	out_both[26] = in[26] && in[25]
-	out_both[27] = in[27] && in[26]
-	out_both[28] = in[28] && in[27]
-	out_both[29] = in[29] && in[28]
-	out_both[30] = in[30] && in[29]
-	out_both[31] = in[31] && in[30]
-	out_both[32] = in[32] && in[31]
-	out_both[33] = in[33] && in[32]
-	out_both[34] = in[34] && in[33]
-	out_both[35] = in[35] && in[34]
-	out_both[36] = in[36] && in[35]
-	out_both[37] = in[37] && in[36]
-	out_both[38] = in[38] && in[37]
-	out_both[39] = in[39] && in[38]
-	out_both[40] = in[40] && in[39]
-	out_both[41] = in[41] && in[40]
-	out_both[42] = in[42] && in[41]
-	out_both[43] = in[43] && in[42]
-	out_both[44] = in[44] && in[43]
-	out_both[45] = in[45] && in[44]
-	out_both[46] = in[46] && in[45]
-	out_both[47] = in[47] && in[46]
-	out_both[48] = in[48] && in[47]
-	out_both[49] = in[49] && in[48]
-	out_both[50] = in[50] && in[49]
-	out_both[51] = in[51] && in[50]
-	out_both[52] = in[52] && in[51]
-	out_both[53] = in[53] && in[52]
-	out_both[54] = in[54] && in[53]
-	out_both[55] = in[55] && in[54]
-	out_both[56] = in[56] && in[55]
-	out_both[57] = in[57] && in[56]
-	out_both[58] = in[58] && in[57]
-	out_both[59] = in[59] && in[58]
-	out_both[60] = in[60] && in[59]
-	out_both[61] = in[61] && in[60]
-	out_both[62] = in[62] && in[61]
-	out_both[63] = in[63] && in[62]
-	out_both[64] = in[64] && in[63]
-	out_both[65] = in[65] && in[64]
-	out_both[66] = in[66] && in[65]
-	out_both[67] = in[67] && in[66]
-	out_both[68] = in[68] && in[67]
-	out_both[69] = in[69] && in[68]
-	out_both[70] = in[70] && in[69]
-	out_both[71] = in[71] && in[70]
-	out_both[72] = in[72] && in[71]
-	out_both[73] = in[73] && in[72]
-	out_both[74] = in[74] && in[73]
-	out_both[75] = in[75] && in[74]
-	out_both[76] = in[76] && in[75]
-	out_both[77] = in[77] && in[76]
-	out_both[78] = in[78] && in[77]
-	out_both[79] = in[79] && in[78]
-	out_both[80] = in[80] && in[79]
-	out_both[81] = in[81] && in[80]
-	out_both[82] = in[82] && in[81]
-	out_both[83] = in[83] && in[82]
-	out_both[84] = in[84] && in[83]
-	out_both[85] = in[85] && in[84]
-	out_both[86] = in[86] && in[85]
-	out_both[87] = in[87] && in[86]
-	out_both[88] = in[88] && in[87]
-	out_both[89] = in[89] && in[88]
-	out_both[90] = in[90] && in[89]
-	out_both[91] = in[91] && in[90]
-	out_both[92] = in[92] && in[91]
-	out_both[93] = in[93] && in[92]
-	out_both[94] = in[94] && in[93]
-	out_both[95] = in[95] && in[94]
-	out_both[96] = in[96] && in[95]
-	out_both[97] = in[97] && in[96]
-	out_both[98] = in[98] && in[97]
-	out_both[99] = in[99] && in[98]
+func TopModule(in [2]uint64) {
+	low := in[0]
+	high := in[1] & mask36_092
 
-	out_any[0] = in[0] || in[1]
-	out_any[1] = in[1] || in[2]
-	out_any[2] = in[2] || in[3]
-	out_any[3] = in[3] || in[4]
-	out_any[4] = in[4] || in[5]
-	out_any[5] = in[5] || in[6]
-	out_any[6] = in[6] || in[7]
-	out_any[7] = in[7] || in[8]
-	out_any[8] = in[8] || in[9]
-	out_any[9] = in[9] || in[10]
-	out_any[10] = in[10] || in[11]
-	out_any[11] = in[11] || in[12]
-	out_any[12] = in[12] || in[13]
-	out_any[13] = in[13] || in[14]
-	out_any[14] = in[14] || in[15]
-	out_any[15] = in[15] || in[16]
-	out_any[16] = in[16] || in[17]
-	out_any[17] = in[17] || in[18]
-	out_any[18] = in[18] || in[19]
-	out_any[19] = in[19] || in[20]
-	out_any[20] = in[20] || in[21]
-	out_any[21] = in[21] || in[22]
-	out_any[22] = in[22] || in[23]
-	out_any[23] = in[23] || in[24]
-	out_any[24] = in[24] || in[25]
-	out_any[25] = in[25] || in[26]
-	out_any[26] = in[26] || in[27]
-	out_any[27] = in[27] || in[28]
-	out_any[28] = in[28] || in[29]
-	out_any[29] = in[29] || in[30]
-	out_any[30] = in[30] || in[31]
-	out_any[31] = in[31] || in[32]
-	out_any[32] = in[32] || in[33]
-	out_any[33] = in[33] || in[34]
-	out_any[34] = in[34] || in[35]
-	out_any[35] = in[35] || in[36]
-	out_any[36] = in[36] || in[37]
-	out_any[37] = in[37] || in[38]
-	out_any[38] = in[38] || in[39]
-	out_any[39] = in[39] || in[40]
-	out_any[40] = in[40] || in[41]
-	out_any[41] = in[41] || in[42]
-	out_any[42] = in[42] || in[43]
-	out_any[43] = in[43] || in[44]
-	out_any[44] = in[44] || in[45]
-	out_any[45] = in[45] || in[46]
-	out_any[46] = in[46] || in[47]
-	out_any[47] = in[47] || in[48]
-	out_any[48] = in[48] || in[49]
-	out_any[49] = in[49] || in[50]
-	out_any[50] = in[50] || in[51]
-	out_any[51] = in[51] || in[52]
-	out_any[52] = in[52] || in[53]
-	out_any[53] = in[53] || in[54]
-	out_any[54] = in[54] || in[55]
-	out_any[55] = in[55] || in[56]
-	out_any[56] = in[56] || in[57]
-	out_any[57] = in[57] || in[58]
-	out_any[58] = in[58] || in[59]
-	out_any[59] = in[59] || in[60]
-	out_any[60] = in[60] || in[61]
-	out_any[61] = in[61] || in[62]
-	out_any[62] = in[62] || in[63]
-	out_any[63] = in[63] || in[64]
-	out_any[64] = in[64] || in[65]
-	out_any[65] = in[65] || in[66]
-	out_any[66] = in[66] || in[67]
-	out_any[67] = in[67] || in[68]
-	out_any[68] = in[68] || in[69]
-	out_any[69] = in[69] || in[70]
-	out_any[70] = in[70] || in[71]
-	out_any[71] = in[71] || in[72]
-	out_any[72] = in[72] || in[73]
-	out_any[73] = in[73] || in[74]
-	out_any[74] = in[74] || in[75]
-	out_any[75] = in[75] || in[76]
-	out_any[76] = in[76] || in[77]
-	out_any[77] = in[77] || in[78]
-	out_any[78] = in[78] || in[79]
-	out_any[79] = in[79] || in[80]
-	out_any[80] = in[80] || in[81]
-	out_any[81] = in[81] || in[82]
-	out_any[82] = in[82] || in[83]
-	out_any[83] = in[83] || in[84]
-	out_any[84] = in[84] || in[85]
-	out_any[85] = in[85] || in[86]
-	out_any[86] = in[86] || in[87]
-	out_any[87] = in[87] || in[88]
-	out_any[88] = in[88] || in[89]
-	out_any[89] = in[89] || in[90]
-	out_any[90] = in[90] || in[91]
-	out_any[91] = in[91] || in[92]
-	out_any[92] = in[92] || in[93]
-	out_any[93] = in[93] || in[94]
-	out_any[94] = in[94] || in[95]
-	out_any[95] = in[95] || in[96]
-	out_any[96] = in[96] || in[97]
-	out_any[97] = in[97] || in[98]
-	out_any[98] = in[98] || in[99]
-	out_any[99] = false
+	shiftedLow := (low >> 1) | ((high & 0x1) << 63)
+	shiftedHighBoth := high >> 1
+	shiftedHighDiff := (high >> 1) | ((low & 0x1) << 35)
 
-	out_different[0] = in[0] != in[99]
-	out_different[1] = in[1] != in[0]
-	out_different[2] = in[2] != in[1]
-	out_different[3] = in[3] != in[2]
-	out_different[4] = in[4] != in[3]
-	out_different[5] = in[5] != in[4]
-	out_different[6] = in[6] != in[5]
-	out_different[7] = in[7] != in[6]
-	out_different[8] = in[8] != in[7]
-	out_different[9] = in[9] != in[8]
-	out_different[10] = in[10] != in[9]
-	out_different[11] = in[11] != in[10]
-	out_different[12] = in[12] != in[11]
-	out_different[13] = in[13] != in[12]
-	out_different[14] = in[14] != in[13]
-	out_different[15] = in[15] != in[14]
-	out_different[16] = in[16] != in[15]
-	out_different[17] = in[17] != in[16]
-	out_different[18] = in[18] != in[17]
-	out_different[19] = in[19] != in[18]
-	out_different[20] = in[20] != in[19]
-	out_different[21] = in[21] != in[20]
-	out_different[22] = in[22] != in[21]
-	out_different[23] = in[23] != in[22]
-	out_different[24] = in[24] != in[23]
-	out_different[25] = in[25] != in[24]
-	out_different[26] = in[26] != in[25]
-	out_different[27] = in[27] != in[26]
-	out_different[28] = in[28] != in[27]
-	out_different[29] = in[29] != in[28]
-	out_different[30] = in[30] != in[29]
-	out_different[31] = in[31] != in[30]
-	out_different[32] = in[32] != in[31]
-	out_different[33] = in[33] != in[32]
-	out_different[34] = in[34] != in[33]
-	out_different[35] = in[35] != in[34]
-	out_different[36] = in[36] != in[35]
-	out_different[37] = in[37] != in[36]
-	out_different[38] = in[38] != in[37]
-	out_different[39] = in[39] != in[38]
-	out_different[40] = in[40] != in[39]
-	out_different[41] = in[41] != in[40]
-	out_different[42] = in[42] != in[41]
-	out_different[43] = in[43] != in[42]
-	out_different[44] = in[44] != in[43]
-	out_different[45] = in[45] != in[44]
-	out_different[46] = in[46] != in[45]
-	out_different[47] = in[47] != in[46]
-	out_different[48] = in[48] != in[47]
-	out_different[49] = in[49] != in[48]
-	out_different[50] = in[50] != in[49]
-	out_different[51] = in[51] != in[50]
-	out_different[52] = in[52] != in[51]
-	out_different[53] = in[53] != in[52]
-	out_different[54] = in[54] != in[53]
-	out_different[55] = in[55] != in[54]
-	out_different[56] = in[56] != in[55]
-	out_different[57] = in[57] != in[56]
-	out_different[58] = in[58] != in[57]
-	out_different[59] = in[59] != in[58]
-	out_different[60] = in[60] != in[59]
-	out_different[61] = in[61] != in[60]
-	out_different[62] = in[62] != in[61]
-	out_different[63] = in[63] != in[62]
-	out_different[64] = in[64] != in[63]
-	out_different[65] = in[65] != in[64]
-	out_different[66] = in[66] != in[65]
-	out_different[67] = in[67] != in[66]
-	out_different[68] = in[68] != in[67]
-	out_different[69] = in[69] != in[68]
-	out_different[70] = in[70] != in[69]
-	out_different[71] = in[71] != in[70]
-	out_different[72] = in[72] != in[71]
-	out_different[73] = in[73] != in[72]
-	out_different[74] = in[74] != in[73]
-	out_different[75] = in[75] != in[74]
-	out_different[76] = in[76] != in[75]
-	out_different[77] = in[77] != in[76]
-	out_different[78] = in[78] != in[77]
-	out_different[79] = in[79] != in[78]
-	out_different[80] = in[80] != in[79]
-	out_different[81] = in[81] != in[80]
-	out_different[82] = in[82] != in[81]
-	out_different[83] = in[83] != in[82]
-	out_different[84] = in[84] != in[83]
-	out_different[85] = in[85] != in[84]
-	out_different[86] = in[86] != in[85]
-	out_different[87] = in[87] != in[86]
-	out_different[88] = in[88] != in[87]
-	out_different[89] = in[89] != in[88]
-	out_different[90] = in[90] != in[89]
-	out_different[91] = in[91] != in[90]
-	out_different[92] = in[92] != in[91]
-	out_different[93] = in[93] != in[92]
-	out_different[94] = in[94] != in[93]
-	out_different[95] = in[95] != in[94]
-	out_different[96] = in[96] != in[95]
-	out_different[97] = in[97] != in[96]
-	out_different[98] = in[98] != in[97]
-	out_different[99] = in[99] != in[98]
+	bothLow := low & shiftedLow
+	bothHigh := (high & shiftedHighBoth) & mask36_092
+	anyLow := (low | (low << 1)) & clearBit0_092
+	anyHigh := (high | (high << 1) | (low >> 63)) & mask36_092
+	diffLow := low ^ shiftedLow
+	diffHigh := (high ^ shiftedHighDiff) & mask36_092
+
+	out_both[0] = ((bothLow >> 0) & 1) != 0
+	out_both[1] = ((bothLow >> 1) & 1) != 0
+	out_both[2] = ((bothLow >> 2) & 1) != 0
+	out_both[3] = ((bothLow >> 3) & 1) != 0
+	out_both[4] = ((bothLow >> 4) & 1) != 0
+	out_both[5] = ((bothLow >> 5) & 1) != 0
+	out_both[6] = ((bothLow >> 6) & 1) != 0
+	out_both[7] = ((bothLow >> 7) & 1) != 0
+	out_both[8] = ((bothLow >> 8) & 1) != 0
+	out_both[9] = ((bothLow >> 9) & 1) != 0
+	out_both[10] = ((bothLow >> 10) & 1) != 0
+	out_both[11] = ((bothLow >> 11) & 1) != 0
+	out_both[12] = ((bothLow >> 12) & 1) != 0
+	out_both[13] = ((bothLow >> 13) & 1) != 0
+	out_both[14] = ((bothLow >> 14) & 1) != 0
+	out_both[15] = ((bothLow >> 15) & 1) != 0
+	out_both[16] = ((bothLow >> 16) & 1) != 0
+	out_both[17] = ((bothLow >> 17) & 1) != 0
+	out_both[18] = ((bothLow >> 18) & 1) != 0
+	out_both[19] = ((bothLow >> 19) & 1) != 0
+	out_both[20] = ((bothLow >> 20) & 1) != 0
+	out_both[21] = ((bothLow >> 21) & 1) != 0
+	out_both[22] = ((bothLow >> 22) & 1) != 0
+	out_both[23] = ((bothLow >> 23) & 1) != 0
+	out_both[24] = ((bothLow >> 24) & 1) != 0
+	out_both[25] = ((bothLow >> 25) & 1) != 0
+	out_both[26] = ((bothLow >> 26) & 1) != 0
+	out_both[27] = ((bothLow >> 27) & 1) != 0
+	out_both[28] = ((bothLow >> 28) & 1) != 0
+	out_both[29] = ((bothLow >> 29) & 1) != 0
+	out_both[30] = ((bothLow >> 30) & 1) != 0
+	out_both[31] = ((bothLow >> 31) & 1) != 0
+	out_both[32] = ((bothLow >> 32) & 1) != 0
+	out_both[33] = ((bothLow >> 33) & 1) != 0
+	out_both[34] = ((bothLow >> 34) & 1) != 0
+	out_both[35] = ((bothLow >> 35) & 1) != 0
+	out_both[36] = ((bothLow >> 36) & 1) != 0
+	out_both[37] = ((bothLow >> 37) & 1) != 0
+	out_both[38] = ((bothLow >> 38) & 1) != 0
+	out_both[39] = ((bothLow >> 39) & 1) != 0
+	out_both[40] = ((bothLow >> 40) & 1) != 0
+	out_both[41] = ((bothLow >> 41) & 1) != 0
+	out_both[42] = ((bothLow >> 42) & 1) != 0
+	out_both[43] = ((bothLow >> 43) & 1) != 0
+	out_both[44] = ((bothLow >> 44) & 1) != 0
+	out_both[45] = ((bothLow >> 45) & 1) != 0
+	out_both[46] = ((bothLow >> 46) & 1) != 0
+	out_both[47] = ((bothLow >> 47) & 1) != 0
+	out_both[48] = ((bothLow >> 48) & 1) != 0
+	out_both[49] = ((bothLow >> 49) & 1) != 0
+	out_both[50] = ((bothLow >> 50) & 1) != 0
+	out_both[51] = ((bothLow >> 51) & 1) != 0
+	out_both[52] = ((bothLow >> 52) & 1) != 0
+	out_both[53] = ((bothLow >> 53) & 1) != 0
+	out_both[54] = ((bothLow >> 54) & 1) != 0
+	out_both[55] = ((bothLow >> 55) & 1) != 0
+	out_both[56] = ((bothLow >> 56) & 1) != 0
+	out_both[57] = ((bothLow >> 57) & 1) != 0
+	out_both[58] = ((bothLow >> 58) & 1) != 0
+	out_both[59] = ((bothLow >> 59) & 1) != 0
+	out_both[60] = ((bothLow >> 60) & 1) != 0
+	out_both[61] = ((bothLow >> 61) & 1) != 0
+	out_both[62] = ((bothLow >> 62) & 1) != 0
+	out_both[63] = ((bothLow >> 63) & 1) != 0
+	out_both[64] = ((bothHigh >> 0) & 1) != 0
+	out_both[65] = ((bothHigh >> 1) & 1) != 0
+	out_both[66] = ((bothHigh >> 2) & 1) != 0
+	out_both[67] = ((bothHigh >> 3) & 1) != 0
+	out_both[68] = ((bothHigh >> 4) & 1) != 0
+	out_both[69] = ((bothHigh >> 5) & 1) != 0
+	out_both[70] = ((bothHigh >> 6) & 1) != 0
+	out_both[71] = ((bothHigh >> 7) & 1) != 0
+	out_both[72] = ((bothHigh >> 8) & 1) != 0
+	out_both[73] = ((bothHigh >> 9) & 1) != 0
+	out_both[74] = ((bothHigh >> 10) & 1) != 0
+	out_both[75] = ((bothHigh >> 11) & 1) != 0
+	out_both[76] = ((bothHigh >> 12) & 1) != 0
+	out_both[77] = ((bothHigh >> 13) & 1) != 0
+	out_both[78] = ((bothHigh >> 14) & 1) != 0
+	out_both[79] = ((bothHigh >> 15) & 1) != 0
+	out_both[80] = ((bothHigh >> 16) & 1) != 0
+	out_both[81] = ((bothHigh >> 17) & 1) != 0
+	out_both[82] = ((bothHigh >> 18) & 1) != 0
+	out_both[83] = ((bothHigh >> 19) & 1) != 0
+	out_both[84] = ((bothHigh >> 20) & 1) != 0
+	out_both[85] = ((bothHigh >> 21) & 1) != 0
+	out_both[86] = ((bothHigh >> 22) & 1) != 0
+	out_both[87] = ((bothHigh >> 23) & 1) != 0
+	out_both[88] = ((bothHigh >> 24) & 1) != 0
+	out_both[89] = ((bothHigh >> 25) & 1) != 0
+	out_both[90] = ((bothHigh >> 26) & 1) != 0
+	out_both[91] = ((bothHigh >> 27) & 1) != 0
+	out_both[92] = ((bothHigh >> 28) & 1) != 0
+	out_both[93] = ((bothHigh >> 29) & 1) != 0
+	out_both[94] = ((bothHigh >> 30) & 1) != 0
+	out_both[95] = ((bothHigh >> 31) & 1) != 0
+	out_both[96] = ((bothHigh >> 32) & 1) != 0
+	out_both[97] = ((bothHigh >> 33) & 1) != 0
+	out_both[98] = ((bothHigh >> 34) & 1) != 0
+	out_both[99] = ((bothHigh >> 35) & 1) != 0
+	out_any[0] = ((anyLow >> 0) & 1) != 0
+	out_any[1] = ((anyLow >> 1) & 1) != 0
+	out_any[2] = ((anyLow >> 2) & 1) != 0
+	out_any[3] = ((anyLow >> 3) & 1) != 0
+	out_any[4] = ((anyLow >> 4) & 1) != 0
+	out_any[5] = ((anyLow >> 5) & 1) != 0
+	out_any[6] = ((anyLow >> 6) & 1) != 0
+	out_any[7] = ((anyLow >> 7) & 1) != 0
+	out_any[8] = ((anyLow >> 8) & 1) != 0
+	out_any[9] = ((anyLow >> 9) & 1) != 0
+	out_any[10] = ((anyLow >> 10) & 1) != 0
+	out_any[11] = ((anyLow >> 11) & 1) != 0
+	out_any[12] = ((anyLow >> 12) & 1) != 0
+	out_any[13] = ((anyLow >> 13) & 1) != 0
+	out_any[14] = ((anyLow >> 14) & 1) != 0
+	out_any[15] = ((anyLow >> 15) & 1) != 0
+	out_any[16] = ((anyLow >> 16) & 1) != 0
+	out_any[17] = ((anyLow >> 17) & 1) != 0
+	out_any[18] = ((anyLow >> 18) & 1) != 0
+	out_any[19] = ((anyLow >> 19) & 1) != 0
+	out_any[20] = ((anyLow >> 20) & 1) != 0
+	out_any[21] = ((anyLow >> 21) & 1) != 0
+	out_any[22] = ((anyLow >> 22) & 1) != 0
+	out_any[23] = ((anyLow >> 23) & 1) != 0
+	out_any[24] = ((anyLow >> 24) & 1) != 0
+	out_any[25] = ((anyLow >> 25) & 1) != 0
+	out_any[26] = ((anyLow >> 26) & 1) != 0
+	out_any[27] = ((anyLow >> 27) & 1) != 0
+	out_any[28] = ((anyLow >> 28) & 1) != 0
+	out_any[29] = ((anyLow >> 29) & 1) != 0
+	out_any[30] = ((anyLow >> 30) & 1) != 0
+	out_any[31] = ((anyLow >> 31) & 1) != 0
+	out_any[32] = ((anyLow >> 32) & 1) != 0
+	out_any[33] = ((anyLow >> 33) & 1) != 0
+	out_any[34] = ((anyLow >> 34) & 1) != 0
+	out_any[35] = ((anyLow >> 35) & 1) != 0
+	out_any[36] = ((anyLow >> 36) & 1) != 0
+	out_any[37] = ((anyLow >> 37) & 1) != 0
+	out_any[38] = ((anyLow >> 38) & 1) != 0
+	out_any[39] = ((anyLow >> 39) & 1) != 0
+	out_any[40] = ((anyLow >> 40) & 1) != 0
+	out_any[41] = ((anyLow >> 41) & 1) != 0
+	out_any[42] = ((anyLow >> 42) & 1) != 0
+	out_any[43] = ((anyLow >> 43) & 1) != 0
+	out_any[44] = ((anyLow >> 44) & 1) != 0
+	out_any[45] = ((anyLow >> 45) & 1) != 0
+	out_any[46] = ((anyLow >> 46) & 1) != 0
+	out_any[47] = ((anyLow >> 47) & 1) != 0
+	out_any[48] = ((anyLow >> 48) & 1) != 0
+	out_any[49] = ((anyLow >> 49) & 1) != 0
+	out_any[50] = ((anyLow >> 50) & 1) != 0
+	out_any[51] = ((anyLow >> 51) & 1) != 0
+	out_any[52] = ((anyLow >> 52) & 1) != 0
+	out_any[53] = ((anyLow >> 53) & 1) != 0
+	out_any[54] = ((anyLow >> 54) & 1) != 0
+	out_any[55] = ((anyLow >> 55) & 1) != 0
+	out_any[56] = ((anyLow >> 56) & 1) != 0
+	out_any[57] = ((anyLow >> 57) & 1) != 0
+	out_any[58] = ((anyLow >> 58) & 1) != 0
+	out_any[59] = ((anyLow >> 59) & 1) != 0
+	out_any[60] = ((anyLow >> 60) & 1) != 0
+	out_any[61] = ((anyLow >> 61) & 1) != 0
+	out_any[62] = ((anyLow >> 62) & 1) != 0
+	out_any[63] = ((anyLow >> 63) & 1) != 0
+	out_any[64] = ((anyHigh >> 0) & 1) != 0
+	out_any[65] = ((anyHigh >> 1) & 1) != 0
+	out_any[66] = ((anyHigh >> 2) & 1) != 0
+	out_any[67] = ((anyHigh >> 3) & 1) != 0
+	out_any[68] = ((anyHigh >> 4) & 1) != 0
+	out_any[69] = ((anyHigh >> 5) & 1) != 0
+	out_any[70] = ((anyHigh >> 6) & 1) != 0
+	out_any[71] = ((anyHigh >> 7) & 1) != 0
+	out_any[72] = ((anyHigh >> 8) & 1) != 0
+	out_any[73] = ((anyHigh >> 9) & 1) != 0
+	out_any[74] = ((anyHigh >> 10) & 1) != 0
+	out_any[75] = ((anyHigh >> 11) & 1) != 0
+	out_any[76] = ((anyHigh >> 12) & 1) != 0
+	out_any[77] = ((anyHigh >> 13) & 1) != 0
+	out_any[78] = ((anyHigh >> 14) & 1) != 0
+	out_any[79] = ((anyHigh >> 15) & 1) != 0
+	out_any[80] = ((anyHigh >> 16) & 1) != 0
+	out_any[81] = ((anyHigh >> 17) & 1) != 0
+	out_any[82] = ((anyHigh >> 18) & 1) != 0
+	out_any[83] = ((anyHigh >> 19) & 1) != 0
+	out_any[84] = ((anyHigh >> 20) & 1) != 0
+	out_any[85] = ((anyHigh >> 21) & 1) != 0
+	out_any[86] = ((anyHigh >> 22) & 1) != 0
+	out_any[87] = ((anyHigh >> 23) & 1) != 0
+	out_any[88] = ((anyHigh >> 24) & 1) != 0
+	out_any[89] = ((anyHigh >> 25) & 1) != 0
+	out_any[90] = ((anyHigh >> 26) & 1) != 0
+	out_any[91] = ((anyHigh >> 27) & 1) != 0
+	out_any[92] = ((anyHigh >> 28) & 1) != 0
+	out_any[93] = ((anyHigh >> 29) & 1) != 0
+	out_any[94] = ((anyHigh >> 30) & 1) != 0
+	out_any[95] = ((anyHigh >> 31) & 1) != 0
+	out_any[96] = ((anyHigh >> 32) & 1) != 0
+	out_any[97] = ((anyHigh >> 33) & 1) != 0
+	out_any[98] = ((anyHigh >> 34) & 1) != 0
+	out_any[99] = ((anyHigh >> 35) & 1) != 0
+	out_different[0] = ((diffLow >> 0) & 1) != 0
+	out_different[1] = ((diffLow >> 1) & 1) != 0
+	out_different[2] = ((diffLow >> 2) & 1) != 0
+	out_different[3] = ((diffLow >> 3) & 1) != 0
+	out_different[4] = ((diffLow >> 4) & 1) != 0
+	out_different[5] = ((diffLow >> 5) & 1) != 0
+	out_different[6] = ((diffLow >> 6) & 1) != 0
+	out_different[7] = ((diffLow >> 7) & 1) != 0
+	out_different[8] = ((diffLow >> 8) & 1) != 0
+	out_different[9] = ((diffLow >> 9) & 1) != 0
+	out_different[10] = ((diffLow >> 10) & 1) != 0
+	out_different[11] = ((diffLow >> 11) & 1) != 0
+	out_different[12] = ((diffLow >> 12) & 1) != 0
+	out_different[13] = ((diffLow >> 13) & 1) != 0
+	out_different[14] = ((diffLow >> 14) & 1) != 0
+	out_different[15] = ((diffLow >> 15) & 1) != 0
+	out_different[16] = ((diffLow >> 16) & 1) != 0
+	out_different[17] = ((diffLow >> 17) & 1) != 0
+	out_different[18] = ((diffLow >> 18) & 1) != 0
+	out_different[19] = ((diffLow >> 19) & 1) != 0
+	out_different[20] = ((diffLow >> 20) & 1) != 0
+	out_different[21] = ((diffLow >> 21) & 1) != 0
+	out_different[22] = ((diffLow >> 22) & 1) != 0
+	out_different[23] = ((diffLow >> 23) & 1) != 0
+	out_different[24] = ((diffLow >> 24) & 1) != 0
+	out_different[25] = ((diffLow >> 25) & 1) != 0
+	out_different[26] = ((diffLow >> 26) & 1) != 0
+	out_different[27] = ((diffLow >> 27) & 1) != 0
+	out_different[28] = ((diffLow >> 28) & 1) != 0
+	out_different[29] = ((diffLow >> 29) & 1) != 0
+	out_different[30] = ((diffLow >> 30) & 1) != 0
+	out_different[31] = ((diffLow >> 31) & 1) != 0
+	out_different[32] = ((diffLow >> 32) & 1) != 0
+	out_different[33] = ((diffLow >> 33) & 1) != 0
+	out_different[34] = ((diffLow >> 34) & 1) != 0
+	out_different[35] = ((diffLow >> 35) & 1) != 0
+	out_different[36] = ((diffLow >> 36) & 1) != 0
+	out_different[37] = ((diffLow >> 37) & 1) != 0
+	out_different[38] = ((diffLow >> 38) & 1) != 0
+	out_different[39] = ((diffLow >> 39) & 1) != 0
+	out_different[40] = ((diffLow >> 40) & 1) != 0
+	out_different[41] = ((diffLow >> 41) & 1) != 0
+	out_different[42] = ((diffLow >> 42) & 1) != 0
+	out_different[43] = ((diffLow >> 43) & 1) != 0
+	out_different[44] = ((diffLow >> 44) & 1) != 0
+	out_different[45] = ((diffLow >> 45) & 1) != 0
+	out_different[46] = ((diffLow >> 46) & 1) != 0
+	out_different[47] = ((diffLow >> 47) & 1) != 0
+	out_different[48] = ((diffLow >> 48) & 1) != 0
+	out_different[49] = ((diffLow >> 49) & 1) != 0
+	out_different[50] = ((diffLow >> 50) & 1) != 0
+	out_different[51] = ((diffLow >> 51) & 1) != 0
+	out_different[52] = ((diffLow >> 52) & 1) != 0
+	out_different[53] = ((diffLow >> 53) & 1) != 0
+	out_different[54] = ((diffLow >> 54) & 1) != 0
+	out_different[55] = ((diffLow >> 55) & 1) != 0
+	out_different[56] = ((diffLow >> 56) & 1) != 0
+	out_different[57] = ((diffLow >> 57) & 1) != 0
+	out_different[58] = ((diffLow >> 58) & 1) != 0
+	out_different[59] = ((diffLow >> 59) & 1) != 0
+	out_different[60] = ((diffLow >> 60) & 1) != 0
+	out_different[61] = ((diffLow >> 61) & 1) != 0
+	out_different[62] = ((diffLow >> 62) & 1) != 0
+	out_different[63] = ((diffLow >> 63) & 1) != 0
+	out_different[64] = ((diffHigh >> 0) & 1) != 0
+	out_different[65] = ((diffHigh >> 1) & 1) != 0
+	out_different[66] = ((diffHigh >> 2) & 1) != 0
+	out_different[67] = ((diffHigh >> 3) & 1) != 0
+	out_different[68] = ((diffHigh >> 4) & 1) != 0
+	out_different[69] = ((diffHigh >> 5) & 1) != 0
+	out_different[70] = ((diffHigh >> 6) & 1) != 0
+	out_different[71] = ((diffHigh >> 7) & 1) != 0
+	out_different[72] = ((diffHigh >> 8) & 1) != 0
+	out_different[73] = ((diffHigh >> 9) & 1) != 0
+	out_different[74] = ((diffHigh >> 10) & 1) != 0
+	out_different[75] = ((diffHigh >> 11) & 1) != 0
+	out_different[76] = ((diffHigh >> 12) & 1) != 0
+	out_different[77] = ((diffHigh >> 13) & 1) != 0
+	out_different[78] = ((diffHigh >> 14) & 1) != 0
+	out_different[79] = ((diffHigh >> 15) & 1) != 0
+	out_different[80] = ((diffHigh >> 16) & 1) != 0
+	out_different[81] = ((diffHigh >> 17) & 1) != 0
+	out_different[82] = ((diffHigh >> 18) & 1) != 0
+	out_different[83] = ((diffHigh >> 19) & 1) != 0
+	out_different[84] = ((diffHigh >> 20) & 1) != 0
+	out_different[85] = ((diffHigh >> 21) & 1) != 0
+	out_different[86] = ((diffHigh >> 22) & 1) != 0
+	out_different[87] = ((diffHigh >> 23) & 1) != 0
+	out_different[88] = ((diffHigh >> 24) & 1) != 0
+	out_different[89] = ((diffHigh >> 25) & 1) != 0
+	out_different[90] = ((diffHigh >> 26) & 1) != 0
+	out_different[91] = ((diffHigh >> 27) & 1) != 0
+	out_different[92] = ((diffHigh >> 28) & 1) != 0
+	out_different[93] = ((diffHigh >> 29) & 1) != 0
+	out_different[94] = ((diffHigh >> 30) & 1) != 0
+	out_different[95] = ((diffHigh >> 31) & 1) != 0
+	out_different[96] = ((diffHigh >> 32) & 1) != 0
+	out_different[97] = ((diffHigh >> 33) & 1) != 0
+	out_different[98] = ((diffHigh >> 34) & 1) != 0
+	out_different[99] = ((diffHigh >> 35) & 1) != 0
 }
 
 func main() {}

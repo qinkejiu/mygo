@@ -1746,6 +1746,20 @@ func (b *builder) lowerPackedIndexedRead(bb *BasicBlock, base ssa.Value, state *
 	if shiftIndex == nil {
 		return nil
 	}
+	if elemWidth > 1 {
+		shiftIndex = b.synthesizeBinOp(
+			bb,
+			"idxshiftmul",
+			Mul,
+			shiftIndex,
+			b.newConstSignal(int64(elemWidth), baseSig.Type.Clone(), pos),
+			baseSig.Type.Clone(),
+			pos,
+		)
+		if shiftIndex == nil {
+			return nil
+		}
+	}
 	shifted := b.synthesizeBinOp(bb, "idxshr", ShrU, baseSig, shiftIndex, baseSig.Type.Clone(), pos)
 	if shifted == nil {
 		return nil

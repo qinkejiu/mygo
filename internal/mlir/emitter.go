@@ -7270,29 +7270,27 @@ func (p *processPrinter) edgeValueRefWithActive(sig *ir.Signal, active map[*ir.S
 	if sig.Kind == ir.Const {
 		return p.assignConst(sig)
 	}
+	if sig.Kind == ir.Reg && sig.Name != "" && p.moduleSignals != nil {
+		if p.portNames != nil {
+			if _, isPort := p.portNames[sig.Name]; isPort {
+				goto skipDirectClockedRegRead
+			}
+		}
+		if moduleSig, ok := p.moduleSignals[sig.Name]; ok && moduleSig != nil && moduleSig.Kind == ir.Reg {
+			wireName := "%" + sanitize(sig.Name)
+			readName := p.freshValueName("edge_reg")
+			p.printIndent()
+			fmt.Fprintf(p.w, "%s = sv.read_inout %s : !hw.inout<%s>\n", readName, wireName, typeString(sig.Type))
+			return readName
+		}
+	}
+skipDirectClockedRegRead:
 	if sig.Name != "" {
 		if p.proc != nil && isClockLikeName(sig.Name) && !p.processHasDualClockEdges(p.proc) {
 			return p.boolConst(true)
 		}
 		if portName, ok := p.portNames[sig.Name]; ok {
 			return portName
-		}
-	}
-	if sig.Kind == ir.Reg {
-		if name, ok := p.valueNames[sig]; ok && name != "" {
-			raw := "%" + sanitize(sig.Name)
-			if name != raw {
-				return name
-			}
-		}
-		if sig.Name != "" && p.moduleSignals != nil {
-			if moduleSig, ok := p.moduleSignals[sig.Name]; ok && moduleSig != nil && moduleSig.Kind == ir.Reg {
-				wireName := "%" + sanitize(sig.Name)
-				readName := p.freshValueName("edge_reg")
-				p.printIndent()
-				fmt.Fprintf(p.w, "%s = sv.read_inout %s : !hw.inout<%s>\n", readName, wireName, typeString(sig.Type))
-				return readName
-			}
 		}
 	}
 	if p.proc != nil {
