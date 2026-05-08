@@ -2,12 +2,14 @@ package main
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"flag"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 
@@ -64,6 +66,7 @@ func runCompile(args []string) error {
 	circtPipeline := fs.String("circt-pipeline", "", "circt-opt --pass-pipeline string (optional)")
 	circtLowering := fs.String("circt-lowering-options", "", "comma-separated circt-opt --lowering-options string (optional)")
 	circtMLIR := fs.String("circt-mlir", "", "path to dump the MLIR handed to CIRCT (optional)")
+	benchmarkRefPath := fs.String("benchmark-ref-path", "", "path to benchmark reference Verilog used for interface wrapping (optional)")
 	fifoSrc := fs.String("fifo-src", "", "deprecated: external FIFO source path (ignored; FIFOs are generated inline)")
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -119,7 +122,7 @@ func runCompile(args []string) error {
 			LoweringOptions:  *circtLowering,
 			DumpMLIRPath:     *circtMLIR,
 			TempRoot:         tempRoot,
-			BenchmarkRefPath: benchmarkRefPathForInputs(inputs),
+			BenchmarkRefPath: *benchmarkRefPath,
 			FIFOSource:       *fifoSrc,
 		}
 		res, err := emitVerilog(design, *output, opts)
@@ -242,6 +245,7 @@ func runSim(args []string) error {
 	circtPipeline := fs.String("circt-pipeline", "", "circt-opt --pass-pipeline string (optional)")
 	circtLowering := fs.String("circt-lowering-options", "", "comma-separated circt-opt --lowering-options string (optional)")
 	circtMLIR := fs.String("circt-mlir", "", "path to dump the MLIR handed to CIRCT (optional)")
+	benchmarkRefPath := fs.String("benchmark-ref-path", "", "path to benchmark reference Verilog used for interface wrapping (optional)")
 	verilogOut := fs.String("verilog-out", "", "path to write the emitted Verilog bundle (optional)")
 	keepArtifacts := fs.Bool("keep-artifacts", true, "keep temporary artifacts generated during simulation")
 	simulator := fs.String("simulator", "", "simulator executable to run (e.g. a Verilator wrapper script)")
@@ -267,13 +271,13 @@ func runSim(args []string) error {
 			}
 		}
 	}
-
 	result, err := prepareProgram(inputs, *diagFormat)
 	if err != nil {
 		return err
 	}
-	// Keep simulation output focused on runtime behavior; hide informational diagnostics.
-	result.reporter.SetMinSeverity(diag.Warning)
+	// Keep simulation output focused on runtime behavior; simulation callers care
+	// about hard failures, not frontend advisory noise.
+	result.reporter.SetMinSeverity(diag.Error)
 
 	if err := validateProgram(result); err != nil {
 		return err
@@ -320,7 +324,7 @@ func runSim(args []string) error {
 		DumpMLIRPath:     *circtMLIR,
 		KeepTemps:        *keepArtifacts,
 		TempRoot:         tempRoot,
-		BenchmarkRefPath: benchmarkRefPathForInputs(inputs),
+		BenchmarkRefPath: *benchmarkRefPath,
 		FIFOSource:       *fifoSrc,
 	}
 	if hasChannels && *fifoSrc != "" {
@@ -465,39 +469,6 @@ func defaultSimExpectPath(input string) string {
 	return filepath.Join(dir, "expected.sim")
 }
 
-func benchmarkRefPathForInputs(inputs []string) string {
-	if len(inputs) != 1 {
-		return ""
-	}
-	absInput, err := filepath.Abs(inputs[0])
-	if err != nil {
-		return ""
-	}
-	caseDir := filepath.Dir(absInput)
-	caseName := filepath.Base(caseDir)
-	if caseName == "" || caseName == "." || caseName == string(filepath.Separator) {
-		return ""
-	}
-	refRelPaths := []string{
-		filepath.Join("verilog-eval", "dataset_spec-to-rtl", "refs", caseName+"_ref.sv"),
-		filepath.Join("verilog-eval", "historical", "dataset_spec-to-rtl", "refs", caseName+"_ref.sv"),
-		filepath.Join("verilog-eval", "reference_verilog", caseName+"_ref.sv"),
-	}
-	for dir := caseDir; dir != "" && dir != string(filepath.Separator); dir = filepath.Dir(dir) {
-		for _, relPath := range refRelPaths {
-			candidate := filepath.Join(dir, relPath)
-			if info, statErr := os.Stat(candidate); statErr == nil && !info.IsDir() {
-				return candidate
-			}
-		}
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			break
-		}
-	}
-	return ""
-}
-
 func artifactTempRoot(inputs []string) string {
 	for _, in := range inputs {
 		if dir := resolveInputDir(in); dir != "" {
@@ -560,11 +531,29 @@ func runBuiltinVerilator(mainPath string, auxPaths []string, expectPath string, 
 		return fmt.Errorf("resolve verilator: %w", err)
 	}
 
-	tempDir, err := os.MkdirTemp(tempRoot, ".mygo-verilator-*")
+	hasClock, hasReset, err := detectTopModuleClockReset(mainPath)
 	if err != nil {
-		return fmt.Errorf("create verilator temp dir: %w", err)
+		return fmt.Errorf("detect top module ports: %w", err)
 	}
-	if !keepArtifacts {
+	driver, err := renderVerilatorDriver(maxCycles, resetCycles, hasClock, hasReset, constants)
+	if err != nil {
+		return fmt.Errorf("render verilator driver: %w", err)
+	}
+
+	var tempDir string
+	if keepArtifacts {
+		tempDir, err = cachedVerilatorTempDir(tempRoot, mainPath, auxPaths, driver)
+		if err != nil {
+			return err
+		}
+		if err := os.MkdirAll(tempDir, 0o755); err != nil {
+			return fmt.Errorf("create verilator cache dir: %w", err)
+		}
+	} else {
+		tempDir, err = os.MkdirTemp(tempRoot, ".mygo-verilator-*")
+		if err != nil {
+			return fmt.Errorf("create verilator temp dir: %w", err)
+		}
 		defer os.RemoveAll(tempDir)
 	}
 
@@ -573,10 +562,6 @@ func runBuiltinVerilator(mainPath string, auxPaths []string, expectPath string, 
 		return fmt.Errorf("create verilator build dir: %w", err)
 	}
 	driverPath := filepath.Join(buildDir, "sim_main.cpp")
-	driver, err := renderVerilatorDriver(maxCycles, resetCycles, constants)
-	if err != nil {
-		return fmt.Errorf("render verilator driver: %w", err)
-	}
 	if err := os.WriteFile(driverPath, []byte(driver), 0o644); err != nil {
 		return fmt.Errorf("write verilator driver: %w", err)
 	}
@@ -585,10 +570,19 @@ func runBuiltinVerilator(mainPath string, auxPaths []string, expectPath string, 
 	}
 
 	objDir := filepath.Join(buildDir, "obj_dir")
+	simPath := filepath.Join(objDir, "mygo_sim")
+	if _, err := os.Stat(simPath); err == nil {
+		return runBuiltVerilatorBinary(simPath, expectPath)
+	} else if !os.IsNotExist(err) {
+		return fmt.Errorf("stat cached verilator binary: %w", err)
+	}
 	args := []string{
 		"--cc", "--exe", "--build",
 		"--sv",
 		"-Wno-CMPCONST",
+		"-Wno-UNSIGNED",
+		"-CFLAGS", "-O0",
+		"-CFLAGS", "-g0",
 		"--Mdir", objDir,
 		"--top-module", "main",
 		"-o", "mygo_sim",
@@ -600,12 +594,15 @@ func runBuiltinVerilator(mainPath string, auxPaths []string, expectPath string, 
 	cmd := exec.Command(verilatorPath, args...)
 	cmd.Stdout = os.Stderr
 	cmd.Stderr = os.Stderr
-	cmd.Env = prependPathToEnv(buildDir)
+	cmd.Env = verilatorBuildEnv(buildDir)
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("verilator build failed: %w", err)
 	}
 
-	simPath := filepath.Join(objDir, "mygo_sim")
+	return runBuiltVerilatorBinary(simPath, expectPath)
+}
+
+func runBuiltVerilatorBinary(simPath, expectPath string) error {
 	simCmd := exec.Command(simPath)
 	var stdoutBuf bytes.Buffer
 	simCmd.Stdout = &stdoutBuf
@@ -625,6 +622,61 @@ func runBuiltinVerilator(mainPath string, auxPaths []string, expectPath string, 
 	return nil
 }
 
+func cachedVerilatorTempDir(tempRoot, mainPath string, auxPaths []string, driver string) (string, error) {
+	hash := sha256.New()
+	addFile := func(path string) error {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return fmt.Errorf("read verilator input %s: %w", path, err)
+		}
+		if _, err := io.WriteString(hash, filepath.Base(path)); err != nil {
+			return err
+		}
+		if _, err := hash.Write([]byte{0}); err != nil {
+			return err
+		}
+		if _, err := hash.Write(data); err != nil {
+			return err
+		}
+		_, err = hash.Write([]byte{0})
+		return err
+	}
+	if err := addFile(mainPath); err != nil {
+		return "", err
+	}
+	for _, aux := range auxPaths {
+		if err := addFile(aux); err != nil {
+			return "", err
+		}
+	}
+	if _, err := io.WriteString(hash, driver); err != nil {
+		return "", err
+	}
+	sum := fmt.Sprintf("%x", hash.Sum(nil))
+	return filepath.Join(tempRoot, ".mygo-verilator-cache-"+sum[:16]), nil
+}
+
+func detectTopModuleClockReset(mainPath string) (bool, bool, error) {
+	data, err := os.ReadFile(mainPath)
+	if err != nil {
+		return false, false, err
+	}
+	text := string(data)
+	start := strings.Index(text, "module main(")
+	if start < 0 {
+		return false, false, nil
+	}
+	rest := text[start:]
+	end := strings.Index(rest, ");")
+	if end < 0 {
+		return false, false, nil
+	}
+	header := rest[:end]
+	hasClock := strings.Contains(header, " clk") || strings.Contains(header, "(clk") || strings.Contains(header, "\tclk")
+	hasReset := strings.Contains(header, " rst") || strings.Contains(header, "(rst") || strings.Contains(header, "\trst")
+	return hasClock, hasReset, nil
+}
+
 func normalizeSimulatorStdout(data []byte) []byte {
 	replacer := strings.NewReplacer(
 		"(nan)", "(NaN)",
@@ -638,6 +690,19 @@ func normalizeSimulatorStdout(data []byte) []byte {
 		lines[i] = normalizeHexByteRunLine(line)
 	}
 	return []byte(strings.Join(lines, "\n"))
+}
+
+func verilatorBuildEnv(buildDir string) []string {
+	env := prependPathToEnv(buildDir)
+	jobs := runtime.NumCPU()
+	if jobs < 1 {
+		jobs = 1
+	}
+	if jobs > 8 {
+		jobs = 8
+	}
+	env = append(env, fmt.Sprintf("MAKEFLAGS=-j%d", jobs))
+	return env
 }
 
 func outputsDifferOnlyByLineOrder(want, got []byte) bool {

@@ -20,7 +20,7 @@ var (
 	runExport   = runCirctExportVerilog
 )
 
-const defaultVerilogPassPipeline = "builtin.module(lower-seq-to-sv,hw.module(lower-hw-to-sv))"
+const defaultVerilogPassPipeline = "builtin.module(map-arith-to-comb,lower-seq-to-sv,hw.module(lower-hw-to-sv))"
 
 // Options configures how the CIRCT backend is invoked.
 type Options struct {

@@ -179,6 +179,35 @@ func TopModule() {
 	}
 }
 
+func TestPreprocessSourcesForOverlayLeavesAssignedIndexLoopStructured(t *testing.T) {
+	dir := t.TempDir()
+	file := filepath.Join(dir, "main.go")
+	source := `package main
+
+func TopModule() {
+	var i int
+	for i = 0; i < 4; i++ {
+		println(i)
+	}
+}
+`
+	if err := os.WriteFile(file, []byte(source), 0o644); err != nil {
+		t.Fatalf("write source: %v", err)
+	}
+
+	overlay, err := preprocessSourcesForOverlay([]string{file})
+	if err != nil {
+		t.Fatalf("preprocess sources: %v", err)
+	}
+	if overlay == nil {
+		return
+	}
+	text := string(overlay[file])
+	if !strings.Contains(text, "for i = 0; i < 4; i++") {
+		t.Fatalf("expected assigned-index constant loop to remain structured, got:\n%s", text)
+	}
+}
+
 func TestPreprocessSourcesForOverlayLeavesHighCostConstLoopStructured(t *testing.T) {
 	dir := t.TempDir()
 	file := filepath.Join(dir, "main.go")

@@ -42,6 +42,7 @@ func BuildDesign(prog *ssa.Program, reporter *diag.Reporter, targetFuncs ...stri
 		indexedBases:         make(map[ssa.Value]*indexedBaseState),
 		globalValues:         make(map[*ssa.Global]*Signal),
 		globalStorage:        make(map[*ssa.Global]*Signal),
+		signalGlobalBases:    make(map[*Signal]*ssa.Global),
 		blockGlobalValues:    make(map[*BasicBlock]map[*ssa.Global]*Signal),
 		blockAllocValues:     make(map[*BasicBlock]map[*ssa.Alloc]*Signal),
 		processes:            make(map[*ssa.Function]*Process),
@@ -88,6 +89,7 @@ type builder struct {
 	indexedBases         map[ssa.Value]*indexedBaseState
 	globalValues         map[*ssa.Global]*Signal
 	globalStorage        map[*ssa.Global]*Signal
+	signalGlobalBases    map[*Signal]*ssa.Global
 	blockGlobalValues    map[*BasicBlock]map[*ssa.Global]*Signal
 	blockAllocValues     map[*BasicBlock]map[*ssa.Alloc]*Signal
 	processes            map[*ssa.Function]*Process
@@ -1728,7 +1730,7 @@ func (b *builder) memoryAccess(bb *BasicBlock, addr *ssa.IndexAddr) *Signal {
 }
 
 func (b *builder) lowerPackedIndexedRead(bb *BasicBlock, base ssa.Value, state *indexedBaseState, index *Signal, pos token.Pos) *Signal {
-	if b == nil || bb == nil || state == nil || index == nil || state.elemType == nil || len(state.dims) != 1 {
+	if b == nil || bb == nil || state == nil || index == nil || state.elemType == nil {
 		return nil
 	}
 	baseSig := b.signalForValue(base)
@@ -2062,6 +2064,9 @@ func (b *builder) indexedElementStorageSignal(state *indexedBaseState, idx int, 
 	sig := b.indexedElementSignal(state, idx, pos)
 	if sig != nil {
 		state.storage[idx] = sig
+		if g, ok := state.base.(*ssa.Global); ok && g != nil && b.signalGlobalBases != nil {
+			b.signalGlobalBases[sig] = g
+		}
 	}
 	return sig
 }
@@ -2126,6 +2131,9 @@ func (b *builder) bindGlobalIndexedInputPorts(g *ssa.Global, state *indexedBaseS
 		}
 
 		state.storage[i] = sig
+		if b.signalGlobalBases != nil {
+			b.signalGlobalBases[sig] = g
+		}
 		if state.elements[i] == nil || state.elements[i].Kind == Const {
 			state.elements[i] = sig
 		}

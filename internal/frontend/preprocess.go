@@ -1144,9 +1144,7 @@ func parseConstForInit(stmt ast.Stmt) (string, int64, bool) {
 	if !ok || len(assign.Lhs) != 1 || len(assign.Rhs) != 1 {
 		return "", 0, false
 	}
-	switch assign.Tok {
-	case token.DEFINE, token.ASSIGN:
-	default:
+	if assign.Tok != token.DEFINE {
 		return "", 0, false
 	}
 	ident, ok := assign.Lhs[0].(*ast.Ident)

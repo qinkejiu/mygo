@@ -25,10 +25,12 @@ var (
 type verilatorDriverData struct {
 	MaxCycles   int
 	ResetCycles int
+	HasClock    bool
+	HasReset    bool
 	Constants   []constdata.ArrayConstant
 }
 
-func renderVerilatorDriver(maxCycles, resetCycles int, constants []constdata.ArrayConstant) (string, error) {
+func renderVerilatorDriver(maxCycles, resetCycles int, hasClock, hasReset bool, constants []constdata.ArrayConstant) (string, error) {
 	tmpl, err := loadVerilatorTemplate()
 	if err != nil {
 		return "", err
@@ -37,6 +39,8 @@ func renderVerilatorDriver(maxCycles, resetCycles int, constants []constdata.Arr
 	data := verilatorDriverData{
 		MaxCycles:   maxCycles,
 		ResetCycles: resetCycles,
+		HasClock:    hasClock,
+		HasReset:    hasReset,
 		Constants:   constants,
 	}
 	if err := tmpl.Execute(&buf, data); err != nil {

@@ -41,7 +41,9 @@ func (b *builder) inferProcessSensitivity(proc *Process) {
 	//   if clk { q_reg = d }
 	//   if reset { ... } else if clk { ... }
 	// should lower as sequential logic even without loops or channels.
-	if b.hasClockedGlobalAssignments(proc) || b.hasImplicitClockedOutputState(proc) {
+	hasClockedAssignments := b.hasClockedGlobalAssignments(proc)
+	hasImplicitState := !hasClockedAssignments && b.hasImplicitClockedOutputState(proc)
+	if hasClockedAssignments || hasImplicitState {
 		proc.Sensitivity = Sequential
 		b.classifyGlobalSignals(proc)
 		return
@@ -59,10 +61,11 @@ func (b *builder) classifyGlobalSignals(proc *Process) {
 	if b == nil || b.module == nil || proc == nil {
 		return
 	}
+	assignedSignals := processAssignedSignals(proc)
 	if proc.Sensitivity == Sequential {
 		clockedBlocks := b.computeDirectClockedBlocks(proc)
 		hasInternalState := b.processHasInternalStateAssignments(proc)
-		for _, sig := range b.module.Signals {
+		for _, sig := range assignedSignals {
 			if sig == nil || sig.Kind == Const {
 				continue
 			}
@@ -87,7 +90,7 @@ func (b *builder) classifyGlobalSignals(proc *Process) {
 		return
 	}
 
-	for _, sig := range b.module.Signals {
+	for _, sig := range assignedSignals {
 		if sig == nil || sig.Kind == Const || !b.isGlobalPersistentSignal(sig) {
 			continue
 		}
@@ -100,6 +103,31 @@ func (b *builder) classifyGlobalSignals(proc *Process) {
 			}
 		}
 	}
+}
+
+func processAssignedSignals(proc *Process) []*Signal {
+	if proc == nil {
+		return nil
+	}
+	seen := make(map[*Signal]struct{})
+	signals := make([]*Signal, 0)
+	for _, block := range proc.Blocks {
+		if block == nil {
+			continue
+		}
+		for _, op := range block.Ops {
+			assign, ok := op.(*AssignOperation)
+			if !ok || assign == nil || assign.Dest == nil {
+				continue
+			}
+			if _, exists := seen[assign.Dest]; exists {
+				continue
+			}
+			seen[assign.Dest] = struct{}{}
+			signals = append(signals, assign.Dest)
+		}
+	}
+	return signals
 }
 
 func (b *builder) computeDirectClockedBlocks(proc *Process) map[*BasicBlock]bool {
@@ -401,34 +429,18 @@ func (b *builder) globalForSignal(sig *Signal) *ssa.Global {
 	if b == nil || sig == nil {
 		return nil
 	}
-	for g, storage := range b.globalStorage {
-		if g == nil || storage == nil {
-			continue
-		}
-		if signalMatchesStorage(sig, storage) {
-			return g
-		}
+	if g := b.globalIndexedBaseForSignal(sig); g != nil {
+		return g
 	}
-	return b.globalIndexedBaseForSignal(sig)
+	return nil
 }
 
 func (b *builder) globalIndexedBaseForSignal(sig *Signal) *ssa.Global {
 	if b == nil || sig == nil {
 		return nil
 	}
-	for _, state := range b.indexedBases {
-		if state == nil {
-			continue
-		}
-		g, ok := state.base.(*ssa.Global)
-		if !ok || g == nil {
-			continue
-		}
-		for _, storage := range state.storage {
-			if sameSignal(storage, sig) {
-				return g
-			}
-		}
+	if g, ok := b.signalGlobalBases[sig]; ok {
+		return g
 	}
 	return nil
 }
@@ -652,15 +664,22 @@ func (b *builder) markLatchGlobals(proc *Process) {
 		return
 	}
 	for global := range assigned {
-		if global != nil && !b.globalAssignedOnAllPaths(proc, global, proc.Blocks[0], make(map[*BasicBlock]bool)) {
+		if global == nil {
+			continue
+		}
+		memo := make(map[*BasicBlock]bool)
+		if !b.globalAssignedOnAllPaths(proc, global, proc.Blocks[0], make(map[*BasicBlock]bool), memo) {
 			b.latchGlobals[global] = struct{}{}
 		}
 	}
 }
 
-func (b *builder) globalAssignedOnAllPaths(proc *Process, global *ssa.Global, block *BasicBlock, seen map[*BasicBlock]bool) bool {
+func (b *builder) globalAssignedOnAllPaths(proc *Process, global *ssa.Global, block *BasicBlock, seen map[*BasicBlock]bool, memo map[*BasicBlock]bool) bool {
 	if b == nil || proc == nil || global == nil || block == nil {
 		return false
+	}
+	if result, ok := memo[block]; ok {
+		return result
 	}
 	if seen[block] {
 		return true
@@ -669,18 +688,22 @@ func (b *builder) globalAssignedOnAllPaths(proc *Process, global *ssa.Global, bl
 	defer delete(seen, block)
 
 	if b.blockAssignsGlobal(block, global) {
+		memo[block] = true
 		return true
 	}
+	var result bool
 	switch term := block.Terminator.(type) {
 	case *ReturnTerminator, nil:
-		return false
+		result = false
 	case *JumpTerminator:
-		return b.globalAssignedOnAllPaths(proc, global, term.Target, seen)
+		result = b.globalAssignedOnAllPaths(proc, global, term.Target, seen, memo)
 	case *BranchTerminator:
-		return b.globalAssignedOnAllPaths(proc, global, term.True, seen) && b.globalAssignedOnAllPaths(proc, global, term.False, seen)
+		result = b.globalAssignedOnAllPaths(proc, global, term.True, seen, memo) && b.globalAssignedOnAllPaths(proc, global, term.False, seen, memo)
 	default:
-		return false
+		result = false
 	}
+	memo[block] = result
+	return result
 }
 
 func (b *builder) blockAssignsGlobal(block *BasicBlock, global *ssa.Global) bool {
@@ -710,26 +733,7 @@ func (b *builder) isGlobalStorageSignal(sig *Signal) bool {
 	if b == nil || sig == nil {
 		return false
 	}
-	for _, storageSig := range b.globalStorage {
-		if storageSig == sig || signalMatchesStorage(sig, storageSig) {
-			return true
-		}
-	}
-	return false
-}
-
-func signalMatchesStorage(sig *Signal, storageSig *Signal) bool {
-	if sig == nil || storageSig == nil {
-		return false
-	}
-	if sig == storageSig {
-		return true
-	}
-	if sig.Name == "" || storageSig.Name == "" {
-		return false
-	}
-	prefix := storageSig.Name + "_"
-	return strings.HasPrefix(sig.Name, prefix)
+	return b.globalIndexedBaseForSignal(sig) != nil
 }
 
 func isClockLikeName(name string) bool {
@@ -760,16 +764,7 @@ func (b *builder) markGlobalsAsRegisters() {
 		if sig == nil || sig.Kind == Const {
 			continue
 		}
-		// Only mark signals that are actual global storage (from globalStorage map)
-		// Skip temporary signals like loadsnap, idxload, etc.
-		isGlobalStorage := false
-		for _, storageSig := range b.globalStorage {
-			if signalMatchesStorage(sig, storageSig) {
-				isGlobalStorage = true
-				break
-			}
-		}
-		if isGlobalStorage {
+		if b.isGlobalStorageSignal(sig) {
 			sig.Kind = Reg
 		}
 	}
@@ -785,16 +780,7 @@ func (b *builder) markGlobalsAsWires() {
 		if sig == nil || sig.Kind == Const {
 			continue
 		}
-		// Only mark signals that are actual global storage (from globalStorage map)
-		// Skip temporary signals like loadsnap, idxload, etc.
-		isGlobalStorage := false
-		for _, storageSig := range b.globalStorage {
-			if signalMatchesStorage(sig, storageSig) {
-				isGlobalStorage = true
-				break
-			}
-		}
-		if isGlobalStorage {
+		if b.isGlobalStorageSignal(sig) {
 			sig.Kind = Wire
 		}
 	}
@@ -818,8 +804,11 @@ func (b *builder) markIndexedLocalsAsWires() {
 			}
 			sig.Kind = Wire
 		}
-		// Also mark the base array signal itself as Wire
-		if baseSig := b.signalForValue(state.base); baseSig != nil && baseSig.Kind != Const {
+		// Only touch bases materialized in the current process build. The
+		// indexedBases map may temporarily hold caller-owned slice states while
+		// rebuilding callees, and resolving those through signalForValue emits
+		// spurious warnings for foreign params/allocs.
+		if baseSig, ok := b.signals[state.base]; ok && baseSig != nil && baseSig.Kind != Const {
 			baseSig.Kind = Wire
 		}
 	}

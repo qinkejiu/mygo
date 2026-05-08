@@ -1,6 +1,7 @@
 package mlir
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 	"math/bits"
@@ -16,21 +17,30 @@ import (
 // outputPath is empty or "-", the result is written to stdout.
 func Emit(design *ir.Design, outputPath string) error {
 	var w io.Writer
+	var flush func() error
 	if outputPath == "" || outputPath == "-" {
-		w = os.Stdout
+		bw := bufio.NewWriterSize(os.Stdout, 1<<20)
+		w = bw
+		flush = bw.Flush
 	} else {
 		f, err := os.Create(outputPath)
 		if err != nil {
 			return err
 		}
 		defer f.Close()
-		w = f
+		bw := bufio.NewWriterSize(f, 1<<20)
+		w = bw
+		flush = bw.Flush
+	}
+	if flush == nil {
+		flush = func() error { return nil }
 	}
 
 	em := &emitter{
 		w:               w,
 		loweredChannels: ir.LowerChannelsToFIFO(design),
 		modulePorts:     make(map[string][]portDesc),
+		assignedSignals: make(map[*ir.Module]map[string]struct{}),
 	}
 	fmt.Fprintln(w, "module {")
 	em.indent++
@@ -40,7 +50,7 @@ func Emit(design *ir.Design, outputPath string) error {
 	em.emitFifoExterns()
 	em.indent--
 	fmt.Fprintln(w, "}")
-	return nil
+	return flush()
 }
 
 type emitter struct {
@@ -53,12 +63,32 @@ type emitter struct {
 	rootValueNames  map[*ir.Signal]string     // Value names from root process for output resolution
 	rootConstNames  map[*ir.Signal]string     // Constant names from root process
 	topPortTypes    map[string]*ir.SignalType // Readable top-level ports only
+	assignedSignals map[*ir.Module]map[string]struct{}
+	currentAssigned map[string]struct{}
+	immutableConsts map[*ir.Signal]string
 }
 
 func (e *emitter) emitModule(module *ir.Module) {
 	if module == nil {
 		return
 	}
+	prevRootValues := e.rootValueNames
+	prevRootConsts := e.rootConstNames
+	prevTopPortTypes := e.topPortTypes
+	prevCurrentAssigned := e.currentAssigned
+	prevImmutableConsts := e.immutableConsts
+	e.rootValueNames = nil
+	e.rootConstNames = nil
+	e.topPortTypes = nil
+	e.currentAssigned = e.moduleAssignedSignalNames(module)
+	e.immutableConsts = make(map[*ir.Signal]string)
+	defer func() {
+		e.rootValueNames = prevRootValues
+		e.rootConstNames = prevRootConsts
+		e.topPortTypes = prevTopPortTypes
+		e.currentAssigned = prevCurrentAssigned
+		e.immutableConsts = prevImmutableConsts
+	}()
 
 	// Collect modular processes (those with function parameters) separately
 	// Exclude the root process (same name as module) as it gets inlined
@@ -126,8 +156,6 @@ func (e *emitter) emitTopLevelModule(module *ir.Module, root *processInfo, proce
 
 	// Check if module needs sequential logic (FSM/channels/phi)
 	useInoutRegs := moduleUsesFSM(module)
-	fmt.Printf("DEBUG emitter: useInoutRegs=%v for module %s\n", useInoutRegs, module.Name)
-
 	// Build port declarations
 	decls := portDecls(topPorts)
 
@@ -246,10 +274,11 @@ func (e *emitter) emitTopLevelModule(module *ir.Module, root *processInfo, proce
 						}
 						ssaName := "%" + sanitize(elemName)
 						if elemSig.Kind == ir.Reg {
-							readName := fmt.Sprintf("%%read_%s_%d", sanitize(port.Name), i)
-							e.printIndent()
-							fmt.Fprintf(e.w, "%s = sv.read_inout %s : !hw.inout<i1>\n", readName, ssaName)
-							elements = append(elements, readName)
+							ref := e.rootRegRef(elemSig, fmt.Sprintf("read_%s_%d", sanitize(port.Name), i))
+							if ref == "" {
+								continue
+							}
+							elements = append(elements, ref)
 						} else {
 							elements = append(elements, ssaName)
 						}
@@ -342,11 +371,12 @@ func (e *emitter) emitTopLevelModule(module *ir.Module, root *processInfo, proce
 				// Scalar output: check if it's a register (inout) or a wire
 				ssaName := "%" + sanitize(sig.Name)
 				if sig.Kind == ir.Reg {
-					readName := fmt.Sprintf("%%read_%s", sanitize(port.Name))
-					e.printIndent()
-					fmt.Fprintf(e.w, "%s = sv.read_inout %s : !hw.inout<%s>\n", readName, ssaName, typeString(sig.Type))
-					outputValues = append(outputValues, readName)
-					resolvedBindings[globalName] = outputBindingValue{value: readName, typ: typeString(sig.Type)}
+					ref := e.rootRegRef(sig, "read_"+sanitize(port.Name))
+					if ref == "" {
+						continue
+					}
+					outputValues = append(outputValues, ref)
+					resolvedBindings[globalName] = outputBindingValue{value: ref, typ: typeString(sig.Type)}
 				} else {
 					// For wires, use directly
 					outputValues = append(outputValues, ssaName)
@@ -401,10 +431,11 @@ func (e *emitter) emitTopLevelModule(module *ir.Module, root *processInfo, proce
 						// Otherwise, use the signal name
 						ssaName := "%" + sanitize(elemName)
 						if elemSig.Kind == ir.Reg {
-							readName := fmt.Sprintf("%%read_%s_%d", sanitize(port.Name), i)
-							e.printIndent()
-							fmt.Fprintf(e.w, "%s = sv.read_inout %s : !hw.inout<i1>\n", readName, ssaName)
-							elements = append(elements, readName)
+							ref := e.rootRegRef(elemSig, fmt.Sprintf("read_%s_%d", sanitize(port.Name), i))
+							if ref == "" {
+								continue
+							}
+							elements = append(elements, ref)
 						} else {
 							// seq.compreg or wire: use directly
 							elements = append(elements, ssaName)
@@ -694,12 +725,7 @@ func (e *emitter) resolveWireAssignmentSource(proc *ir.Process, wire *ir.Signal)
 				if assign.Dest != nil && assign.Dest.Name == wire.Name && assign.Value != nil {
 					// Found the assignment, return the source signal reference
 					if assign.Value.Kind == ir.Reg {
-						// For register sources, read the inout value
-						readName := e.freshValueName("read_" + sanitize(assign.Value.Name))
-						e.printIndent()
-						fmt.Fprintf(e.w, "%s = sv.read_inout %%%s : !hw.inout<%s>\n",
-							readName, sanitize(assign.Value.Name), typeString(assign.Value.Type))
-						return readName
+						return e.rootRegRef(assign.Value, "read_"+sanitize(assign.Value.Name))
 					}
 					// For other signal types, use the SSA name directly
 					return "%" + sanitize(assign.Value.Name)
@@ -2708,6 +2734,9 @@ func (e *emitter) normalizeResolvedSignalRef(sig *ir.Signal, ref string) string 
 	if e == nil || sig == nil || ref == "" || ref == "%unknown" {
 		return ref
 	}
+	if constRef := e.immutableRegConstRef(sig); constRef != "" {
+		return constRef
+	}
 	if sig.Kind != ir.Reg || e.isReadableTopPortSignal(sig.Name) {
 		return ref
 	}
@@ -2715,10 +2744,7 @@ func (e *emitter) normalizeResolvedSignalRef(sig *ir.Signal, ref string) string 
 	if ref != raw {
 		return ref
 	}
-	name := e.freshValueName("norm_reg")
-	e.printIndent()
-	fmt.Fprintf(e.w, "%s = sv.read_inout %s : !hw.inout<%s>\n", name, raw, typeString(sig.Type))
-	return name
+	return e.rootRegRef(sig, "norm_reg")
 }
 
 func (e *emitter) rootSignalRef(sig *ir.Signal) string {
@@ -2748,12 +2774,55 @@ func (e *emitter) rootSignalRef(sig *ir.Signal) string {
 		return "%" + sanitize(sig.Name)
 	}
 	if sig.Kind == ir.Reg {
-		ref := e.freshValueName("root_reg")
-		e.printIndent()
-		fmt.Fprintf(e.w, "%s = sv.read_inout %%%s : !hw.inout<%s>\n", ref, sanitize(sig.Name), typeString(sig.Type))
-		return ref
+		return e.rootRegRef(sig, "root_reg")
 	}
 	return "%" + sanitize(sig.Name)
+}
+
+func (e *emitter) immutableRegConstRef(sig *ir.Signal) string {
+	if e == nil || sig == nil || sig.Kind != ir.Reg || sig.Name == "" || sig.Type == nil || isOutputGlobalName(sig.Name) {
+		return ""
+	}
+	if e.isReadableTopPortSignal(sig.Name) {
+		return ""
+	}
+	if e.currentAssigned != nil {
+		if _, ok := e.currentAssigned[sig.Name]; ok {
+			return ""
+		}
+	}
+	if sig.Value == nil {
+		return ""
+	}
+	if e.immutableConsts != nil {
+		if ref, ok := e.immutableConsts[sig]; ok && ref != "" {
+			return ref
+		}
+	}
+	ref := e.freshValueName("root_init_const")
+	e.printIndent()
+	fmt.Fprintf(e.w, "%s = hw.constant %s : %s\n", ref, formatHWConstant(sig.Value, sig.Type), typeString(sig.Type))
+	if e.immutableConsts == nil {
+		e.immutableConsts = make(map[*ir.Signal]string)
+	}
+	e.immutableConsts[sig] = ref
+	return ref
+}
+
+func (e *emitter) rootRegRef(sig *ir.Signal, prefix string) string {
+	if e == nil || sig == nil || sig.Name == "" || sig.Type == nil {
+		return ""
+	}
+	if constRef := e.immutableRegConstRef(sig); constRef != "" {
+		return constRef
+	}
+	if prefix == "" {
+		prefix = "root_reg"
+	}
+	ref := e.freshValueName(prefix)
+	e.printIndent()
+	fmt.Fprintf(e.w, "%s = sv.read_inout %%%s : !hw.inout<%s>\n", ref, sanitize(sig.Name), typeString(sig.Type))
+	return ref
 }
 
 func (e *emitter) inputArrayElementRef(sig *ir.Signal) string {
@@ -2812,30 +2881,18 @@ func (e *emitter) emitResolvedConvert(value string, srcType, destType *ir.Signal
 	from := typeString(srcType)
 	to := typeString(destType)
 	if destWidth > srcWidth {
-		extendWidth := destWidth - srcWidth
-		if srcType != nil && srcType.Signed {
-			signBit := e.freshValueName("sext_msb")
-			e.printIndent()
-			fmt.Fprintf(e.w, "%s = comb.extract %s from %d : (%s) -> i1\n", signBit, value, srcWidth-1, from)
-			replicated := e.freshValueName("sext_bits")
-			e.printIndent()
-			fmt.Fprintf(e.w, "%s = comb.replicate %s : (i1) -> i%d\n", replicated, signBit, extendWidth)
-			dest := e.freshValueName("comb_conv")
-			e.printIndent()
-			fmt.Fprintf(e.w, "%s = comb.concat %s, %s : i%d, %s\n", dest, replicated, value, extendWidth, from)
-			return dest
-		}
-		zeros := e.freshValueName("zext_pad")
-		e.printIndent()
-		fmt.Fprintf(e.w, "%s = hw.constant 0 : i%d\n", zeros, extendWidth)
 		dest := e.freshValueName("comb_conv")
 		e.printIndent()
-		fmt.Fprintf(e.w, "%s = comb.concat %s, %s : i%d, %s\n", dest, zeros, value, extendWidth, from)
+		if srcType != nil && srcType.Signed {
+			fmt.Fprintf(e.w, "%s = arith.extsi %s : %s to %s\n", dest, value, from, to)
+			return dest
+		}
+		fmt.Fprintf(e.w, "%s = arith.extui %s : %s to %s\n", dest, value, from, to)
 		return dest
 	}
 	dest := e.freshValueName("comb_conv")
 	e.printIndent()
-	fmt.Fprintf(e.w, "%s = comb.extract %s from 0 : (%s) -> %s\n", dest, value, from, to)
+	fmt.Fprintf(e.w, "%s = arith.trunci %s : %s to %s\n", dest, value, from, to)
 	return dest
 }
 
@@ -3127,19 +3184,15 @@ func (e *emitter) emitInternalSignals(module *ir.Module, topPorts []ir.Port, use
 			// Constants are emitted on demand in the process
 			continue
 		}
+		if e.shouldSkipImmutableRegDeclaration(module, name, sig) {
+			continue
+		}
 
-		// Check if this is an array element (name_number format)
-		// Only treat as array element if the base name is a known mutable global array
-		// Known mutable arrays: compressed, result
-		// Read-only arrays (test_data, test_compressed, test_result) are ports
+		// Check if this is a materialized array element backed by a base signal.
 		isArrayElement := false
-		baseName := name
 		for i := 0; i < len(name)-1; i++ {
 			if name[i] == '_' && name[i+1] >= '0' && name[i+1] <= '9' {
-				baseName = name[:i]
-				// Only treat as array element if it's a known mutable global array
-				// Known mutable arrays: tqmf, compressed, result, accumc, accumd
-				isArrayElement = baseName == "tqmf" || baseName == "compressed" || baseName == "result" || baseName == "accumc" || baseName == "accumd"
+				isArrayElement = portNames[name[:i]]
 				break
 			}
 		}
@@ -3166,7 +3219,7 @@ func (e *emitter) emitInternalSignals(module *ir.Module, topPorts []ir.Port, use
 				fmt.Fprintln(e.w, "}")
 			}
 			// For combinational logic, don't emit register declarations
-		} else if sig.Kind == ir.Reg {
+		} else if sig.Kind == ir.Reg || (useInoutRegs && e.moduleSignalNeedsStorage(module, sig)) {
 			// All register-kind signals that are not array elements
 			// This includes scalar globals like xout1, xout2, nbl, dlt, dec_plt1, etc.
 			e.printIndent()
@@ -3191,6 +3244,71 @@ func (e *emitter) emitInternalSignals(module *ir.Module, topPorts []ir.Port, use
 	}
 }
 
+func (e *emitter) moduleSignalNeedsStorage(module *ir.Module, sig *ir.Signal) bool {
+	if e == nil || module == nil || sig == nil || sig.Name == "" {
+		return false
+	}
+	if sig.Kind == ir.Reg {
+		return true
+	}
+	if sig.Kind != ir.Wire {
+		return false
+	}
+	assigned := e.moduleAssignedSignalNames(module)
+	if _, ok := assigned[sig.Name]; !ok {
+		return false
+	}
+	for _, proc := range module.Processes {
+		if proc == nil {
+			continue
+		}
+		if signalReadOnRHS(proc, sig) {
+			return true
+		}
+	}
+	return false
+}
+
+func (e *emitter) moduleAssignedSignalNames(module *ir.Module) map[string]struct{} {
+	if e == nil || module == nil {
+		return nil
+	}
+	if cached, ok := e.assignedSignals[module]; ok {
+		return cached
+	}
+	assigned := make(map[string]struct{})
+	for _, proc := range module.Processes {
+		if proc == nil {
+			continue
+		}
+		for _, block := range proc.Blocks {
+			if block == nil {
+				continue
+			}
+			for _, op := range block.Ops {
+				assign, ok := op.(*ir.AssignOperation)
+				if !ok || assign == nil || assign.Dest == nil || assign.Dest.Name == "" {
+					continue
+				}
+				assigned[assign.Dest.Name] = struct{}{}
+			}
+		}
+	}
+	e.assignedSignals[module] = assigned
+	return assigned
+}
+
+func (e *emitter) shouldSkipImmutableRegDeclaration(module *ir.Module, name string, sig *ir.Signal) bool {
+	if e == nil || module == nil || sig == nil || sig.Kind != ir.Reg || sig.Value == nil || name == "" || isOutputGlobalName(name) {
+		return false
+	}
+	assigned := e.moduleAssignedSignalNames(module)
+	if _, ok := assigned[name]; ok {
+		return false
+	}
+	return true
+}
+
 func (e *emitter) emitProcessInstance(module *ir.Module, idx int, info *processInfo, wires map[*ir.Channel]*channelWireSet) {
 	if info == nil {
 		return
@@ -3204,6 +3322,9 @@ func (e *emitter) emitProcessInstance(module *ir.Module, idx int, info *processI
 	if module != nil && module.Signals != nil {
 		for sig := range info.usedSignals {
 			if sig != nil && sig.Kind == ir.Reg {
+				if sig.Name == "varargs" {
+					continue
+				}
 				// Check if this signal is a module-level signal
 				if _, isModuleSignal := module.Signals[sig.Name]; isModuleSignal {
 					portName := "%" + sanitize(sig.Name)
@@ -3331,6 +3452,23 @@ func (e *emitter) emitRootProcess(module *ir.Module, topPorts []ir.Port, info *p
 		name := strings.TrimPrefix(port.Name, "%")
 		portNames[name] = "%" + name
 	}
+	if moduleUsesFSM(module) {
+		if _, ok := portNames["clk"]; !ok {
+			portNames["clk"] = "%clk"
+		}
+		if moduleNeedsSyntheticReset(module) {
+			portNames["rst"] = "%rst"
+		}
+	}
+	portTypes := collectPortTypesFromIRPorts(topPorts)
+	if moduleUsesFSM(module) {
+		if _, ok := portTypes["clk"]; !ok {
+			portTypes["clk"] = &ir.SignalType{Width: 1}
+		}
+		if moduleNeedsSyntheticReset(module) {
+			portTypes["rst"] = &ir.SignalType{Width: 1}
+		}
+	}
 	pp := &processPrinter{
 		w:             e.w,
 		indent:        e.indent,
@@ -3338,7 +3476,7 @@ func (e *emitter) emitRootProcess(module *ir.Module, topPorts []ir.Port, info *p
 		usedSignals:   info.usedSignals,
 		channelPorts:  channelPortsFromWires(info, wires),
 		portNames:     portNames,
-		portTypes:     collectPortTypesFromIRPorts(topPorts),
+		portTypes:     portTypes,
 		moduleName:    sanitize(module.Name),
 		modulePorts:   e.modulePorts,
 		emitter:       e,
@@ -3390,6 +3528,9 @@ func (e *emitter) processPorts(module *ir.Module, info *processInfo) []portDesc 
 
 		for sig := range info.usedSignals {
 			if sig != nil && sig.Kind == ir.Reg {
+				if sig.Name == "varargs" {
+					continue
+				}
 				portName := "%" + sanitize(sig.Name)
 				// Skip if this port name is already in the ports list
 				if existingPorts[portName] {
@@ -3397,7 +3538,7 @@ func (e *emitter) processPorts(module *ir.Module, info *processInfo) []portDesc 
 				}
 				// Check if this signal is a module-level signal
 				if _, isModuleSignal := module.Signals[sig.Name]; isModuleSignal {
-					ports = append(ports, portDesc{name: portName, typ: inoutTypeString(sig.Type), inout: true})
+					ports = append(ports, portDesc{name: portName, typ: typeString(sig.Type), inout: true})
 					existingPorts[portName] = true
 				}
 			}
@@ -4474,7 +4615,7 @@ func (f *fsmBuilder) emitControlLogic() {
 		f.printer.printIndent()
 		fmt.Fprintf(f.printer.w, "// deadlock warning: %s\n", warning)
 	}
-	clk := f.printer.portRef("clk")
+	clk := f.printer.clockPortRef()
 	rst := f.printer.resetAssertedRef()
 	entryStateConst := f.ensureStateConst(f.entryStateID)
 	if entryStateConst == "" {
@@ -4504,6 +4645,7 @@ func (f *fsmBuilder) emitControlLogic() {
 		f.printer.printIndent()
 		fmt.Fprintf(f.printer.w, "case %s: {\n", f.literalForID(state.id))
 		f.printer.indent++
+		f.printer.clearTransientStateCaseValues()
 		f.printer.beginBlockValueScope()
 		f.emitStateCase(state)
 		f.printer.endBlockValueScope()
@@ -4587,7 +4729,7 @@ func (f *fsmBuilder) emitAssignUpdate(block *ir.BasicBlock, op *ir.AssignOperati
 		return
 	}
 	moduleSig, ok := f.printer.moduleSignals[op.Dest.Name]
-	if !ok || moduleSig == nil || moduleSig.Kind != ir.Reg {
+	if !ok || moduleSig == nil || !f.printer.moduleSignalNeedsStorage(op.Dest.Name) {
 		return
 	}
 	if isOutputGlobalName(op.Dest.Name) && (f.clockedBlocks == nil || !f.clockedBlocks[block]) {
@@ -4790,7 +4932,7 @@ func (f *fsmBuilder) emitTransition(pred, succ *ir.BasicBlock) {
 		if info == nil || update.value == nil {
 			continue
 		}
-		val := f.printer.edgeValueRef(update.value)
+		val := f.printer.edgeValueRefForPred(update.value, pred)
 		if val == "" || val == "%unknown" {
 			continue
 		}
@@ -4800,39 +4942,80 @@ func (f *fsmBuilder) emitTransition(pred, succ *ir.BasicBlock) {
 }
 
 type processPrinter struct {
-	w                   io.Writer
-	indent              int
-	nextTemp            int
-	constNames          map[*ir.Signal]string
-	valueNames          map[*ir.Signal]string
-	portNames           map[string]string
-	portTypes           map[string]*ir.SignalType
-	channelPorts        map[*ir.Channel]*channelPortSet
-	moduleSignals       map[string]*ir.Signal
-	usedSignals         map[*ir.Signal]struct{}
-	boolConsts          map[bool]string
-	stdoutFD            string
-	fsm                 *fsmBuilder
-	seqClockName        string
-	internalSignalReads map[string]string     // Maps signal name to the read_inout result
-	moduleName          string                // Name of the parent module
-	modulePorts         map[string][]portDesc // Module port information for instances
-	emitter             *emitter              // Reference to parent emitter for global state
-	emittedRegisters    map[string]bool       // Track which registers have already been emitted
-	proc                *ir.Process           // The process being emitted
-	hasResetPort        bool
-	resetPortRef        string
-	resetActiveLow      bool
-	resetAssertedName   string
-	directClocked       bool
-	clockedBlocks       map[*ir.BasicBlock]bool
-	blockValueRestores  []map[*ir.Signal]valueRestore
-	persistentValues    map[*ir.Signal]string
+	w                    io.Writer
+	indent               int
+	nextTemp             int
+	constNames           map[*ir.Signal]string
+	literalConstNames    map[string]string
+	valueNames           map[*ir.Signal]string
+	portNames            map[string]string
+	portTypes            map[string]*ir.SignalType
+	channelPorts         map[*ir.Channel]*channelPortSet
+	moduleSignals        map[string]*ir.Signal
+	usedSignals          map[*ir.Signal]struct{}
+	boolConsts           map[bool]string
+	zeroConsts           map[string]string
+	onesConsts           map[string]string
+	stdoutFD             string
+	fsm                  *fsmBuilder
+	seqClockName         string
+	internalSignalReads  map[string]string     // Maps signal name to the read_inout result
+	moduleName           string                // Name of the parent module
+	modulePorts          map[string][]portDesc // Module port information for instances
+	emitter              *emitter              // Reference to parent emitter for global state
+	emittedRegisters     map[string]bool       // Track which registers have already been emitted
+	proc                 *ir.Process           // The process being emitted
+	hasResetPort         bool
+	resetPortRef         string
+	resetActiveLow       bool
+	resetAssertedName    string
+	directClocked        bool
+	clockedBlocks        map[*ir.BasicBlock]bool
+	currentPhiPred       *ir.BasicBlock
+	blockValueRestores   []map[*ir.Signal]valueRestore
+	blockReadRestores    []map[string]valueRestore
+	blockZeroRestores    []map[string]valueRestore
+	blockOnesRestores    []map[string]valueRestore
+	blockConvertRestores []map[convertCacheKey]valueRestore
+	blockExprRestores    []map[exprCacheKey]valueRestore
+	persistentValues     map[*ir.Signal]string
+	indexedAggregates    map[string][]indexedAggregateElement
+	producerCache        map[*ir.Signal]cachedProducer
+	producerCacheSeeded  bool
+	blockCondTermsCache  map[*ir.BasicBlock][]condTerm
+	phiCondTermsCache    map[phiCondCacheKey][]condTerm
+	convertCache         map[convertCacheKey]string
+	exprCache            map[exprCacheKey]string
+	persistPureOpCaches  bool
 }
 
 type valueRestore struct {
 	existed bool
 	value   string
+}
+
+type cachedProducer struct {
+	op    ir.Operation
+	block *ir.BasicBlock
+}
+
+type phiCondCacheKey struct {
+	pred   *ir.BasicBlock
+	target *ir.BasicBlock
+}
+
+type convertCacheKey struct {
+	value string
+	from  string
+	to    string
+}
+
+type exprCacheKey struct {
+	kind string
+	a    string
+	b    string
+	c    string
+	typ  string
 }
 
 type clockEdgeMode int
@@ -4845,6 +5028,7 @@ const (
 func (p *processPrinter) resetState() {
 	p.nextTemp = 0
 	p.constNames = make(map[*ir.Signal]string)
+	p.literalConstNames = make(map[string]string)
 	p.valueNames = make(map[*ir.Signal]string)
 	portNames := make(map[string]string)
 	for name, value := range p.portNames {
@@ -4865,6 +5049,20 @@ func (p *processPrinter) resetState() {
 	if p.boolConsts == nil {
 		p.boolConsts = make(map[bool]string)
 	}
+	if p.zeroConsts == nil {
+		p.zeroConsts = make(map[string]string)
+	} else {
+		for key := range p.zeroConsts {
+			delete(p.zeroConsts, key)
+		}
+	}
+	if p.onesConsts == nil {
+		p.onesConsts = make(map[string]string)
+	} else {
+		for key := range p.onesConsts {
+			delete(p.onesConsts, key)
+		}
+	}
 	if p.internalSignalReads == nil {
 		p.internalSignalReads = make(map[string]string)
 	}
@@ -4877,7 +5075,42 @@ func (p *processPrinter) resetState() {
 	p.resetAssertedName = ""
 	p.directClocked = false
 	p.clockedBlocks = nil
+	p.currentPhiPred = nil
 	p.blockValueRestores = nil
+	p.blockReadRestores = nil
+	p.blockZeroRestores = nil
+	p.blockOnesRestores = nil
+	p.blockConvertRestores = nil
+	p.blockExprRestores = nil
+	if p.indexedAggregates == nil {
+		p.indexedAggregates = make(map[string][]indexedAggregateElement)
+	} else {
+		for name := range p.indexedAggregates {
+			delete(p.indexedAggregates, name)
+		}
+	}
+	if p.producerCache == nil {
+		p.producerCache = make(map[*ir.Signal]cachedProducer)
+	} else {
+		for sig := range p.producerCache {
+			delete(p.producerCache, sig)
+		}
+	}
+	p.producerCacheSeeded = false
+	if p.blockCondTermsCache == nil {
+		p.blockCondTermsCache = make(map[*ir.BasicBlock][]condTerm)
+	} else {
+		for block := range p.blockCondTermsCache {
+			delete(p.blockCondTermsCache, block)
+		}
+	}
+	if p.phiCondTermsCache == nil {
+		p.phiCondTermsCache = make(map[phiCondCacheKey][]condTerm)
+	} else {
+		for key := range p.phiCondTermsCache {
+			delete(p.phiCondTermsCache, key)
+		}
+	}
 	if p.persistentValues == nil {
 		p.persistentValues = make(map[*ir.Signal]string)
 	} else {
@@ -4885,6 +5118,21 @@ func (p *processPrinter) resetState() {
 			delete(p.persistentValues, sig)
 		}
 	}
+	if p.convertCache == nil {
+		p.convertCache = make(map[convertCacheKey]string)
+	} else {
+		for key := range p.convertCache {
+			delete(p.convertCache, key)
+		}
+	}
+	if p.exprCache == nil {
+		p.exprCache = make(map[exprCacheKey]string)
+	} else {
+		for key := range p.exprCache {
+			delete(p.exprCache, key)
+		}
+	}
+	p.persistPureOpCaches = false
 }
 
 func normalizeControlPortAliases(portNames map[string]string) {
@@ -5001,6 +5249,7 @@ func (p *processPrinter) emitProcess(proc *ir.Process) {
 	p.emitConstants()
 	p.emitSignals()
 	p.initArrayElementRegisters()
+	p.seedProducerCache()
 	p.directClocked = canEmitDirectClockedControl(proc)
 	if p.directClocked {
 		p.clockedBlocks = p.computeDirectClockedBlocks(proc)
@@ -5017,26 +5266,16 @@ func (p *processPrinter) emitProcess(proc *ir.Process) {
 		p.fsm = nil
 	}
 	if p.fsm != nil {
-		for _, block := range proc.Blocks {
-			p.beginBlockValueScope()
-			for _, op := range block.Ops {
-				p.emitOperation(block, op, proc)
-			}
-			p.endBlockValueScope()
-		}
+		p.emitPrecomputedPureOps(proc)
 		if hasPrintOps {
 			p.stdoutConstant()
 		}
+		p.clearPureOpCaches()
 		p.fsm.emitChannelPortLogic()
 		p.fsm.emitControlLogic()
 	} else if p.directClocked {
-		for _, block := range proc.Blocks {
-			p.beginBlockValueScope()
-			for _, op := range block.Ops {
-				p.emitOperation(block, op, proc)
-			}
-			p.endBlockValueScope()
-		}
+		p.emitPrecomputedPureOps(proc)
+		p.clearPureOpCaches()
 		p.emitDirectClockedControl(proc)
 	} else {
 		for _, block := range proc.Blocks {
@@ -5053,6 +5292,58 @@ func (p *processPrinter) emitProcess(proc *ir.Process) {
 	p.fsm = nil
 	p.directClocked = false
 	p.clockedBlocks = nil
+}
+
+func (p *processPrinter) emitPrecomputedPureOps(proc *ir.Process) {
+	if p == nil || proc == nil {
+		return
+	}
+	prev := p.persistPureOpCaches
+	p.persistPureOpCaches = true
+	defer func() {
+		p.persistPureOpCaches = prev
+	}()
+	for _, block := range proc.Blocks {
+		p.beginBlockValueScope()
+		for _, op := range block.Ops {
+			p.emitOperation(block, op, proc)
+		}
+		p.endBlockValueScope()
+	}
+}
+
+func (p *processPrinter) clearPureOpCaches() {
+	if p == nil {
+		return
+	}
+	for name := range p.internalSignalReads {
+		delete(p.internalSignalReads, name)
+	}
+	for key := range p.convertCache {
+		delete(p.convertCache, key)
+	}
+	for key := range p.exprCache {
+		delete(p.exprCache, key)
+	}
+}
+
+func (p *processPrinter) shouldCachePureOpResults() bool {
+	return p != nil && (p.directClocked || p.fsm != nil)
+}
+
+func (p *processPrinter) cachePureOpResult(dest *ir.Signal, key exprCacheKey, emit func(name string)) string {
+	if p == nil || dest == nil {
+		return ""
+	}
+	if cached, ok := p.exprCache[key]; ok && cached != "" {
+		p.valueNames[dest] = cached
+		return cached
+	}
+	name := p.bindSSA(dest)
+	p.recordBlockExprOverride(key)
+	p.exprCache[key] = name
+	emit(name)
+	return name
 }
 
 type directClockedVisitKey struct {
@@ -5378,6 +5669,11 @@ func (p *processPrinter) beginBlockValueScope() {
 		return
 	}
 	p.blockValueRestores = append(p.blockValueRestores, make(map[*ir.Signal]valueRestore))
+	p.blockReadRestores = append(p.blockReadRestores, make(map[string]valueRestore))
+	p.blockZeroRestores = append(p.blockZeroRestores, make(map[string]valueRestore))
+	p.blockOnesRestores = append(p.blockOnesRestores, make(map[string]valueRestore))
+	p.blockConvertRestores = append(p.blockConvertRestores, make(map[convertCacheKey]valueRestore))
+	p.blockExprRestores = append(p.blockExprRestores, make(map[exprCacheKey]valueRestore))
 }
 
 func (p *processPrinter) endBlockValueScope() {
@@ -5393,6 +5689,61 @@ func (p *processPrinter) endBlockValueScope() {
 		p.valueNames[sig] = restore.value
 	}
 	p.blockValueRestores = p.blockValueRestores[:len(p.blockValueRestores)-1]
+	if len(p.blockReadRestores) > 0 {
+		restores := p.blockReadRestores[len(p.blockReadRestores)-1]
+		for name, restore := range restores {
+			if !restore.existed {
+				delete(p.internalSignalReads, name)
+				continue
+			}
+			p.internalSignalReads[name] = restore.value
+		}
+		p.blockReadRestores = p.blockReadRestores[:len(p.blockReadRestores)-1]
+	}
+	if len(p.blockZeroRestores) > 0 {
+		restores := p.blockZeroRestores[len(p.blockZeroRestores)-1]
+		for key, restore := range restores {
+			if !restore.existed {
+				delete(p.zeroConsts, key)
+				continue
+			}
+			p.zeroConsts[key] = restore.value
+		}
+		p.blockZeroRestores = p.blockZeroRestores[:len(p.blockZeroRestores)-1]
+	}
+	if len(p.blockOnesRestores) > 0 {
+		restores := p.blockOnesRestores[len(p.blockOnesRestores)-1]
+		for key, restore := range restores {
+			if !restore.existed {
+				delete(p.onesConsts, key)
+				continue
+			}
+			p.onesConsts[key] = restore.value
+		}
+		p.blockOnesRestores = p.blockOnesRestores[:len(p.blockOnesRestores)-1]
+	}
+	if len(p.blockConvertRestores) > 0 {
+		restores := p.blockConvertRestores[len(p.blockConvertRestores)-1]
+		for key, restore := range restores {
+			if !restore.existed {
+				delete(p.convertCache, key)
+				continue
+			}
+			p.convertCache[key] = restore.value
+		}
+		p.blockConvertRestores = p.blockConvertRestores[:len(p.blockConvertRestores)-1]
+	}
+	if len(p.blockExprRestores) > 0 {
+		restores := p.blockExprRestores[len(p.blockExprRestores)-1]
+		for key, restore := range restores {
+			if !restore.existed {
+				delete(p.exprCache, key)
+				continue
+			}
+			p.exprCache[key] = restore.value
+		}
+		p.blockExprRestores = p.blockExprRestores[:len(p.blockExprRestores)-1]
+	}
 }
 
 func (p *processPrinter) recordBlockValueOverride(sig *ir.Signal) {
@@ -5405,6 +5756,305 @@ func (p *processPrinter) recordBlockValueOverride(sig *ir.Signal) {
 	}
 	value, existed := p.valueNames[sig]
 	restores[sig] = valueRestore{existed: existed, value: value}
+}
+
+func (p *processPrinter) recordBlockReadOverride(name string) {
+	if p == nil || name == "" || p.persistPureOpCaches || len(p.blockReadRestores) == 0 {
+		return
+	}
+	restores := p.blockReadRestores[len(p.blockReadRestores)-1]
+	if _, exists := restores[name]; exists {
+		return
+	}
+	value, existed := p.internalSignalReads[name]
+	restores[name] = valueRestore{existed: existed, value: value}
+}
+
+func (p *processPrinter) hasScopedValueOverride(sig *ir.Signal) bool {
+	if p == nil || sig == nil {
+		return false
+	}
+	for i := len(p.blockValueRestores) - 1; i >= 0; i-- {
+		if _, ok := p.blockValueRestores[i][sig]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+func (p *processPrinter) recordBlockZeroOverride(key string) {
+	if p == nil || key == "" || len(p.blockZeroRestores) == 0 {
+		return
+	}
+	restores := p.blockZeroRestores[len(p.blockZeroRestores)-1]
+	if _, exists := restores[key]; exists {
+		return
+	}
+	value, existed := p.zeroConsts[key]
+	restores[key] = valueRestore{existed: existed, value: value}
+}
+
+func (p *processPrinter) recordBlockOnesOverride(key string) {
+	if p == nil || key == "" || len(p.blockOnesRestores) == 0 {
+		return
+	}
+	restores := p.blockOnesRestores[len(p.blockOnesRestores)-1]
+	if _, exists := restores[key]; exists {
+		return
+	}
+	value, existed := p.onesConsts[key]
+	restores[key] = valueRestore{existed: existed, value: value}
+}
+
+func (p *processPrinter) recordBlockConvertOverride(key convertCacheKey) {
+	if p == nil || (key == convertCacheKey{}) || p.persistPureOpCaches || len(p.blockConvertRestores) == 0 {
+		return
+	}
+	restores := p.blockConvertRestores[len(p.blockConvertRestores)-1]
+	if _, exists := restores[key]; exists {
+		return
+	}
+	value, existed := p.convertCache[key]
+	restores[key] = valueRestore{existed: existed, value: value}
+}
+
+func (p *processPrinter) recordBlockExprOverride(key exprCacheKey) {
+	if p == nil || (key == exprCacheKey{}) || p.persistPureOpCaches || len(p.blockExprRestores) == 0 {
+		return
+	}
+	restores := p.blockExprRestores[len(p.blockExprRestores)-1]
+	if _, exists := restores[key]; exists {
+		return
+	}
+	value, existed := p.exprCache[key]
+	restores[key] = valueRestore{existed: existed, value: value}
+}
+
+func (p *processPrinter) setScopedValueName(sig *ir.Signal, value string) {
+	if p == nil || sig == nil {
+		return
+	}
+	p.recordBlockValueOverride(sig)
+	p.valueNames[sig] = value
+}
+
+func (p *processPrinter) setScopedInternalRead(name, value string) {
+	if p == nil || name == "" {
+		return
+	}
+	p.recordBlockReadOverride(name)
+	p.internalSignalReads[name] = value
+}
+
+func (p *processPrinter) invalidateScopedValue(sig *ir.Signal) {
+	if p == nil || sig == nil {
+		return
+	}
+	p.recordBlockValueOverride(sig)
+	delete(p.valueNames, sig)
+}
+
+func (p *processPrinter) invalidateScopedRead(name string) {
+	if p == nil || name == "" {
+		return
+	}
+	p.recordBlockReadOverride(name)
+	delete(p.internalSignalReads, name)
+}
+
+func (p *processPrinter) invalidatePackedAggregateCache(elementName string) {
+	if p == nil || elementName == "" || p.moduleSignals == nil {
+		return
+	}
+	base, _, ok := indexedSignalName(elementName)
+	if !ok || base == "" {
+		return
+	}
+	baseSig, ok := p.moduleSignals[base]
+	if !ok || baseSig == nil {
+		return
+	}
+	p.invalidateScopedValue(baseSig)
+	p.invalidateScopedRead(base)
+	if p.persistentValues != nil {
+		delete(p.persistentValues, baseSig)
+	}
+}
+
+func (p *processPrinter) signalProducer(sig *ir.Signal) (ir.Operation, *ir.BasicBlock) {
+	if p == nil || p.proc == nil || sig == nil {
+		return nil, nil
+	}
+	p.seedProducerCache()
+	if cached, ok := p.producerCache[sig]; ok {
+		return cached.op, cached.block
+	}
+	op, block := findSignalProducer(p.proc, sig)
+	p.producerCache[sig] = cachedProducer{op: op, block: block}
+	return op, block
+}
+
+func (p *processPrinter) signalAssignedAnywhere(name string) bool {
+	if p == nil || name == "" || p.emitter == nil || p.emitter.currentAssigned == nil {
+		return false
+	}
+	_, ok := p.emitter.currentAssigned[name]
+	return ok
+}
+
+func (p *processPrinter) moduleSignalNeedsStorage(name string) bool {
+	if p == nil || name == "" || p.moduleSignals == nil {
+		return false
+	}
+	sig, ok := p.moduleSignals[name]
+	if !ok || sig == nil {
+		return false
+	}
+	if sig.Kind == ir.Reg {
+		return true
+	}
+	if sig.Kind != ir.Wire || p.proc == nil {
+		return false
+	}
+	if !p.signalAssignedAnywhere(name) {
+		return false
+	}
+	return signalReadOnRHS(p.proc, sig)
+}
+
+func (p *processPrinter) isImmutableRegSignal(sig *ir.Signal) bool {
+	if p == nil || sig == nil || sig.Name == "" || p.moduleSignals == nil {
+		return false
+	}
+	moduleSig, ok := p.moduleSignals[sig.Name]
+	if !ok || moduleSig == nil || moduleSig.Kind != ir.Reg || moduleSig.Value == nil || sig.Type == nil {
+		return false
+	}
+	if p.signalAssignedAnywhere(sig.Name) {
+		return false
+	}
+	if producer, _ := p.signalProducer(sig); producer != nil {
+		return false
+	}
+	return true
+}
+
+func (p *processPrinter) seedProducerCache() {
+	if p == nil || p.proc == nil || p.producerCacheSeeded {
+		return
+	}
+	for _, block := range p.proc.Blocks {
+		if block == nil {
+			continue
+		}
+		for _, op := range block.Ops {
+			dest := producerDestSignal(op)
+			if dest == nil {
+				continue
+			}
+			p.producerCache[dest] = cachedProducer{op: op, block: block}
+		}
+	}
+	p.producerCacheSeeded = true
+}
+
+func (p *processPrinter) clearTransientStateCaseValues() {
+	if p == nil {
+		return
+	}
+	for sig, name := range p.valueNames {
+		if p.shouldKeepStateCaseValue(sig, name) {
+			continue
+		}
+		delete(p.valueNames, sig)
+	}
+	for name := range p.internalSignalReads {
+		delete(p.internalSignalReads, name)
+	}
+}
+
+func (p *processPrinter) shouldKeepStateCaseValue(sig *ir.Signal, name string) bool {
+	if p == nil || sig == nil || name == "" {
+		return false
+	}
+	if sig.Kind == ir.Reg {
+		return true
+	}
+	if sig.Name != "" {
+		if sig.Name == "clk" || sig.Name == "rst" {
+			return true
+		}
+		if _, ok := p.portNames[sig.Name]; ok {
+			return true
+		}
+	}
+	if p.persistentValues != nil {
+		if value, ok := p.persistentValues[sig]; ok && value == name {
+			return true
+		}
+	}
+	producer, _ := p.signalProducer(sig)
+	switch producer.(type) {
+	case *ir.PhiOperation, *ir.RecvOperation:
+		return true
+	default:
+		return false
+	}
+}
+
+func producerDestSignal(op ir.Operation) *ir.Signal {
+	switch typed := op.(type) {
+	case *ir.AssignOperation:
+		if typed != nil {
+			return typed.Dest
+		}
+	case *ir.PhiOperation:
+		if typed != nil {
+			return typed.Dest
+		}
+	case *ir.NotOperation:
+		if typed != nil {
+			return typed.Dest
+		}
+	case *ir.BinOperation:
+		if typed != nil {
+			return typed.Dest
+		}
+	case *ir.CompareOperation:
+		if typed != nil {
+			return typed.Dest
+		}
+	case *ir.MuxOperation:
+		if typed != nil {
+			return typed.Dest
+		}
+	case *ir.ConvertOperation:
+		if typed != nil {
+			return typed.Dest
+		}
+	}
+	return nil
+}
+
+func (p *processPrinter) immutableRegConstRef(sig *ir.Signal) string {
+	if !p.isImmutableRegSignal(sig) {
+		return ""
+	}
+	moduleSig := p.moduleSignals[sig.Name]
+	if p.persistentValues != nil {
+		if cached, ok := p.persistentValues[sig]; ok && cached != "" {
+			p.setScopedValueName(sig, cached)
+			return cached
+		}
+	}
+	constName := p.freshValueName("init_const")
+	p.printIndent()
+	fmt.Fprintf(p.w, "%s = hw.constant %s : %s\n", constName, formatHWConstant(moduleSig.Value, sig.Type), typeString(sig.Type))
+	p.setScopedValueName(sig, constName)
+	if p.persistentValues != nil {
+		p.persistentValues[sig] = constName
+	}
+	return constName
 }
 
 func (p *processPrinter) emitDirectClockedControl(proc *ir.Process) {
@@ -5420,9 +6070,9 @@ func (p *processPrinter) emitDirectClockedControl(proc *ir.Process) {
 		for _, mode := range []clockEdgeMode{clockEdgePos, clockEdgeNeg} {
 			p.printIndent()
 			if mode == clockEdgePos {
-				fmt.Fprintf(p.w, "sv.always posedge %s {\n", p.portRef("clk"))
+				fmt.Fprintf(p.w, "sv.always posedge %s {\n", p.clockPortRef())
 			} else {
-				fmt.Fprintf(p.w, "sv.always negedge %s {\n", p.portRef("clk"))
+				fmt.Fprintf(p.w, "sv.always negedge %s {\n", p.clockPortRef())
 			}
 			p.indent++
 			p.emitDirectClockedBlockForEdge(entry, mode, make(map[*ir.BasicBlock]bool))
@@ -5531,7 +6181,7 @@ func (p *processPrinter) emitCombinationalRegAssign(op *ir.AssignOperation) {
 		return
 	}
 	moduleSig, ok := p.moduleSignals[op.Dest.Name]
-	if !ok || moduleSig == nil || moduleSig.Kind != ir.Reg {
+	if !ok || moduleSig == nil || !p.moduleSignalNeedsStorage(op.Dest.Name) {
 		return
 	}
 	if p.portNames != nil {
@@ -5549,7 +6199,7 @@ func (p *processPrinter) emitCombinationalRegAssign(op *ir.AssignOperation) {
 }
 
 func (p *processPrinter) directClockedSensitivity(proc *ir.Process) string {
-	clk := p.portRef("clk")
+	clk := p.clockPortRef()
 	posedge, negedge := p.directClockEdges(proc)
 	switch {
 	case posedge && negedge:
@@ -5657,7 +6307,7 @@ func (p *processPrinter) emitDirectClockedBlock(block *ir.BasicBlock, active map
 			}
 			if !p.clockedBlocks[block] {
 				moduleSig, ok := p.moduleSignals[assign.Dest.Name]
-				if !ok || moduleSig == nil || moduleSig.Kind != ir.Reg || !isOutputGlobalName(assign.Dest.Name) {
+				if !ok || moduleSig == nil || !p.moduleSignalNeedsStorage(assign.Dest.Name) || !isOutputGlobalName(assign.Dest.Name) {
 					continue
 				}
 			}
@@ -5870,7 +6520,7 @@ func (p *processPrinter) emitDirectAssignUpdate(op *ir.AssignOperation) {
 		return
 	}
 	moduleSig, ok := p.moduleSignals[op.Dest.Name]
-	if !ok || moduleSig == nil || moduleSig.Kind != ir.Reg {
+	if !ok || moduleSig == nil || !p.moduleSignalNeedsStorage(op.Dest.Name) {
 		return
 	}
 	if p.portNames != nil {
@@ -5888,6 +6538,7 @@ func (p *processPrinter) emitDirectAssignUpdate(op *ir.AssignOperation) {
 	p.emitIndexedAggregateAssignMirrors(op.Dest, value, false)
 	p.recordBlockValueOverride(op.Dest)
 	p.valueNames[op.Dest] = value
+	p.invalidatePackedAggregateCache(op.Dest.Name)
 }
 
 func (p *processPrinter) emitIndexedAggregateAssignMirrors(dest *ir.Signal, value string, recordOverride bool) {
@@ -5931,6 +6582,11 @@ func (p *processPrinter) indexedAggregateElements(sig *ir.Signal) []indexedAggre
 	if p == nil || sig == nil || sig.Name == "" || sig.Type == nil || p.moduleSignals == nil {
 		return nil
 	}
+	if p.indexedAggregates != nil {
+		if cached, ok := p.indexedAggregates[sig.Name]; ok {
+			return cached
+		}
+	}
 	elementsByIndex := make(map[int]*ir.Signal)
 	indices := make([]int, 0)
 	for name, candidate := range p.moduleSignals {
@@ -5945,6 +6601,9 @@ func (p *processPrinter) indexedAggregateElements(sig *ir.Signal) []indexedAggre
 		indices = append(indices, index)
 	}
 	if len(indices) == 0 {
+		if p.indexedAggregates != nil {
+			p.indexedAggregates[sig.Name] = nil
+		}
 		return nil
 	}
 	sort.Ints(indices)
@@ -5953,13 +6612,22 @@ func (p *processPrinter) indexedAggregateElements(sig *ir.Signal) []indexedAggre
 	for _, index := range indices {
 		elemSig := elementsByIndex[index]
 		if elemSig == nil || elemSig.Type == nil {
+			if p.indexedAggregates != nil {
+				p.indexedAggregates[sig.Name] = nil
+			}
 			return nil
 		}
 		elements = append(elements, indexedAggregateElement{sig: elemSig, offset: offset})
 		offset += signalWidth(elemSig.Type)
 	}
 	if offset != signalWidth(sig.Type) {
+		if p.indexedAggregates != nil {
+			p.indexedAggregates[sig.Name] = nil
+		}
 		return nil
+	}
+	if p.indexedAggregates != nil {
+		p.indexedAggregates[sig.Name] = elements
 	}
 	return elements
 }
@@ -5973,17 +6641,56 @@ func (p *processPrinter) emitConstants() {
 		names = append(names, name)
 	}
 	sort.Strings(names)
+	emitted := make(map[string]struct{})
 	for _, name := range names {
 		sig := p.moduleSignals[name]
-		if sig.Kind != ir.Const {
+		if sig == nil {
 			continue
 		}
-		if _, ok := p.usedSignals[sig]; !ok {
-			continue
+		switch sig.Kind {
+		case ir.Const:
+			if _, ok := p.usedSignals[sig]; !ok {
+				continue
+			}
+			ssaName := p.assignConst(sig)
+			if _, ok := emitted[ssaName]; ok {
+				continue
+			}
+			emitted[ssaName] = struct{}{}
+			p.printIndent()
+			fmt.Fprintf(p.w, "%s = hw.constant %s : %s\n", ssaName, formatHWConstant(sig.Value, sig.Type), typeString(sig.Type))
+		case ir.Wire:
+			if sig.Value == nil || sig.Type == nil {
+				continue
+			}
+			if producer, _ := p.signalProducer(sig); producer != nil {
+				continue
+			}
+			ssaName := p.freshValueName("init_const")
+			if _, ok := emitted[ssaName]; ok {
+				continue
+			}
+			emitted[ssaName] = struct{}{}
+			if p.persistentValues != nil {
+				p.persistentValues[sig] = ssaName
+			}
+			p.printIndent()
+			fmt.Fprintf(p.w, "%s = hw.constant %s : %s\n", ssaName, formatHWConstant(sig.Value, sig.Type), typeString(sig.Type))
+		case ir.Reg:
+			if !p.isImmutableRegSignal(sig) {
+				continue
+			}
+			ssaName := p.freshValueName("init_const")
+			if _, ok := emitted[ssaName]; ok {
+				continue
+			}
+			emitted[ssaName] = struct{}{}
+			if p.persistentValues != nil {
+				p.persistentValues[sig] = ssaName
+			}
+			p.printIndent()
+			fmt.Fprintf(p.w, "%s = hw.constant %s : %s\n", ssaName, formatHWConstant(sig.Value, sig.Type), typeString(sig.Type))
 		}
-		ssaName := p.assignConst(sig)
-		p.printIndent()
-		fmt.Fprintf(p.w, "%s = hw.constant %s : %s\n", ssaName, formatHWConstant(sig.Value, sig.Type), typeString(sig.Type))
 	}
 }
 
@@ -5992,6 +6699,22 @@ func (p *processPrinter) emitOperation(block *ir.BasicBlock, op ir.Operation, pr
 	case *ir.BinOperation:
 		left := p.valueRef(o.Left)
 		right := p.valueRef(o.Right)
+		if p.shouldCachePureOpResults() && left != "" && right != "" && left != "%unknown" && right != "%unknown" {
+			opName := binOpName(o.Op)
+			keyLeft, keyRight := normalizeExprOperands(left, right, isCommutativeBinOp(o.Op))
+			key := exprCacheKey{kind: "bin:" + opName, a: keyLeft, b: keyRight, typ: typeString(o.Dest.Type)}
+			p.cachePureOpResult(o.Dest, key, func(dest string) {
+				p.printIndent()
+				fmt.Fprintf(p.w, "%s = comb.%s %s, %s : %s\n",
+					dest,
+					opName,
+					left,
+					right,
+					typeString(o.Dest.Type),
+				)
+			})
+			return
+		}
 		dest := p.bindSSA(o.Dest)
 		p.printIndent()
 		fmt.Fprintf(p.w, "%s = comb.%s %s, %s : %s\n",
@@ -6007,13 +6730,14 @@ func (p *processPrinter) emitOperation(block *ir.BasicBlock, op ir.Operation, pr
 		if p.fsm != nil || p.directClocked {
 			if p.directClocked {
 				moduleSig, ok := p.moduleSignals[o.Dest.Name]
-				isModuleReg := ok && moduleSig != nil && moduleSig.Kind == ir.Reg
+				isModuleReg := ok && moduleSig != nil && p.moduleSignalNeedsStorage(o.Dest.Name)
 				if p.clockedBlocks == nil || !p.clockedBlocks[block] {
 					if isModuleReg && !isOutputGlobalName(o.Dest.Name) {
 						return
 					}
 					src := p.valueRef(o.Value)
 					if src != "" && src != "%unknown" {
+						p.recordBlockValueOverride(o.Dest)
 						p.valueNames[o.Dest] = src
 					}
 					return
@@ -6030,14 +6754,11 @@ func (p *processPrinter) emitOperation(block *ir.BasicBlock, op ir.Operation, pr
 			}
 			src := p.valueRef(o.Value)
 			if src != "" && src != "%unknown" {
-				moduleSig, ok := p.moduleSignals[o.Dest.Name]
-				if ok && moduleSig != nil && moduleSig.Kind == ir.Reg {
-					p.recordBlockValueOverride(o.Dest)
-				}
+				p.recordBlockValueOverride(o.Dest)
 				p.valueNames[o.Dest] = src
 			}
 			moduleSig, ok := p.moduleSignals[o.Dest.Name]
-			if ok && moduleSig != nil && moduleSig.Kind == ir.Reg {
+			if ok && moduleSig != nil && p.moduleSignalNeedsStorage(o.Dest.Name) {
 				return
 			}
 			return
@@ -6180,6 +6901,32 @@ func (p *processPrinter) emitOperation(block *ir.BasicBlock, op ir.Operation, pr
 	case *ir.CompareOperation:
 		left := p.valueRef(o.Left)
 		right := p.valueRef(o.Right)
+		if p.shouldCachePureOpResults() && left != "" && right != "" && left != "%unknown" && right != "%unknown" {
+			predicate := comparePredicateName(o.Predicate)
+			if left == right {
+				switch predicate {
+				case "eq", "sle", "sge", "ule", "uge":
+					p.valueNames[o.Dest] = p.boolConst(true)
+					return
+				case "ne", "slt", "sgt", "ult", "ugt":
+					p.valueNames[o.Dest] = p.boolConst(false)
+					return
+				}
+			}
+			keyLeft, keyRight := normalizeExprOperands(left, right, predicate == "eq" || predicate == "ne")
+			key := exprCacheKey{kind: "icmp:" + predicate, a: keyLeft, b: keyRight, typ: typeString(o.Left.Type)}
+			p.cachePureOpResult(o.Dest, key, func(dest string) {
+				p.printIndent()
+				fmt.Fprintf(p.w, "%s = comb.icmp %s %s, %s : %s\n",
+					dest,
+					predicate,
+					left,
+					right,
+					typeString(o.Left.Type),
+				)
+			})
+			return
+		}
 		dest := p.bindSSA(o.Dest)
 		operandType := typeString(o.Left.Type)
 		p.printIndent()
@@ -6192,14 +6939,40 @@ func (p *processPrinter) emitOperation(block *ir.BasicBlock, op ir.Operation, pr
 		)
 	case *ir.NotOperation:
 		value := p.valueRef(o.Value)
-		dest := p.bindSSA(o.Dest)
 		ones := p.typedAllOnesConst(o.Value.Type)
+		if p.shouldCachePureOpResults() && value != "" && value != "%unknown" {
+			key := exprCacheKey{kind: "not", a: value, b: ones, typ: typeString(o.Value.Type)}
+			p.cachePureOpResult(o.Dest, key, func(dest string) {
+				p.printIndent()
+				fmt.Fprintf(p.w, "%s = comb.xor %s, %s : %s\n", dest, value, ones, typeString(o.Value.Type))
+			})
+			return
+		}
+		dest := p.bindSSA(o.Dest)
 		p.printIndent()
 		fmt.Fprintf(p.w, "%s = comb.xor %s, %s : %s\n", dest, value, ones, typeString(o.Value.Type))
 	case *ir.MuxOperation:
 		cond := p.valueRef(o.Cond)
 		tVal := p.valueRef(o.TrueValue)
 		fVal := p.valueRef(o.FalseValue)
+		if folded, ok := p.foldMuxRefs(cond, tVal, fVal); ok {
+			p.valueNames[o.Dest] = folded
+			return
+		}
+		if p.shouldCachePureOpResults() && cond != "" && tVal != "" && fVal != "" && cond != "%unknown" && tVal != "%unknown" && fVal != "%unknown" {
+			key := exprCacheKey{kind: "mux", a: cond, b: tVal, c: fVal, typ: typeString(o.Dest.Type)}
+			p.cachePureOpResult(o.Dest, key, func(dest string) {
+				p.printIndent()
+				fmt.Fprintf(p.w, "%s = comb.mux %s, %s, %s : %s\n",
+					dest,
+					cond,
+					tVal,
+					fVal,
+					typeString(o.Dest.Type),
+				)
+			})
+			return
+		}
 		dest := p.bindSSA(o.Dest)
 		p.printIndent()
 		fmt.Fprintf(p.w, "%s = comb.mux %s, %s, %s : %s\n",
@@ -6232,7 +7005,7 @@ func (p *processPrinter) seqClock() string {
 	if p.seqClockName != "" {
 		return p.seqClockName
 	}
-	clk := p.portRef("clk")
+	clk := p.clockPortRef()
 	name := p.freshValueName("clk_seq")
 	p.printIndent()
 	fmt.Fprintf(p.w, "%s = seq.to_clock %s\n", name, clk)
@@ -6298,6 +7071,10 @@ func (p *processPrinter) emitPhiAsMuxTree(phi *ir.PhiOperation, dest string) {
 		if i > 0 {
 			name = p.freshValueName("mux")
 		}
+		if folded, ok := p.foldMuxRefs(condRef, incomingVal, currentVal); ok {
+			currentVal = folded
+			continue
+		}
 		p.printIndent()
 		fmt.Fprintf(p.w, "%s = comb.mux %s, %s, %s : %s\n",
 			name, condRef, incomingVal, currentVal, typeString(phi.Dest.Type))
@@ -6321,27 +7098,58 @@ func (p *processPrinter) phiIncomingConditionTerms(pred, target *ir.BasicBlock, 
 	if p == nil || pred == nil {
 		return nil
 	}
+	var cacheKey phiCondCacheKey
+	useGlobalCache := target != nil && p.phiCondTermsCache != nil
+	if target != nil && p.phiCondTermsCache != nil {
+		cacheKey = phiCondCacheKey{pred: pred, target: target}
+		if cached, ok := p.phiCondTermsCache[cacheKey]; ok {
+			return cached
+		}
+	}
 	terms := p.blockReachabilityTerms(pred, cache, active)
 	if len(terms) == 0 {
+		if useGlobalCache {
+			p.phiCondTermsCache[cacheKey] = nil
+		}
 		return nil
 	}
 	if pred == target || target == nil {
+		if useGlobalCache {
+			p.phiCondTermsCache[cacheKey] = terms
+		}
 		return terms
 	}
 	switch term := pred.Terminator.(type) {
 	case *ir.BranchTerminator:
 		switch {
 		case term.True == target:
-			return appendLiteralToTerms(terms, condLiteral{sig: term.Cond, positive: true})
+			terms = appendLiteralToTerms(terms, condLiteral{sig: term.Cond, positive: true})
+			if useGlobalCache {
+				p.phiCondTermsCache[cacheKey] = terms
+			}
+			return terms
 		case term.False == target:
-			return appendLiteralToTerms(terms, condLiteral{sig: term.Cond, positive: false})
+			terms = appendLiteralToTerms(terms, condLiteral{sig: term.Cond, positive: false})
+			if useGlobalCache {
+				p.phiCondTermsCache[cacheKey] = terms
+			}
+			return terms
 		default:
+			if useGlobalCache {
+				p.phiCondTermsCache[cacheKey] = nil
+			}
 			return nil
 		}
 	case *ir.JumpTerminator:
 		if term.Target == target {
+			if useGlobalCache {
+				p.phiCondTermsCache[cacheKey] = terms
+			}
 			return terms
 		}
+	}
+	if useGlobalCache {
+		p.phiCondTermsCache[cacheKey] = nil
 	}
 	return nil
 }
@@ -6349,6 +7157,11 @@ func (p *processPrinter) phiIncomingConditionTerms(pred, target *ir.BasicBlock, 
 func (p *processPrinter) blockReachabilityTerms(block *ir.BasicBlock, cache map[*ir.BasicBlock][]condTerm, active map[*ir.BasicBlock]bool) []condTerm {
 	if p == nil || block == nil {
 		return nil
+	}
+	if p.blockCondTermsCache != nil {
+		if cached, ok := p.blockCondTermsCache[block]; ok {
+			return cached
+		}
 	}
 	if cache != nil {
 		if cached, ok := cache[block]; ok {
@@ -6373,6 +7186,9 @@ func (p *processPrinter) blockReachabilityTerms(block *ir.BasicBlock, cache map[
 		terms = append(terms, p.phiIncomingConditionTerms(pred, block, cache, active)...)
 	}
 	terms = simplifyCondTerms(terms)
+	if p.blockCondTermsCache != nil {
+		p.blockCondTermsCache[block] = terms
+	}
 	if cache != nil {
 		cache[block] = terms
 	}
@@ -6644,16 +7460,25 @@ func condTermSubsumes(a, b condTerm) bool {
 	if len(a) > len(b) {
 		return false
 	}
-	set := make(map[*ir.Signal]bool, len(b))
-	for _, lit := range b {
-		set[lit.sig] = lit.positive
-	}
-	for _, lit := range a {
-		if pol, ok := set[lit.sig]; !ok || pol != lit.positive {
+	i := 0
+	j := 0
+	for i < len(a) && j < len(b) {
+		nameA := a[i].sig.Name
+		nameB := b[j].sig.Name
+		switch {
+		case nameA == nameB:
+			if a[i].positive != b[j].positive {
+				return false
+			}
+			i++
+			j++
+		case nameA > nameB:
+			j++
+		default:
 			return false
 		}
 	}
-	return true
+	return i == len(a)
 }
 
 func combineCondTerms(a, b condTerm) (condTerm, bool) {
@@ -6877,10 +7702,26 @@ func (p *processPrinter) assignConst(sig *ir.Signal) string {
 	if name, ok := p.constNames[sig]; ok {
 		return name
 	}
+	if key := p.literalConstKey(sig); key != "" {
+		if name, ok := p.literalConstNames[key]; ok && name != "" {
+			p.constNames[sig] = name
+			return name
+		}
+	}
 	name := fmt.Sprintf("%%c%d", p.emitter.globalTempID)
 	p.emitter.globalTempID++
 	p.constNames[sig] = name
+	if key := p.literalConstKey(sig); key != "" {
+		p.literalConstNames[key] = name
+	}
 	return name
+}
+
+func (p *processPrinter) literalConstKey(sig *ir.Signal) string {
+	if p == nil || sig == nil || sig.Kind != ir.Const || sig.Type == nil {
+		return ""
+	}
+	return typeString(sig.Type) + "=" + formatHWConstant(sig.Value, sig.Type)
 }
 
 func (p *processPrinter) bindSSA(sig *ir.Signal) string {
@@ -6896,6 +7737,26 @@ func (p *processPrinter) bindSSA(sig *ir.Signal) string {
 	return name
 }
 
+func (p *processPrinter) shouldReuseCachedValueName(sig *ir.Signal, name string) bool {
+	if p == nil || sig == nil || name == "" {
+		return false
+	}
+	if !strings.HasPrefix(name, "%init_const") {
+		return true
+	}
+	if sig.Name == "" || p.moduleSignals == nil {
+		return true
+	}
+	moduleSig, ok := p.moduleSignals[sig.Name]
+	if !ok || moduleSig == nil || moduleSig.Kind != ir.Wire || moduleSig.Value == nil {
+		return true
+	}
+	if producer, _ := p.signalProducer(sig); producer != nil {
+		return true
+	}
+	return false
+}
+
 func (p *processPrinter) valueRef(sig *ir.Signal) string {
 	if sig == nil {
 		return "%unknown"
@@ -6905,35 +7766,49 @@ func (p *processPrinter) valueRef(sig *ir.Signal) string {
 	}
 	if p.persistentValues != nil {
 		if value, ok := p.persistentValues[sig]; ok && value != "" {
-			p.valueNames[sig] = value
+			p.setScopedValueName(sig, value)
 			return value
 		}
 	}
 	if unpacked := p.inputArrayElementRef(sig); unpacked != "" {
-		p.valueNames[sig] = unpacked
+		p.setScopedValueName(sig, unpacked)
 		return unpacked
 	}
 	if fallback := p.combinationalOutputArrayElementRef(sig); fallback != "" {
-		p.valueNames[sig] = fallback
+		p.setScopedValueName(sig, fallback)
 		return fallback
 	}
 	if sig.Name != "" {
 		if portName, ok := p.portNames[sig.Name]; ok {
-			p.valueNames[sig] = portName
+			p.setScopedValueName(sig, portName)
 			return portName
 		}
 	}
 	if (p.fsm != nil || p.directClocked) && sig.Name != "" && sig.Name != "clk" && sig.Name != "rst" {
+		if sig.Name == "varargs" {
+			if producer, _ := p.signalProducer(sig); producer == nil {
+				zero := p.typedZeroConst(sig.Type)
+				p.setScopedValueName(sig, zero)
+				return zero
+			}
+		}
 		if name, ok := p.valueNames[sig]; ok && name != "" {
-			rawName := "%" + sanitize(sig.Name)
-			if name != rawName {
-				return name
+			if !p.shouldReuseCachedValueName(sig, name) {
+				delete(p.valueNames, sig)
+			} else {
+				rawName := "%" + sanitize(sig.Name)
+				if name != rawName {
+					return name
+				}
 			}
 		}
 		if moduleSig, ok := p.moduleSignals[sig.Name]; ok && moduleSig != nil && moduleSig.Kind == ir.Reg {
 			if packed := p.packArraySignalValue(sig); packed != "" {
-				p.valueNames[sig] = packed
+				p.setScopedValueName(sig, packed)
 				return packed
+			}
+			if constRef := p.immutableRegConstRef(sig); constRef != "" {
+				return constRef
 			}
 			wireName := "%" + sanitize(sig.Name)
 			readName := fmt.Sprintf("%%v%d", p.emitter.globalTempID)
@@ -6944,7 +7819,10 @@ func (p *processPrinter) valueRef(sig *ir.Signal) string {
 		}
 	}
 	if name, ok := p.valueNames[sig]; ok {
-		return name
+		if p.shouldReuseCachedValueName(sig, name) {
+			return name
+		}
+		delete(p.valueNames, sig)
 	}
 
 	// Check if this is an internal signal (not a readable port).
@@ -6964,13 +7842,16 @@ func (p *processPrinter) valueRef(sig *ir.Signal) string {
 
 	if !isPort && sig.Name != "" && !isArrayElement {
 		if packed := p.packArraySignalValue(sig); packed != "" {
-			p.valueNames[sig] = packed
+			p.setScopedValueName(sig, packed)
 			return packed
 		}
 		// Check if this is a scalar global register (pre-declared at module level)
 		// All register-kind signals that are not array elements are pre-declared.
 		// In combinational logic they still need a read_inout to produce a plain value.
 		if sig.Kind == ir.Reg {
+			if constRef := p.immutableRegConstRef(sig); constRef != "" {
+				return constRef
+			}
 			if readName, ok := p.internalSignalReads[sig.Name]; ok {
 				return readName
 			}
@@ -6979,14 +7860,29 @@ func (p *processPrinter) valueRef(sig *ir.Signal) string {
 			p.emitter.globalTempID++
 			p.printIndent()
 			fmt.Fprintf(p.w, "%s = sv.read_inout %s : %s\n", readName, wireName, inoutTypeString(sig.Type))
-			p.internalSignalReads[sig.Name] = readName
-			p.valueNames[sig] = readName
+			p.setScopedInternalRead(sig.Name, readName)
+			p.setScopedValueName(sig, readName)
 			return readName
 		}
 
 		// This is an internal signal, need to read it with sv.read_inout
 		if readName, ok := p.internalSignalReads[sig.Name]; ok {
 			return readName
+		}
+		if moduleSig, ok := p.moduleSignals[sig.Name]; ok && moduleSig != nil && moduleSig.Kind == ir.Wire {
+			if producer, _ := p.signalProducer(sig); producer == nil {
+				if moduleSig.Value != nil {
+					constName := p.freshValueName("init_const")
+					p.printIndent()
+					fmt.Fprintf(p.w, "%s = hw.constant %s : %s\n", constName, formatHWConstant(moduleSig.Value, sig.Type), typeString(sig.Type))
+					return constName
+				}
+				// Module-scope wires without a producer model zero-initialized globals
+				// such as packed arrays or print varargs scratch that survive DCE.
+				zero := p.typedZeroConst(sig.Type)
+				p.setScopedValueName(sig, zero)
+				return zero
+			}
 		}
 
 		// Emit sv.read_inout to get the regular type value
@@ -6997,14 +7893,17 @@ func (p *processPrinter) valueRef(sig *ir.Signal) string {
 		p.printIndent()
 		fmt.Fprintf(p.w, "%s = sv.read_inout %s : %s\n", readName, wireName, inoutTypeString(sig.Type))
 
-		p.internalSignalReads[sig.Name] = readName
-		p.valueNames[sig] = readName
+		p.setScopedInternalRead(sig.Name, readName)
+		p.setScopedValueName(sig, readName)
 		return readName
 	}
 
 	if isArrayElement {
 		if moduleSig, ok := p.moduleSignals[sig.Name]; ok && moduleSig != nil {
 			if moduleSig.Kind == ir.Reg {
+				if constRef := p.immutableRegConstRef(sig); constRef != "" {
+					return constRef
+				}
 				if readName, ok := p.internalSignalReads[sig.Name]; ok {
 					return readName
 				}
@@ -7013,8 +7912,8 @@ func (p *processPrinter) valueRef(sig *ir.Signal) string {
 				p.emitter.globalTempID++
 				p.printIndent()
 				fmt.Fprintf(p.w, "%s = sv.read_inout %s : %s\n", readName, wireName, inoutTypeString(sig.Type))
-				p.internalSignalReads[sig.Name] = readName
-				p.valueNames[sig] = readName
+				p.setScopedInternalRead(sig.Name, readName)
+				p.setScopedValueName(sig, readName)
 				return readName
 			}
 			if moduleSig.Kind == ir.Wire {
@@ -7029,7 +7928,7 @@ func (p *processPrinter) valueRef(sig *ir.Signal) string {
 
 	// Ports can be referenced directly by their block-argument SSA names.
 	name := "%" + sanitize(sig.Name)
-	p.valueNames[sig] = name
+	p.setScopedValueName(sig, name)
 	return name
 }
 
@@ -7182,19 +8081,28 @@ func (p *processPrinter) packArraySignalValue(sig *ir.Signal) string {
 	if p == nil || sig == nil || sig.Type == nil || sig.Type.Width <= 1 || sig.Name == "" || p.moduleSignals == nil {
 		return ""
 	}
-	elements := make([]string, 0, sig.Type.Width)
-	elementTypes := make([]string, 0, sig.Type.Width)
-	for i := 0; i < sig.Type.Width; i++ {
-		elemSig := resolveIndexedElementSignal(p.moduleSignals, sig.Name, i, 1)
-		if elemSig == nil {
-			elements = nil
-			elementTypes = nil
-			break
+	indexed := p.indexedAggregateElements(sig)
+	if len(indexed) > 0 {
+		if name, ok := p.valueNames[sig]; ok && name != "" && name != "%unknown" {
+			raw := "%" + sanitize(sig.Name)
+			if name != raw {
+				return name
+			}
 		}
-		elements = append(elements, p.valueRef(elemSig))
-		elementTypes = append(elementTypes, typeString(elemSig.Type))
-	}
-	if len(elements) > 0 {
+		elements := make([]string, 0, len(indexed))
+		elementTypes := make([]string, 0, len(indexed))
+		canPersist := !p.signalAssignedAnywhere(sig.Name)
+		for _, entry := range indexed {
+			if entry.sig == nil || entry.sig.Type == nil {
+				return ""
+			}
+			if canPersist && p.signalAssignedAnywhere(entry.sig.Name) {
+				canPersist = false
+			}
+			elemSig := entry.sig
+			elements = append(elements, p.valueRef(elemSig))
+			elementTypes = append(elementTypes, typeString(elemSig.Type))
+		}
 		name := p.freshValueName("packed")
 		p.printIndent()
 		fmt.Fprintf(p.w, "%s = comb.concat ", name)
@@ -7212,9 +8120,16 @@ func (p *processPrinter) packArraySignalValue(sig *ir.Signal) string {
 			fmt.Fprint(p.w, elementTypes[i])
 		}
 		fmt.Fprintln(p.w)
+		p.setScopedValueName(sig, name)
+		if canPersist && p.persistentValues != nil {
+			p.persistentValues[sig] = name
+		}
 		return name
 	}
 	if moduleSig, ok := p.moduleSignals[sig.Name]; ok && moduleSig != nil && moduleSig.Kind == ir.Reg {
+		if constRef := p.immutableRegConstRef(sig); constRef != "" {
+			return constRef
+		}
 		if readName, ok := p.internalSignalReads[sig.Name]; ok {
 			return readName
 		}
@@ -7223,7 +8138,7 @@ func (p *processPrinter) packArraySignalValue(sig *ir.Signal) string {
 		p.emitter.globalTempID++
 		p.printIndent()
 		fmt.Fprintf(p.w, "%s = sv.read_inout %s : %s\n", readName, wireName, inoutTypeString(sig.Type))
-		p.internalSignalReads[sig.Name] = readName
+		p.setScopedInternalRead(sig.Name, readName)
 		return readName
 	}
 	return ""
@@ -7234,6 +8149,41 @@ func (p *processPrinter) portRef(name string) string {
 		return val
 	}
 	return fmt.Sprintf("%%%s", sanitize(name))
+}
+
+func (p *processPrinter) clockPortName() string {
+	if p == nil {
+		return "clk"
+	}
+	if p.proc != nil {
+		for _, block := range p.proc.Blocks {
+			term, ok := block.Terminator.(*ir.BranchTerminator)
+			if !ok || term == nil || term.Cond == nil {
+				continue
+			}
+			if isClockLikeName(term.Cond.Name) {
+				return term.Cond.Name
+			}
+		}
+		for _, param := range p.proc.Params {
+			if param != nil && isClockLikeName(param.Name) {
+				return param.Name
+			}
+		}
+	}
+	if p.portNames != nil {
+		if p.portNames["clock"] != "" {
+			return "clock"
+		}
+		if p.portNames["clk"] != "" {
+			return "clk"
+		}
+	}
+	return "clk"
+}
+
+func (p *processPrinter) clockPortRef() string {
+	return p.portRef(p.clockPortName())
 }
 
 func (p *processPrinter) resetAssertedRef() string {
@@ -7258,6 +8208,18 @@ func (p *processPrinter) edgeValueRef(sig *ir.Signal) string {
 	return p.edgeValueRefWithActive(sig, make(map[*ir.Signal]bool))
 }
 
+func (p *processPrinter) edgeValueRefForPred(sig *ir.Signal, pred *ir.BasicBlock) string {
+	if p == nil {
+		return "%unknown"
+	}
+	prev := p.currentPhiPred
+	p.currentPhiPred = pred
+	defer func() {
+		p.currentPhiPred = prev
+	}()
+	return p.edgeValueRefWithActive(sig, make(map[*ir.Signal]bool))
+}
+
 func (p *processPrinter) edgeValueRefWithActive(sig *ir.Signal, active map[*ir.Signal]bool) string {
 	if p == nil || sig == nil {
 		return "%unknown"
@@ -7277,6 +8239,12 @@ func (p *processPrinter) edgeValueRefWithActive(sig *ir.Signal, active map[*ir.S
 			}
 		}
 		if moduleSig, ok := p.moduleSignals[sig.Name]; ok && moduleSig != nil && moduleSig.Kind == ir.Reg {
+			if packed := p.packArraySignalValue(sig); packed != "" {
+				return packed
+			}
+			if constRef := p.immutableRegConstRef(sig); constRef != "" {
+				return constRef
+			}
 			wireName := "%" + sanitize(sig.Name)
 			readName := p.freshValueName("edge_reg")
 			p.printIndent()
@@ -7292,9 +8260,34 @@ skipDirectClockedRegRead:
 		if portName, ok := p.portNames[sig.Name]; ok {
 			return portName
 		}
+		if name, ok := p.valueNames[sig]; ok && name != "" && name != "%unknown" {
+			raw := "%" + sanitize(sig.Name)
+			if name != raw || sig.Kind == ir.Reg {
+				// Direct-clocked lowering pre-emits the process once to resolve root
+				// outputs. Reusing those temporary names here can accidentally bake
+				// %clk into combinational helpers that are later sampled inside
+				// sv.always posedge/negedge blocks. Recompute non-register values
+				// from their producers instead; only keep cached names for signals
+				// without a producer (ports/roots) and true storage values.
+				if sig.Kind == ir.Reg || p.hasScopedValueOverride(sig) {
+					return name
+				}
+				if p.persistentValues != nil {
+					if cached, ok := p.persistentValues[sig]; ok && cached == name {
+						return name
+					}
+				}
+				if p.proc == nil {
+					return name
+				}
+				if producer, _ := p.signalProducer(sig); producer == nil {
+					return name
+				}
+			}
+		}
 	}
 	if p.proc != nil {
-		producer, _ := findSignalProducer(p.proc, sig)
+		producer, _ := p.signalProducer(sig)
 		switch op := producer.(type) {
 		case *ir.AssignOperation:
 			ref := p.edgeValueRefWithActive(op.Value, active)
@@ -7309,13 +8302,11 @@ skipDirectClockedRegRead:
 			}
 			value := p.edgeValueRefWithActive(op.Value, active)
 			if value != "" && value != "%unknown" {
-				name := p.freshValueName("edge_not")
 				ones := p.boolConst(true)
 				if signalWidth(op.Value.Type) != 1 {
 					ones = p.typedAllOnesConst(op.Value.Type)
 				}
-				p.printIndent()
-				fmt.Fprintf(p.w, "%s = comb.xor %s, %s : %s\n", name, value, ones, typeString(op.Value.Type))
+				name := p.cachedEdgeNot(value, ones, typeString(op.Value.Type))
 				p.recordBlockValueOverride(sig)
 				p.valueNames[sig] = name
 				return name
@@ -7327,9 +8318,14 @@ skipDirectClockedRegRead:
 			left := p.edgeValueRefWithActive(op.Left, active)
 			right := p.edgeValueRefWithActive(op.Right, active)
 			if left != "" && right != "" && left != "%unknown" && right != "%unknown" {
-				name := p.freshValueName("edge_bin")
-				p.printIndent()
-				fmt.Fprintf(p.w, "%s = comb.%s %s, %s : %s\n", name, binOpName(op.Op), left, right, typeString(op.Dest.Type))
+				name := p.cachedEdgeBinary(
+					binOpName(op.Op),
+					left,
+					right,
+					typeString(op.Dest.Type),
+					"edge_bin",
+					isCommutativeBinOp(op.Op),
+				)
 				p.recordBlockValueOverride(sig)
 				p.valueNames[sig] = name
 				return name
@@ -7338,23 +8334,38 @@ skipDirectClockedRegRead:
 			left := p.edgeValueRefWithActive(op.Left, active)
 			right := p.edgeValueRefWithActive(op.Right, active)
 			if left != "" && right != "" && left != "%unknown" && right != "%unknown" {
-				name := p.freshValueName("edge_cmp")
-				p.printIndent()
-				fmt.Fprintf(p.w, "%s = comb.icmp %s %s, %s : %s\n", name, comparePredicateName(op.Predicate), left, right, typeString(op.Left.Type))
+				name := p.cachedEdgeCompare(comparePredicateName(op.Predicate), left, right, typeString(op.Left.Type))
 				p.recordBlockValueOverride(sig)
 				p.valueNames[sig] = name
 				return name
 			}
 		case *ir.PhiOperation:
+			if p.currentPhiPred != nil {
+				for _, incoming := range op.Incomings {
+					if incoming.Block != p.currentPhiPred || incoming.Value == nil {
+						continue
+					}
+					ref := p.edgeValueRefWithActive(incoming.Value, active)
+					if ref != "" && ref != "%unknown" {
+						p.recordBlockValueOverride(sig)
+						p.valueNames[sig] = ref
+						return ref
+					}
+				}
+			}
 			if len(op.Incomings) > 0 {
-				currentVal := p.edgeValueRefWithActive(op.Incomings[len(op.Incomings)-1].Value, active)
-				for i := len(op.Incomings) - 2; i >= 0; i-- {
+				currentVal := ""
+				for i := len(op.Incomings) - 1; i >= 0; i-- {
 					incoming := op.Incomings[i]
 					if incoming.Value == nil {
 						continue
 					}
 					incomingVal := p.edgeValueRefWithActive(incoming.Value, active)
 					if incomingVal == "" || incomingVal == "%unknown" {
+						continue
+					}
+					if currentVal == "" || incoming.Block == nil {
+						currentVal = incomingVal
 						continue
 					}
 					phiBlock := phiBlockForIncoming(op, incoming.Block)
@@ -7369,10 +8380,7 @@ skipDirectClockedRegRead:
 						currentVal = incomingVal
 						continue
 					}
-					name := p.freshValueName("edge_phi")
-					p.printIndent()
-					fmt.Fprintf(p.w, "%s = comb.mux %s, %s, %s : %s\n", name, condRef, incomingVal, currentVal, typeString(op.Dest.Type))
-					currentVal = name
+					currentVal = p.cachedEdgeMux(condRef, incomingVal, currentVal, typeString(op.Dest.Type))
 				}
 				if currentVal != "" && currentVal != "%unknown" {
 					p.recordBlockValueOverride(sig)
@@ -7391,9 +8399,7 @@ skipDirectClockedRegRead:
 			tVal := p.edgeValueRefWithActive(op.TrueValue, active)
 			fVal := p.edgeValueRefWithActive(op.FalseValue, active)
 			if cond != "" && tVal != "" && fVal != "" && cond != "%unknown" && tVal != "%unknown" && fVal != "%unknown" {
-				name := p.freshValueName("edge_mux")
-				p.printIndent()
-				fmt.Fprintf(p.w, "%s = comb.mux %s, %s, %s : %s\n", name, cond, tVal, fVal, typeString(op.Dest.Type))
+				name := p.cachedEdgeMux(cond, tVal, fVal, typeString(op.Dest.Type))
 				p.recordBlockValueOverride(sig)
 				p.valueNames[sig] = name
 				return name
@@ -7422,31 +8428,27 @@ func (p *processPrinter) emitEdgeResolvedConvert(value string, srcType, destType
 	}
 	from := typeString(srcType)
 	to := typeString(destType)
+	key := convertCacheKey{value: value, from: from, to: to}
+	if cached, ok := p.convertCache[key]; ok && cached != "" {
+		return cached
+	}
 	if destWidth > srcWidth {
-		extendWidth := destWidth - srcWidth
+		dest := p.freshValueName("edge_conv")
+		p.recordBlockConvertOverride(key)
+		p.convertCache[key] = dest
+		p.printIndent()
 		if srcType != nil && srcType.Signed {
-			signBit := p.freshValueName("edge_sext_msb")
-			p.printIndent()
-			fmt.Fprintf(p.w, "%s = comb.extract %s from %d : (%s) -> i1\n", signBit, value, srcWidth-1, from)
-			replicated := p.freshValueName("edge_sext_bits")
-			p.printIndent()
-			fmt.Fprintf(p.w, "%s = comb.replicate %s : (i1) -> i%d\n", replicated, signBit, extendWidth)
-			dest := p.freshValueName("edge_conv")
-			p.printIndent()
-			fmt.Fprintf(p.w, "%s = comb.concat %s, %s : i%d, %s\n", dest, replicated, value, extendWidth, from)
+			fmt.Fprintf(p.w, "%s = arith.extsi %s : %s to %s\n", dest, value, from, to)
 			return dest
 		}
-		zeros := p.freshValueName("edge_zext_pad")
-		p.printIndent()
-		fmt.Fprintf(p.w, "%s = hw.constant 0 : i%d\n", zeros, extendWidth)
-		dest := p.freshValueName("edge_conv")
-		p.printIndent()
-		fmt.Fprintf(p.w, "%s = comb.concat %s, %s : i%d, %s\n", dest, zeros, value, extendWidth, from)
+		fmt.Fprintf(p.w, "%s = arith.extui %s : %s to %s\n", dest, value, from, to)
 		return dest
 	}
 	dest := p.freshValueName("edge_conv")
+	p.recordBlockConvertOverride(key)
+	p.convertCache[key] = dest
 	p.printIndent()
-	fmt.Fprintf(p.w, "%s = comb.extract %s from 0 : (%s) -> %s\n", dest, value, from, to)
+	fmt.Fprintf(p.w, "%s = arith.trunci %s : %s to %s\n", dest, value, from, to)
 	return dest
 }
 
@@ -7530,6 +8532,127 @@ func signalBoolConst(sig *ir.Signal) (bool, bool) {
 	}
 }
 
+func (p *processPrinter) cachedExprValue(key exprCacheKey, prefix string, emit func(name string)) string {
+	if p == nil {
+		return ""
+	}
+	if cached, ok := p.exprCache[key]; ok && cached != "" {
+		return cached
+	}
+	name := p.freshValueName(prefix)
+	p.recordBlockExprOverride(key)
+	p.exprCache[key] = name
+	emit(name)
+	return name
+}
+
+func normalizeExprOperands(a, b string, commutative bool) (string, string) {
+	if !commutative || a <= b {
+		return a, b
+	}
+	return b, a
+}
+
+func isCommutativeBinOp(op ir.BinOp) bool {
+	switch op {
+	case ir.Add, ir.Mul, ir.And, ir.Or, ir.Xor:
+		return true
+	default:
+		return false
+	}
+}
+
+func (p *processPrinter) cachedEdgeBinary(opName, left, right, typ, prefix string, commutative bool) string {
+	left, right = normalizeExprOperands(left, right, commutative)
+	key := exprCacheKey{kind: "bin:" + opName, a: left, b: right, typ: typ}
+	return p.cachedExprValue(key, prefix, func(name string) {
+		p.printIndent()
+		fmt.Fprintf(p.w, "%s = comb.%s %s, %s : %s\n", name, opName, left, right, typ)
+	})
+}
+
+func (p *processPrinter) cachedEdgeCompare(predicate, left, right, typ string) string {
+	if left == right {
+		switch predicate {
+		case "eq", "sle", "sge", "ule", "uge":
+			return p.boolConst(true)
+		case "ne", "slt", "sgt", "ult", "ugt":
+			return p.boolConst(false)
+		}
+	}
+	left, right = normalizeExprOperands(left, right, predicate == "eq" || predicate == "ne")
+	key := exprCacheKey{kind: "icmp:" + predicate, a: left, b: right, typ: typ}
+	return p.cachedExprValue(key, "edge_cmp", func(name string) {
+		p.printIndent()
+		fmt.Fprintf(p.w, "%s = comb.icmp %s %s, %s : %s\n", name, predicate, left, right, typ)
+	})
+}
+
+func (p *processPrinter) cachedEdgeMux(cond, tVal, fVal, typ string) string {
+	if folded, ok := p.foldMuxRefs(cond, tVal, fVal); ok {
+		return folded
+	}
+	key := exprCacheKey{kind: "mux", a: cond, b: tVal, c: fVal, typ: typ}
+	return p.cachedExprValue(key, "edge_mux", func(name string) {
+		p.printIndent()
+		fmt.Fprintf(p.w, "%s = comb.mux %s, %s, %s : %s\n", name, cond, tVal, fVal, typ)
+	})
+}
+
+func (p *processPrinter) cachedEdgeNot(value, ones, typ string) string {
+	key := exprCacheKey{kind: "not", a: value, b: ones, typ: typ}
+	return p.cachedExprValue(key, "edge_not", func(name string) {
+		p.printIndent()
+		fmt.Fprintf(p.w, "%s = comb.xor %s, %s : %s\n", name, value, ones, typ)
+	})
+}
+
+func (p *processPrinter) invertBoolRef(ref string) (string, bool) {
+	if p == nil || ref == "" || ref == "%unknown" {
+		return "", false
+	}
+	if ref == p.boolConst(true) {
+		return p.boolConst(false), true
+	}
+	if ref == p.boolConst(false) {
+		return p.boolConst(true), true
+	}
+	return "", false
+}
+
+func (p *processPrinter) foldBoolBinaryRefs(op, left, right string) (string, bool) {
+	if p == nil || left == "" || right == "" || left == "%unknown" || right == "%unknown" {
+		return "", false
+	}
+	trueRef := p.boolConst(true)
+	falseRef := p.boolConst(false)
+	switch op {
+	case "and":
+		switch {
+		case left == falseRef || right == falseRef:
+			return falseRef, true
+		case left == trueRef:
+			return right, true
+		case right == trueRef:
+			return left, true
+		case left == right:
+			return left, true
+		}
+	case "or":
+		switch {
+		case left == trueRef || right == trueRef:
+			return trueRef, true
+		case left == falseRef:
+			return right, true
+		case right == falseRef:
+			return left, true
+		case left == right:
+			return left, true
+		}
+	}
+	return "", false
+}
+
 func (p *processPrinter) emitCondTermsEdgeRef(terms []condTerm, active map[*ir.Signal]bool) string {
 	if p == nil || len(terms) == 0 {
 		return ""
@@ -7549,20 +8672,21 @@ func (p *processPrinter) emitCondTermsEdgeRef(terms []condTerm, active map[*ir.S
 				return ""
 			}
 			if !lit.positive {
-				one := p.boolConst(true)
-				name := p.freshValueName("edge_phi_not")
-				p.printIndent()
-				fmt.Fprintf(p.w, "%s = comb.xor %s, %s : i1\n", name, litRef, one)
-				litRef = name
+				if folded, ok := p.invertBoolRef(litRef); ok {
+					litRef = folded
+				} else {
+					litRef = p.cachedEdgeNot(litRef, p.boolConst(true), "i1")
+				}
 			}
 			if ref == "" {
 				ref = litRef
 				continue
 			}
-			name := p.freshValueName("edge_phi_and")
-			p.printIndent()
-			fmt.Fprintf(p.w, "%s = comb.and %s, %s : i1\n", name, ref, litRef)
-			ref = name
+			if folded, ok := p.foldBoolBinaryRefs("and", ref, litRef); ok {
+				ref = folded
+			} else {
+				ref = p.cachedEdgeBinary("and", ref, litRef, "i1", "edge_phi_and", true)
+			}
 		}
 		if ref != "" {
 			termRefs = append(termRefs, ref)
@@ -7573,10 +8697,11 @@ func (p *processPrinter) emitCondTermsEdgeRef(terms []condTerm, active map[*ir.S
 	}
 	current := termRefs[0]
 	for _, ref := range termRefs[1:] {
-		name := p.freshValueName("edge_phi_or")
-		p.printIndent()
-		fmt.Fprintf(p.w, "%s = comb.or %s, %s : i1\n", name, current, ref)
-		current = name
+		if folded, ok := p.foldBoolBinaryRefs("or", current, ref); ok {
+			current = folded
+		} else {
+			current = p.cachedEdgeBinary("or", current, ref, "i1", "edge_phi_or", true)
+		}
 	}
 	return current
 }
@@ -7600,6 +8725,22 @@ func (p *processPrinter) boolConst(val bool) string {
 	}
 	fmt.Fprintf(p.w, "%s = hw.constant %d : i1\n", name, intVal)
 	return name
+}
+
+func (p *processPrinter) foldMuxRefs(cond, tVal, fVal string) (string, bool) {
+	if tVal == "" || fVal == "" || tVal == "%unknown" || fVal == "%unknown" {
+		return "", false
+	}
+	if tVal == fVal {
+		return tVal, true
+	}
+	if cond == p.boolConst(true) {
+		return tVal, true
+	}
+	if cond == p.boolConst(false) {
+		return fVal, true
+	}
+	return "", false
 }
 
 func moduleUsesFSM(module *ir.Module) bool {
@@ -7669,9 +8810,15 @@ func isOutputGlobalName(name string) bool {
 }
 
 func (p *processPrinter) typedZeroConst(t *ir.SignalType) string {
+	key := typeString(t)
+	if name, ok := p.zeroConsts[key]; ok && name != "" {
+		return name
+	}
 	name := p.freshValueName("c_zero")
+	p.recordBlockZeroOverride(key)
+	p.zeroConsts[key] = name
 	p.printIndent()
-	fmt.Fprintf(p.w, "%s = hw.constant 0 : %s\n", name, typeString(t))
+	fmt.Fprintf(p.w, "%s = hw.constant 0 : %s\n", name, key)
 	return name
 }
 
@@ -7679,9 +8826,15 @@ func (p *processPrinter) typedAllOnesConst(t *ir.SignalType) string {
 	if signalWidth(t) == 1 {
 		return p.boolConst(true)
 	}
+	key := typeString(t)
+	if name, ok := p.onesConsts[key]; ok && name != "" {
+		return name
+	}
 	name := p.freshValueName("c_ones")
+	p.recordBlockOnesOverride(key)
+	p.onesConsts[key] = name
 	p.printIndent()
-	fmt.Fprintf(p.w, "%s = hw.constant -1 : %s\n", name, typeString(t))
+	fmt.Fprintf(p.w, "%s = hw.constant -1 : %s\n", name, key)
 	return name
 }
 
@@ -7756,6 +8909,7 @@ func (p *processPrinter) emitConvertOperation(o *ir.ConvertOperation) {
 	dest := p.bindSSA(o.Dest)
 	from := typeString(o.Value.Type)
 	to := typeString(o.Dest.Type)
+	cacheKey := convertCacheKey{value: src, from: from, to: to}
 
 	switch {
 	case destWidth == srcWidth:
@@ -7764,56 +8918,28 @@ func (p *processPrinter) emitConvertOperation(o *ir.ConvertOperation) {
 		p.valueNames[o.Dest] = src
 		return
 	case destWidth > srcWidth:
-		extendWidth := destWidth - srcWidth
-		if extendWidth <= 0 {
-			p.valueNames[o.Dest] = src
+		if cached, ok := p.convertCache[cacheKey]; ok && cached != "" {
+			p.valueNames[o.Dest] = cached
 			return
 		}
+		p.recordBlockConvertOverride(cacheKey)
+		p.convertCache[cacheKey] = dest
 		if o.Value.Type != nil && o.Value.Type.Signed {
-			signBit := p.freshValueName("sext_msb")
 			p.printIndent()
-			fmt.Fprintf(p.w, "%s = comb.extract %s from %d : (%s) -> i1\n",
-				signBit,
-				src,
-				srcWidth-1,
-				from,
-			)
-			replicated := p.freshValueName("sext_bits")
-			p.printIndent()
-			fmt.Fprintf(p.w, "%s = comb.replicate %s : (i1) -> i%d\n",
-				replicated,
-				signBit,
-				extendWidth,
-			)
-			p.printIndent()
-			fmt.Fprintf(p.w, "%s = comb.concat %s, %s : i%d, %s\n",
-				dest,
-				replicated,
-				src,
-				extendWidth,
-				from,
-			)
+			fmt.Fprintf(p.w, "%s = arith.extsi %s : %s to %s\n", dest, src, from, to)
 		} else {
 			p.printIndent()
-			zeros := p.freshValueName("zext_pad")
-			fmt.Fprintf(p.w, "%s = hw.constant 0 : i%d\n", zeros, extendWidth)
-			p.printIndent()
-			fmt.Fprintf(p.w, "%s = comb.concat %s, %s : i%d, %s\n",
-				dest,
-				zeros,
-				src,
-				extendWidth,
-				from,
-			)
+			fmt.Fprintf(p.w, "%s = arith.extui %s : %s to %s\n", dest, src, from, to)
 		}
 	default:
+		if cached, ok := p.convertCache[cacheKey]; ok && cached != "" {
+			p.valueNames[o.Dest] = cached
+			return
+		}
+		p.recordBlockConvertOverride(cacheKey)
+		p.convertCache[cacheKey] = dest
 		p.printIndent()
-		fmt.Fprintf(p.w, "%s = comb.extract %s from 0 : (%s) -> %s\n",
-			dest,
-			src,
-			from,
-			to,
-		)
+		fmt.Fprintf(p.w, "%s = arith.trunci %s : %s to %s\n", dest, src, from, to)
 	}
 }
 
@@ -7904,7 +9030,7 @@ func (p *processPrinter) emitPrintOperation(op *ir.PrintOperation) {
 		return
 	}
 	format, operands, operandTypes := p.buildPrintfFormat(op)
-	clk := p.portRef("clk")
+	clk := p.clockPortRef()
 	fd := p.stdoutConstant()
 
 	p.printIndent()

@@ -309,6 +309,7 @@ func TestDynamicIndexAddrLowering(t *testing.T) {
 	}
 	idxCompareCount := 0
 	idxMuxCount := 0
+	idxExtractCount := 0
 	for _, proc := range design.TopLevel.Processes {
 		for _, block := range proc.Blocks {
 			for _, op := range block.Ops {
@@ -321,12 +322,16 @@ func TestDynamicIndexAddrLowering(t *testing.T) {
 					if o.Dest != nil && strings.HasPrefix(o.Dest.Name, "idxload_") {
 						idxMuxCount++
 					}
+				case *ConvertOperation:
+					if o.Dest != nil && strings.HasPrefix(o.Dest.Name, "idxextract_") {
+						idxExtractCount++
+					}
 				}
 			}
 		}
 	}
-	if idxCompareCount == 0 || idxMuxCount == 0 {
-		t.Fatalf("expected dynamic index lowering ops, got idxeq=%d idxload=%d", idxCompareCount, idxMuxCount)
+	if idxExtractCount == 0 && (idxCompareCount == 0 || idxMuxCount == 0) {
+		t.Fatalf("expected dynamic index lowering ops, got idxeq=%d idxload=%d idxextract=%d", idxCompareCount, idxMuxCount, idxExtractCount)
 	}
 }
 
@@ -411,6 +416,7 @@ func TestNestedGlobalArrayLowering(t *testing.T) {
 
 	sawIndexedAdd := false
 	sawIndexedLoad := false
+	sawIndexedExtract := false
 	for _, proc := range design.TopLevel.Processes {
 		for _, block := range proc.Blocks {
 			for _, op := range block.Ops {
@@ -423,6 +429,10 @@ func TestNestedGlobalArrayLowering(t *testing.T) {
 					if o.Dest != nil && strings.HasPrefix(o.Dest.Name, "idxload_") {
 						sawIndexedLoad = true
 					}
+				case *ConvertOperation:
+					if o.Dest != nil && strings.HasPrefix(o.Dest.Name, "idxextract_") {
+						sawIndexedExtract = true
+					}
 				}
 			}
 		}
@@ -430,8 +440,8 @@ func TestNestedGlobalArrayLowering(t *testing.T) {
 	if !sawIndexedAdd {
 		t.Fatalf("expected flattened nested index arithmetic")
 	}
-	if !sawIndexedLoad {
-		t.Fatalf("expected flattened nested index mux load")
+	if !sawIndexedLoad && !sawIndexedExtract {
+		t.Fatalf("expected flattened nested index load")
 	}
 }
 

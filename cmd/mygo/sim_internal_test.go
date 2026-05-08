@@ -38,6 +38,46 @@ func TestDefaultSimExpectPathDirectoryInput(t *testing.T) {
 	}
 }
 
+func TestDetectTopModuleClockReset(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name    string
+		verilog string
+		wantClk bool
+		wantRst bool
+	}{
+		{
+			name:    "clocked top",
+			verilog: "module main(\n  input clk,\n        rst\n);\nendmodule\n",
+			wantClk: true,
+			wantRst: true,
+		},
+		{
+			name:    "combinational top",
+			verilog: "module main();\nendmodule\n",
+			wantClk: false,
+			wantRst: false,
+		},
+	}
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			path := filepath.Join(t.TempDir(), "design.sv")
+			if err := os.WriteFile(path, []byte(tc.verilog), 0o644); err != nil {
+				t.Fatalf("write verilog: %v", err)
+			}
+			gotClk, gotRst, err := detectTopModuleClockReset(path)
+			if err != nil {
+				t.Fatalf("detectTopModuleClockReset error: %v", err)
+			}
+			if gotClk != tc.wantClk || gotRst != tc.wantRst {
+				t.Fatalf("detectTopModuleClockReset()=(%t,%t), want (%t,%t)", gotClk, gotRst, tc.wantClk, tc.wantRst)
+			}
+		})
+	}
+}
+
 func TestParseSimArgs(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
@@ -144,6 +184,25 @@ func TestPrependPathToEnv(t *testing.T) {
 	got = pathValue(prependPathToEnv(dir))
 	if got != dir {
 		t.Fatalf("prependPathToEnv empty PATH=%s, want %s", got, dir)
+	}
+}
+
+func TestVerilatorBuildEnvAddsMakeflags(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("PATH", "/usr/bin")
+	env := verilatorBuildEnv(dir)
+	if path := pathValue(env); path != dir+string(os.PathListSeparator)+"/usr/bin" {
+		t.Fatalf("verilatorBuildEnv PATH=%s", path)
+	}
+	found := false
+	for _, entry := range env {
+		if strings.HasPrefix(entry, "MAKEFLAGS=-j") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("verilatorBuildEnv missing MAKEFLAGS: %v", env)
 	}
 }
 

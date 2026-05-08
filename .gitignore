@@ -37,9 +37,18 @@ third_party/argo2verilog
 # Generated MLIR/Verilog snapshots
 *.mlir
 *.backup
-/CHS_clean_simulation_results.txt
+/tests/CHStone/CHS_clean_simulation_results.txt
+/tests/stages/stages_clean_simulation_results.txt
 /change.log
 /change_log/
+/wave.vcd
+/main
+/__pycache__/
+/tmp_debug_emitmlir/
+/tmp_debug_ir/
+/tmp_debug_ssa/
+/tmpinspect/
+/work/
 tests/stages/**/main.ssa
 tests/stages/**/main.ir
 tests/stages/**/main.mlir

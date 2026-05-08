@@ -416,6 +416,18 @@ func (f *inlineFrame) signalForIndexAddr(addr *ssa.IndexAddr) *Signal {
 		return nil
 	}
 	if idx, ok := indexedConstantFlatIndex(state, indices); ok {
+		if _, isGlobalBase := base.(*ssa.Global); isGlobalBase {
+			if packed := f.builder.lowerPackedIndexedRead(
+				f.bb,
+				base,
+				state,
+				f.builder.newConstSignal(int64(idx), &SignalType{Width: 32, Signed: true}, addr.Pos()),
+				addr.Pos(),
+			); packed != nil {
+				f.values[addr] = packed
+				return packed
+			}
+		}
 		sig := f.builder.indexedElementSignal(state, idx, addr.Pos())
 		if sig != nil {
 			f.values[addr] = sig
@@ -428,6 +440,12 @@ func (f *inlineFrame) signalForIndexAddr(addr *ssa.IndexAddr) *Signal {
 	index, ok := f.linearizeIndexedAccess(state, indices, addr.Pos())
 	if !ok || index == nil {
 		return nil
+	}
+	if _, isGlobalBase := base.(*ssa.Global); isGlobalBase {
+		if packed := f.builder.lowerPackedIndexedRead(f.bb, base, state, index, addr.Pos()); packed != nil {
+			f.values[addr] = packed
+			return packed
+		}
 	}
 	selected := f.builder.selectIndexedElement(f.bb, state, index, addr.Pos())
 	if selected != nil {
@@ -652,8 +670,7 @@ func (b *builder) signalForGlobal(g *ssa.Global) *Signal {
 	}
 
 	// Check if it's an array type
-	arr, ok := ptrType.Elem().(*types.Array)
-	if ok {
+	if _, ok := ptrType.Elem().(*types.Array); ok {
 		// For arrays, pre-create/reuse element signals so slice arguments can bind to
 		// stable storage without clobbering existing port-backed elements.
 		state := b.indexedStateForBase(g, g.Pos())
@@ -688,6 +705,9 @@ func (b *builder) signalForGlobal(g *ssa.Global) *Signal {
 				if state.elements[i] == nil || state.elements[i].Kind == Const {
 					state.elements[i] = elemSig
 				}
+				if b.signalGlobalBases != nil {
+					b.signalGlobalBases[elemSig] = g
+				}
 				if b.module != nil {
 					b.module.Signals[elemSig.Name] = elemSig
 				}
@@ -697,13 +717,16 @@ func (b *builder) signalForGlobal(g *ssa.Global) *Signal {
 		// Create a placeholder signal for the array itself
 		sig := &Signal{
 			Name:   g.Name(),
-			Type:   signalType(arr.Elem()),
+			Type:   signalType(ptrType.Elem()),
 			Kind:   Reg, // Global variables are typically registers
 			Source: g.Pos(),
 		}
 		b.globalValues[g] = sig
 		if b.module != nil {
 			b.module.Signals[sig.Name] = sig
+		}
+		if b.signalGlobalBases != nil {
+			b.signalGlobalBases[sig] = g
 		}
 		return sig
 	}
@@ -839,6 +862,9 @@ func (b *builder) signalForGlobalStorage(g *ssa.Global) *Signal {
 		sig.Value = current.Value
 	}
 	b.globalStorage[g] = sig
+	if b.signalGlobalBases != nil {
+		b.signalGlobalBases[sig] = g
+	}
 	if b.module != nil {
 		b.module.Signals[sig.Name] = sig
 	}
